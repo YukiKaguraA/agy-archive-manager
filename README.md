@@ -1,50 +1,89 @@
-# 会话管理 (`archive-manager`)
+﻿<div align="center">
 
-[English](README.en.md)
+<img src="logo.svg" width="96" height="96" alt="会话管理 Logo" />
 
-适用于 Google Antigravity 的会话管理插件（Sidecar + Skill），支持浏览、归档、恢复、预览和导出会话。
+# 会话管理 · Session Manager
 
-## 界面预览
+**为 Google Antigravity 打造的会话归档 / 检索 / 预览 / 导出面板**
 
-**主面板与超长消息自动折叠（未归档视图 · 琥珀淡黄归档按钮）**
+五大视图 · 全文检索 · 免恢复预览 · 批量归档（可撤回） · 标签与备注 · Markdown 导出 · 中英双语
 
-![主面板与自动折叠预览](docs/screenshots/preview-main.png)
+[**简体中文**](./README.md) · [**English**](./README.en.md) · [**更新日志**](./CHANGELOG.md) · [**问题反馈**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
 
-**已归档视图、全文检索高亮与 Markdown 展开预览（绿色一键恢复）**
+<p>
+  <img src="https://img.shields.io/badge/Version-2.2.0-0f172a?style=flat-square" alt="Version 2.2.0" />
+  <img src="https://img.shields.io/badge/Antigravity-%E2%89%A5%202.35.0-3186ff?style=flat-square" alt="Antigravity 2.35.0+" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-1e293b?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/Node.js-22.13%2B%20%7C%2024%20LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22.13+ or 24 LTS" />
+  <img src="https://img.shields.io/badge/i18n-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%20%7C%20English-8b5cf6?style=flat-square" alt="简体中文 | English" />
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563eb?style=flat-square" alt="License: MIT" /></a>
+</p>
 
-![已归档视图与全文检索预览](docs/screenshots/preview-archived.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
+  <img src="docs/screenshots/hero-light.png" width="100%" alt="会话管理面板预览" />
+</picture>
 
-## 核心功能
+<sub>主图由 <code>tools/render-hero.mjs</code> 直接渲染本仓库面板源码，亮 / 暗版本跟随 GitHub 主题切换；会话内容均为虚构示例。</sub>
 
-- **多视图分类浏览**：一键切换「已归档」「未归档」「收藏」「闲置」「全部」五大视图并实时统计数量。
-- **全文检索与多维筛选**：支持同时检索标题、项目名、历史消息正文（FTS 摘要索引）、自定义标签与个人备注；支持按项目、标签筛选及按最近更新 / 步数 / 标题排序。
-- **原地归档与恢复（含撤回）**。点击绿色「恢复」或琥珀淡黄「归档」按钮即可切换状态。支持多选批量归档、恢复，以及按闲置天数（3 / 7 / 14 / 30 天）批量归档。
-- **免恢复预览对话**
-  - 优先读取 `transcript_full.jsonl`，可用时结合 `transcript.jsonl`，必要时回退到 FTS 摘要。历史数据缺失时，预览可能只包含部分消息或摘要。
-  - 支持独立滚动、单条超长消息（> 450px）自动折叠并附带渐隐遮罩与「展开全文 / 收起」；
-  - 预览工具栏提供「展开全部 / 全部折叠」「⬆ 顶部」「⬇ 底部」及「排版 / 原文」切换，长会话阅读跳转更顺手。
-- **原生信息维护与安全删除**：支持原地重命名、卡片快捷置顶（📌）与星标收藏（★）、自定义标签（`#tag`）与自动保存个人备注（独立持久化于 Sidecar 数据目录），删除运行中会话前自动拦截并弹出二次确认。
-- **一键导出 Markdown**。将可读取的对话内容连同会话信息、标签和备注保存到 `~/Documents/Antigravity-Exports`，支持定位文件或打开导出目录。
-- **左侧导航栏快捷入口（可选）**。启用 CDP 后，左侧栏显示「会话管理」入口与已归档数量。右侧面板插件菜单和对话技能也可打开面板。
+</div>
 
-## v2.2.0 更新
+> **非官方社区项目声明 (Non-Affiliation Disclaimer)**
+>
+> 本项目为独立的开源社区插件，与 Google LLC 无任何隶属、赞助或官方背书关系；文中提及的 “Antigravity” 与 “Google” 仅用于说明兼容性。
 
-- 面板顶部可切换 **简体中文 / English**。首次打开时根据面板浏览器的语言选择，手动切换后由插件记住所选语言。
-- 面板操作、确认与失败提示、Markdown 导出的固定字段随所选语言显示（左栏快捷入口同步按当前语言精简展示，消息时间戳按本地时区显示）。会话正文、标题、标签和备注保留原文。
-- 通用适配主流 Antigravity 宿主主题与美化插件：主色、表面层次、字体与深色代码块/Toast 优先跟随宿主语义变量，并加固自定义浮岛布局下的左侧栏唤起稳定性。
+---
 
-## v2.1.1 更新
+## ✨ 亮点
 
-- 修复快速切换会话或筛选条件时，较晚返回的旧请求覆盖当前预览或列表的问题。
-- 批量归档与恢复支持撤回已成功变更的会话。部分操作失败时，面板会显示处理结果。
-- 批量归档闲置会话时，后端按当前会话状态重新判断资格，跳过已归档、已收藏、已置顶、正在运行或尚未达到闲置天数的会话。
-- 无法确认会话已停止时，阻止永久删除。标签和备注采用原子保存，读取异常时保留原文件。
-- Markdown 导出记录内容来源，并在适用时标注警告。每次导出生成独立文件。
-- 仅在发现可用的调试页面后读取左栏归档计数。归档状态变更后刷新角标。
+- **五大视图，一眼分清**：已归档、未归档、收藏、闲置、全部，切换时实时计数。
+- **什么都搜得到**：标题、项目、正文、标签、备注一起全文检索，命中处高亮。
+- **不恢复也能看**：直接预览历史对话，超长消息自动折叠，排版视图和原文视图一键切换。
+- **归档后悔了？撤回**：支持批量归档 / 恢复、按闲置天数一键归档，操作都能撤回。
+- **整理顺手**：置顶 📌、星标 ★、`#标签`、自动保存的备注、原地重命名。
+- **一键导出 Markdown**：连同会话信息、标签和备注一起导出到 `~/Documents/Antigravity-Exports`。
+- **中英双语，跟随主题**：面板语言随时切换，配色跟随宿主主题和美化插件。
+- **安全兜底**：运行中的会话禁止删除，SQLite 只读打开，标签和备注原子写入。
 
-## 安装方法
+---
 
-### 方式一：使用安装脚本（推荐）
+## 🖼️ 界面预览
+
+### 1. 主面板与超长消息折叠
+
+未归档视图下，琥珀色「归档」按钮随手可点；单条超过 450px 的消息自动折叠，附带渐隐遮罩和「展开全文 / 收起」。
+
+<p align="center">
+  <img src="docs/screenshots/preview-main.png" width="100%" alt="主面板与超长消息自动折叠" />
+</p>
+
+### 2. 已归档视图与全文检索高亮
+
+在已归档视图中检索，命中词高亮显示；Markdown 预览可展开阅读，绿色「恢复」一键放回未归档。
+
+<p align="center">
+  <img src="docs/screenshots/preview-archived.png" width="100%" alt="已归档视图、全文检索高亮与 Markdown 预览" />
+</p>
+
+### 3. 功能速查表
+
+| 场景 | 操作 | 入口 |
+| :--- | :--- | :--- |
+| 找旧会话 | 关键词检索，配合项目 / 标签筛选与排序 | 面板顶部 |
+| 归档 / 恢复 | 琥珀色「归档」/ 绿色「恢复」，可撤回 | 会话卡片、预览工具栏 |
+| 批量处理 | 多选后批量归档或恢复 | 「批量」按钮 |
+| 清理闲置 | 按 3 / 7 / 14 / 30 天批量归档闲置会话 | 闲置视图 |
+| 阅读长会话 | 展开全部 / 全部折叠、⬆ 顶部、⬇ 底部、排版 / 原文 | 预览工具栏 |
+| 整理 | 置顶、星标、重命名、`#标签`、备注 | 卡片与预览区 |
+| 导出 | 导出 `.md`，可定位文件或打开导出目录 | 预览工具栏、「导出目录」 |
+| 打开面板 | 左侧栏入口（需 CDP）/ 右侧插件菜单 / 对话指令 | 多处 |
+
+---
+
+## 🚀 快速安装
+
+### 方式一：安装脚本（推荐 · 普通用户）
 
 **Windows (PowerShell)：**
 
@@ -63,33 +102,112 @@ chmod +x scripts/install.sh
 ./scripts/install.sh
 ```
 
-### 方式二：手动安装
+再次运行同一脚本即可更新到仓库中的最新版本。
 
-将本仓库中的以下核心文件复制到 Antigravity 插件目录 `~/.gemini/config/plugins/archive-manager/`（Windows 为 `%USERPROFILE%\.gemini\config\plugins\archive-manager\`）：
+### 方式二：手动复制（开发者 / 离线环境）
 
-- `plugin.json`
-- `logo.svg`
-- `README.md`
-- `README.en.md`
+将以下文件复制到 `~/.gemini/config/plugins/archive-manager/`（Windows 为 `%USERPROFILE%\.gemini\config\plugins\archive-manager\`）：
+
+- `plugin.json`、`logo.svg`、`LICENSE`
+- `README.md`、`README.en.md`、`CHANGELOG.md`
 - `docs/screenshots/`（文档预览图）
-- `LICENSE`
-- `skills/`
-- `sidecars/`
+- `skills/`、`sidecars/`
 
-安装完成后，在 Antigravity 的 **Customizations → Plugins** 中启用 **会话管理 (Session Manager)**，即可在右侧辅助面板或通过对话指令「打开会话管理面板」唤醒。
+安装完成后，在 Antigravity 的 **Customizations → Plugins** 中启用 **会话管理 (Session Manager)**，即可在右侧辅助面板打开，或在对话中说「打开会话管理面板」。
 
-## 目录结构
+### 让 AI 助手代装
+
+使用 Antigravity Agent、Claude Code、Cursor 等 AI 助手安装时，可直接让它执行以下步骤：
+
+```bash
+git clone https://github.com/YukiKaguraA/agy-archive-manager.git
+cd agy-archive-manager
+
+# 1. 运行对应系统的安装脚本（Windows 用 .\scripts\install.ps1）
+./scripts/install.sh
+
+# 2. 确认 Sidecar 运行时支持 node:sqlite（应输出 function）
+node -e "import('node:sqlite').then(m => console.log(typeof m.DatabaseSync))"
+```
+
+然后提醒用户在 **Customizations → Plugins** 中启用插件。
+
+---
+
+## 🆕 最新版本 v2.2.0
+
+- 面板顶部可切换 **简体中文 / English**，插件会记住所选语言。
+- 操作提示、确认框与 Markdown 导出的固定字段随语言切换；会话正文、标题、标签和备注保留原文。
+- 配色、字体与深色代码块跟随宿主主题和美化插件，左侧栏入口在自定义布局下更稳定。
+
+👉 [查看完整更新日志](./CHANGELOG.md)
+
+---
+
+## ❓ 常见问题
+
+<details>
+<summary><strong>左侧栏没有出现「会话管理」入口？</strong></summary>
+
+左侧栏入口和归档角标依赖 Chrome DevTools Protocol（CDP），需要用 `--remote-debugging-port=0` 启动 Antigravity。不开启也没关系，右侧插件菜单和对话指令都能打开面板。
+
+</details>
+
+<details>
+<summary><strong>面板打不开，或者提示 <code>node:sqlite</code> 相关错误？</strong></summary>
+
+Sidecar 通过 `node` 命令启动，要求 Antigravity 实际使用的 Node.js 默认启用 `node:sqlite`，例如 Node.js 22.13+（22.x LTS）或 Node.js 24 LTS。可以用上面「让 AI 助手代装」中的命令自检。
+
+</details>
+
+<details>
+<summary><strong>预览只显示了一部分消息？</strong></summary>
+
+预览优先读取 `transcript_full.jsonl`，可用时结合 `transcript.jsonl`；两者都缺失时回退到 FTS 摘要。较早的会话如果没有留下完整转录，就只能看到部分消息或摘要，面板会给出提示。
+
+</details>
+
+<details>
+<summary><strong>Antigravity 更新后功能异常？</strong></summary>
+
+归档等操作通过 Antigravity 内部的 `ConversationService` 完成，检索与预览读取内部数据文件，宿主更新可能改变这些接口。请附上 Antigravity 版本号到 [Issues](https://github.com/YukiKaguraA/agy-archive-manager/issues) 反馈。
+
+</details>
+
+<details>
+<summary><strong>导出的 Markdown 文件在哪里？标签和备注存在哪里？</strong></summary>
+
+导出文件保存在 `~/Documents/Antigravity-Exports`，每次导出生成独立文件，面板里可以一键定位。标签和备注独立保存在 Sidecar 数据目录，不会写入会话本身。
+
+</details>
+
+---
+
+<details>
+<summary><strong>🔧 运行要求与数据来源（点击展开）</strong></summary>
+
+- **Google Antigravity**：设计目标为 Antigravity 2.35.0。面板和进程生命周期使用公开的 Sidecar 机制，参见 [Antigravity Sidecar 文档](https://antigravity.google/docs/sidecars/)。
+- **会话数据**：归档等操作通过内部 `ConversationService` 提交；搜索和预览读取内部 SQLite 摘要索引和转录文件，其中 SQLite 以只读方式打开。Antigravity 更新可能改变这些接口和数据格式。
+- **Node.js**：Sidecar 启动命令是 `node`，要求 Antigravity 实际启动的 Node.js 默认启用 `node:sqlite`，例如 Node.js 22.13+（22.x LTS 分支）或 Node.js 24 LTS。详见 [Node.js SQLite 文档](https://nodejs.org/api/sqlite.html)。
+- **左侧栏快捷入口（可选）**：入口和归档角标依赖 Antigravity 的界面结构和 CDP，使用时以 `--remote-debugging-port=0` 启动 Antigravity。
+
+</details>
+
+<details>
+<summary><strong>📁 目录结构、回归测试与主图渲染（点击展开）</strong></summary>
+
+#### 目录结构
 
 ```text
 agy-archive-manager/
 ├── plugin.json                         # 插件清单与元信息
 ├── agy-market.json                     # AGY Market 市场伴随配置
 ├── logo.svg                            # 插件图标
-├── README.md                           # 中文说明文档
-├── README.en.md                        # 英文说明文档
+├── README.md / README.en.md            # 中 / 英文说明文档
+├── CHANGELOG.md                        # 更新日志
 ├── LICENSE                             # MIT 开源协议
 ├── docs/
-│   └── screenshots/                    # 界面预览截图
+│   └── screenshots/                    # 主图与界面预览截图
 ├── scripts/
 │   ├── install.ps1                     # Windows 一键安装 / 更新脚本
 │   └── install.sh                      # macOS / Linux 一键安装 / 更新脚本
@@ -103,19 +221,14 @@ agy-archive-manager/
 │       ├── server-locale.mjs           # 后端提示与 Markdown 导出文案
 │       ├── sidebar_injector.mjs        # 左侧栏快捷入口注入器（可选 CDP）
 │       └── index.html                  # 前端双栏管理面板
+├── tools/
+│   └── render-hero.mjs                 # README 亮 / 暗主图渲染脚本
 └── test/                               # 本地回归测试套件
 ```
 
-## 运行要求
+#### 本地回归测试
 
-- **Google Antigravity**。设计目标为 Antigravity 2.35.0。面板和进程生命周期使用公开的 Sidecar 机制。参见 [Antigravity Sidecar 文档](https://antigravity.google/docs/sidecars/)。
-- **会话数据**。归档等操作通过内部 `ConversationService` 提交，搜索和预览读取内部 SQLite 摘要索引和转录文件，其中 SQLite 以只读方式打开。Antigravity 更新可能改变这些接口和数据格式。
-- **Node.js**。本插件的 Sidecar 启动命令是 `node`，要求 Antigravity 实际启动的 Node.js 默认启用 `node:sqlite`，例如 Node.js 22.13+（22.x LTS 分支）或 Node.js 24 LTS。详见 [Node.js SQLite 文档](https://nodejs.org/api/sqlite.html)。
-- **左侧栏快捷入口（可选）**。入口和归档角标依赖 Antigravity 的界面结构和 Chrome DevTools Protocol（CDP），使用时以 `--remote-debugging-port=0` 启动 Antigravity。
-
-## 本地回归测试
-
-测试使用 Node.js 22.15+（22.x LTS 分支）或 Node.js 24 LTS。在仓库根目录运行以下命令。
+测试使用 Node.js 22.15+（22.x LTS 分支）或 Node.js 24 LTS，在仓库根目录运行：
 
 ```sh
 node --test
@@ -123,6 +236,20 @@ node --test
 
 测试仅使用模拟的 Antigravity 服务和临时会话数据。
 
-## 开源协议
+#### 重新渲染主图
 
-本项目基于 [MIT License](LICENSE) 开源。
+面板 UI 改动后，可用本机的 Chrome 或 Edge 重新生成 `docs/screenshots/hero-{light,dark}.png`：
+
+```sh
+node tools/render-hero.mjs
+# 找不到浏览器时手动指定：
+node tools/render-hero.mjs --browser "/path/to/chrome"
+```
+
+</details>
+
+---
+
+## 📄 开源协议
+
+本项目基于 [MIT License](./LICENSE) 开源。欢迎通过 [Issues](https://github.com/YukiKaguraA/agy-archive-manager/issues) 和 [Pull Requests](https://github.com/YukiKaguraA/agy-archive-manager/pulls) 一起打磨。

@@ -6,7 +6,7 @@ TARGET_DIR="${1:-${HOME}/.gemini/config/plugins/archive-manager}"
 
 mkdir -p "${TARGET_DIR}"
 
-for f in plugin.json logo.svg README.md README.en.md LICENSE; do
+for f in plugin.json logo.svg README.md README.en.md CHANGELOG.md LICENSE; do
   if [ -f "${REPO_ROOT}/${f}" ]; then
     cp -f "${REPO_ROOT}/${f}" "${TARGET_DIR}/${f}"
   fi
