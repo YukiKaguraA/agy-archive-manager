@@ -529,6 +529,17 @@
       gap: 6px;
     }
 
+    .data-status {
+      flex-shrink: 0;
+      max-height: 80px;
+      overflow: auto;
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--am-border);
+      color: var(--am-muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
     .meta-editor {
       flex-shrink: 0;
       padding: 8px 14px;
@@ -751,6 +762,7 @@
       transition: all 0.18s ease;
     }
     .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .toast-link:disabled { opacity: 0.55; cursor: not-allowed; }
     .toast-link {
       border: 0;
       background: rgba(255, 255, 255, 0.2);
@@ -773,7 +785,7 @@
             <line x1="10" y1="13" x2="14" y2="13"/>
           </svg>
           <span>会话管理</span>
-          <span class="api-pill" title="已接入 Antigravity v2.35.0 官方 ConversationService API">原生 API</span>
+          <span class="api-pill" title="通过 Antigravity 的 ConversationService 管理会话">原生 API</span>
         </div>
         <div class="header-actions">
           <button id="batchToggleBtn" class="btn btn-sm" title="开启或关闭多选批量操作">☑ 批量</button>
@@ -824,7 +836,7 @@
           <span style="color:var(--am-muted);">（自动跳过运行中/已置顶/已收藏）</span>
         </div>
         <div class="sub-bar-right">
-          <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary">📦 一键归档当前闲置</button>
+          <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary" disabled>📦 一键归档当前闲置</button>
         </div>
       </div>
 
@@ -842,9 +854,10 @@
       </div>
     </div>
 
+    <div id="listWarning" class="data-status" role="status" hidden></div>
     <div id="mainSplit" class="main">
       <div id="listPane" class="list-pane">
-        <div class="empty-state">正在连接官方 ConversationService...</div>
+        <div class="empty-state">正在连接 ConversationService...</div>
       </div>
 
       <div id="previewPane" class="preview-pane">
@@ -873,13 +886,14 @@
             </div>
           </div>
 
-          <div class="meta-editor">
+          <div id="pvMetaEditor" class="meta-editor">
             <div class="tags-row" id="pvTagsRow">
               <input id="tagInput" class="inline-input" style="width:128px;" placeholder="+ 添加标签后回车" />
             </div>
             <input id="noteInput" class="inline-input" style="width:100%;" placeholder="添加个人备注（自动保存）..." />
           </div>
 
+          <div id="pvSource" class="data-status" role="status" hidden></div>
           <div id="pvMessages" class="messages-scroll"></div>
         </div>
       </div>
@@ -912,6 +926,8 @@
       sort: 'updated',
       staleDays: 7,
       items: [],
+      listReady: false,
+      archivePending: false,
       selectedId: null,
       previewData: null,
       rawMode: false,
@@ -925,6 +941,9 @@
     const $ = (id) => document.getElementById(id);
     let searchTimer = null;
     let toastTimer = null;
+    let listRequestId = 0;
+    let previewRequestId = 0;
+    let previewArchivedOverride;
 
     function escapeHtml(s) {
       return String(s || '')
@@ -960,6 +979,7 @@
       const toast = $('toast');
       $('toastText').textContent = msg;
       const btn = $('toastAction');
+      btn.disabled = false;
       if (actionLabel && actionFn) {
         btn.textContent = actionLabel;
         btn.style.display = 'inline-block';
@@ -1052,16 +1072,34 @@
     }
 
     function updateBatchBar() {
-      $('listPane').classList.toggle('batch-mode', state.batchMode);
+      const pane = $('listPane');
+      pane.classList.toggle('batch-mode', state.batchMode);
+      pane.inert = !state.listReady && state.items.length > 0;
       $('batchBar').classList.toggle('show', state.batchMode);
       $('batchToggleBtn').classList.toggle('btn-primary', state.batchMode);
       const count = state.checkedIds.size;
+      const canApply = state.listReady && !state.archivePending;
       $('batchCountText').textContent = `已选 ${count} 条`;
-      $('batchRestoreBtn').disabled = count === 0;
-      $('batchArchiveBtn').disabled = count === 0;
+      $('selectAllBtn').disabled = !canApply || state.items.length === 0;
+      $('batchRestoreBtn').disabled = !canApply || count === 0;
+      $('batchArchiveBtn').disabled = !canApply || count === 0;
+      $('archiveAllStaleBtn').disabled = !canApply || state.tab !== 'stale' || state.items.length === 0;
+    }
+
+    function invalidateList() {
+      state.listReady = false;
+      updateBatchBar();
+      return ++listRequestId;
+    }
+
+    function showDataStatus(id, text) {
+      const status = $(id);
+      status.textContent = text;
+      status.hidden = !text;
     }
 
     async function loadList() {
+      const requestId = invalidateList();
       try {
         const data = await apiPost('/api/conversations', {
           tab: state.tab,
@@ -1071,7 +1109,9 @@
           sort: state.sort,
           staleDays: state.staleDays,
         });
+        if (requestId !== listRequestId) return false;
         state.items = data.items || [];
+        showDataStatus('listWarning', (data.warnings || []).join('。'));
 
         // Prune checked IDs not in current list
         const validIds = new Set(state.items.map((x) => x.id));
@@ -1106,11 +1146,19 @@
           tagSel.appendChild(opt);
         }
 
-        $('archiveAllStaleBtn').disabled = state.tab !== 'stale' || state.items.length === 0;
+        state.listReady = true;
         updateBatchBar();
         renderList();
+        return true;
       } catch (err) {
-        $('listPane').innerHTML = `<div class="empty-state">加载失败: ${escapeHtml(err.message)}</div>`;
+        if (requestId !== listRequestId) return false;
+        state.items = [];
+        state.checkedIds.clear();
+        state.listReady = false;
+        showDataStatus('listWarning', '');
+        updateBatchBar();
+        $('listPane').innerHTML = `<div class="empty-state" role="status">加载失败 · ${escapeHtml(err.message)}</div>`;
+        return false;
       }
     }
 
@@ -1154,8 +1202,8 @@
 
         const stepText = item.stepCount > 0 ? `<span>${item.stepCount} 步</span><span>·</span>` : '';
         const archiveActionBtn = item.archived
-          ? '<button class="btn btn-sm btn-restore js-toggle-archive" title="直接通过官方 API 取消归档并恢复">♻️ 恢复</button>'
-          : `<button class="btn btn-sm btn-archive js-toggle-archive" ${item.isRunning ? 'disabled title="运行中的会话暂不可归档"' : 'title="直接通过官方 API 归档此会话"'}>📦 归档</button>`;
+          ? '<button class="btn btn-sm btn-restore js-toggle-archive" title="在 Antigravity 中取消归档并恢复">♻️ 恢复</button>'
+          : `<button class="btn btn-sm btn-archive js-toggle-archive" ${item.isRunning ? 'disabled title="运行中的会话暂不可归档"' : 'title="在 Antigravity 中归档此会话"'}>📦 归档</button>`;
 
         card.innerHTML = `
           <div class="card-top">
@@ -1245,67 +1293,108 @@
       }
     }
 
-    // Instant native background archive/restore with Undo toast (zero window jumping!)
-    async function setConversationsArchived(ids, wantArchived, triggerBtn) {
-      if (!ids || !ids.length) return;
-      const prevText = triggerBtn ? triggerBtn.textContent : '';
+    function setConversationsArchived(ids, archived, triggerBtn, staleDays) {
+      if (!ids.length) return;
+      return applyArchiveChange({ conversationIds: ids, archived, staleDays }, archived ? '归档' : '恢复', triggerBtn);
+    }
+
+    async function applyArchiveChange(request, verb, triggerBtn) {
+      if (state.archivePending) return;
+      state.archivePending = true;
+      const toastAction = $('toastAction');
+      if (toastAction.textContent === '撤回') toastAction.disabled = true;
+      const prevText = triggerBtn?.textContent;
+      const pendingText = `${verb}中...`;
       if (triggerBtn) {
         triggerBtn.disabled = true;
-        triggerBtn.textContent = wantArchived ? '归档中...' : '恢复中...';
+        triggerBtn.textContent = pendingText;
       }
+      updateBatchBar();
       try {
-        const res = await apiPost('/api/set-archived', {
-          conversationIds: ids,
-          archived: wantArchived,
-        });
-        const doneIds = res.succeeded || [];
-        if (doneIds.length === 0) {
-          showToast(res.failed?.[0]?.error || '操作失败');
-          return;
+        const { succeeded, unchanged, failed, changes } = await apiPost('/api/set-archived', request);
+        for (const id of [...succeeded, ...unchanged]) state.checkedIds.delete(id);
+        const selectedId = state.selectedId;
+        const previewChange = changes.find((change) => change.id === selectedId);
+        const archiveState = previewChange?.archived ?? (unchanged.includes(selectedId)
+          ? (request.undo?.find((change) => change.id === selectedId)?.previousArchived ?? request.archived)
+          : undefined);
+        if (typeof archiveState === 'boolean') {
+          previewArchivedOverride = archiveState;
+          if (state.previewData?.id === selectedId) {
+            state.previewData.archived = archiveState;
+            updatePreviewHeaderState();
+          }
         }
-        for (const id of doneIds) state.checkedIds.delete(id);
-        if (state.previewData && doneIds.includes(state.previewData.id)) {
-          state.previewData.archived = wantArchived;
-          updatePreviewHeaderState();
+        const summary = [`${verb}成功 ${succeeded.length} 条`];
+        if (unchanged.length) summary.push(`未变更 ${unchanged.length} 条`);
+        if (failed.length) {
+          const reasons = [...new Set(failed.map(({ error }) => error))];
+          summary.push(`失败 ${failed.length} 条（${reasons.slice(0, 3).join('、')}${reasons.length > 3 ? '等' : ''}）`);
         }
-        const label =
-          doneIds.length === 1
-            ? (wantArchived ? '已归档该会话' : '已恢复到左侧会话列表')
-            : (wantArchived ? `已批量归档 ${doneIds.length} 条会话` : `已批量恢复 ${doneIds.length} 条会话`);
-
-        showToast(label, '撤回', async () => {
-          await setConversationsArchived(doneIds, !wantArchived);
-        });
-        await loadList();
+        void loadList();
+        const canUndo = !request.undo && changes.length > 0;
+        showToast(summary.join('，'), canUndo ? '撤回' : null,
+          canUndo ? () => applyArchiveChange({ undo: changes }, '撤回') : null);
       } catch (err) {
-        showToast((wantArchived ? '归档' : '恢复') + '失败: ' + err.message);
+        showToast(`${verb}失败 · ${err.message}`);
       } finally {
-        if (triggerBtn && document.body.contains(triggerBtn)) {
-          triggerBtn.disabled = false;
+        state.archivePending = false;
+        if (triggerBtn && triggerBtn.textContent === pendingText) {
+          triggerBtn.disabled = triggerBtn === $('pvArchiveToggleBtn')
+            ? !state.previewData || (state.previewData.isRunning && !state.previewData.archived)
+            : false;
           triggerBtn.textContent = prevText;
         }
+        updateBatchBar();
       }
     }
 
+    function setPreviewControlsReady(ready) {
+      for (const id of ['pvRenameBtn', 'pvOpenBtn', 'pvArchiveToggleBtn', 'pvExportFileBtn',
+        'pvRawBtn', 'pvDeleteBtn', 'tagInput', 'noteInput', 'pvCollapseAllBtn', 'pvScrollTopBtn', 'pvScrollBottomBtn']) {
+        $(id).disabled = !ready;
+      }
+      $('pvMetaEditor').style.display = ready ? '' : 'none';
+    }
+
+    function closeDeleteModal() {
+      state.pendingDeleteId = null;
+      $('deleteModal').classList.remove('show');
+    }
+
     async function openPreview(convId) {
+      const requestId = ++previewRequestId;
+      previewArchivedOverride = undefined;
       state.selectedId = convId;
+      state.previewData = null;
+      closeDeleteModal();
       exitTitleEdit();
+      setPreviewControlsReady(false);
+      showDataStatus('pvSource', '');
       $('mainSplit').classList.add('show-preview');
       $('previewEmpty').style.display = 'none';
       $('previewContent').style.display = 'flex';
       $('pvTitle').textContent = '加载中...';
       $('pvMessages').innerHTML = '<div class="empty-state">正在读取历史消息...</div>';
-      $('pvCollapseAllBtn').disabled = true;
-      $('pvScrollTopBtn').disabled = true;
-      $('pvScrollBottomBtn').disabled = true;
-      renderList();
+      if (state.listReady) renderList();
 
       try {
         const data = await apiPost('/api/preview', { conversationId: convId });
+        if (requestId !== previewRequestId) return;
+        if (data.id !== convId) throw new Error('返回的会话与当前选择不一致');
+        if (previewArchivedOverride !== undefined) data.archived = previewArchivedOverride;
         state.previewData = data;
+        $('tagInput').value = '';
+        $('noteInput').value = data.note || '';
+        setPreviewControlsReady(true);
         renderPreview();
       } catch (err) {
-        $('pvMessages').innerHTML = `<div class="empty-state">预览加载失败: ${escapeHtml(err.message)}</div>`;
+        if (requestId !== previewRequestId) return;
+        state.previewData = null;
+        setPreviewControlsReady(false);
+        showDataStatus('pvSource', '');
+        $('pvTitle').textContent = '预览加载失败';
+        $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
       }
     }
 
@@ -1320,7 +1409,7 @@
       if (!d) return;
       $('pvTitle').textContent = d.title;
       const archBtn = $('pvArchiveToggleBtn');
-      archBtn.disabled = Boolean(d.isRunning);
+      archBtn.disabled = Boolean(d.isRunning && !d.archived);
       if (d.archived) {
         archBtn.textContent = '♻️ 恢复';
         archBtn.classList.add('btn-restore');
@@ -1332,7 +1421,19 @@
       }
       $('pvRawBtn').textContent = state.rawMode ? '排版' : '原文';
       $('pvDeleteBtn').disabled = Boolean(d.isRunning);
-      $('noteInput').value = d.note || '';
+      const sourceLabels = {
+        transcript_full: '完整日志',
+        transcript: '紧凑日志',
+        'transcript_full+transcript': '完整日志和紧凑日志',
+        fts: '索引片段',
+        none: '无可用文本',
+      };
+      const pvWarnings = d.warnings || [];
+      const showSourceBanner = Boolean(pvWarnings.length) || (Boolean(d.source) && d.source !== 'transcript_full');
+      showDataStatus(
+        'pvSource',
+        showSourceBanner ? [`来源 · ${sourceLabels[d.source] || d.source || '未知'}`, ...pvWarnings].join('。') : ''
+      );
 
       const row = $('pvTagsRow');
       const input = $('tagInput');
@@ -1485,7 +1586,11 @@
       try {
         const res = await apiPost('/api/export', { conversationId: convId, saveToDisk: true });
         showToast(`已导出: ${res.filename}`, '定位文件', async () => {
-          await apiPost('/api/reveal-file', { path: res.savedPath, isFile: true });
+          try {
+            await apiPost('/api/reveal-file', { path: res.savedPath, isFile: true });
+          } catch (err) {
+            showToast('无法定位导出文件 · ' + err.message);
+          }
         });
       } catch (err) {
         showToast('导出失败: ' + err.message);
@@ -1506,15 +1611,17 @@
     $('searchInput').addEventListener('input', (e) => {
       const val = e.target.value;
       $('clearSearchBtn').classList.toggle('show', Boolean(val));
+      state.query = val.trim();
+      invalidateList();
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
-        state.query = val.trim();
         loadList();
         if (state.previewData) renderPreview();
       }, 200);
     });
 
     $('clearSearchBtn').addEventListener('click', () => {
+      clearTimeout(searchTimer);
       $('searchInput').value = '';
       $('clearSearchBtn').classList.remove('show');
       state.query = '';
@@ -1527,10 +1634,9 @@
     $('sortSelect').addEventListener('change', (e) => { state.sort = e.target.value; loadList(); });
     $('staleDaysSelect').addEventListener('change', (e) => { state.staleDays = Number(e.target.value) || 7; loadList(); });
 
-    $('refreshBtn').addEventListener('click', () => {
-      loadList();
+    $('refreshBtn').addEventListener('click', async () => {
       if (state.selectedId) openPreview(state.selectedId);
-      showToast('已刷新会话列表');
+      if (await loadList()) showToast('已刷新会话列表');
     });
 
     $('openExportDirBtn').addEventListener('click', async () => {
@@ -1555,6 +1661,7 @@
       renderList();
     });
     $('selectAllBtn').addEventListener('click', () => {
+      if (!state.listReady || state.archivePending) return;
       const eligible = state.items.filter((i) => !i.isRunning);
       if (state.checkedIds.size === eligible.length) {
         state.checkedIds.clear();
@@ -1565,15 +1672,15 @@
       renderList();
     });
     $('batchRestoreBtn').addEventListener('click', (e) => {
-      setConversationsArchived([...state.checkedIds], false, e.currentTarget);
+      if (state.listReady) return setConversationsArchived([...state.checkedIds], false, e.currentTarget);
     });
     $('batchArchiveBtn').addEventListener('click', (e) => {
-      setConversationsArchived([...state.checkedIds], true, e.currentTarget);
+      if (state.listReady) return setConversationsArchived([...state.checkedIds], true, e.currentTarget);
     });
     $('archiveAllStaleBtn').addEventListener('click', (e) => {
-      const ids = state.items.filter((i) => !i.isRunning && !i.archived).map((i) => i.id);
-      if (!ids.length) return;
-      setConversationsArchived(ids, true, e.currentTarget);
+      if (!state.listReady || state.tab !== 'stale') return;
+      const ids = state.items.map((item) => item.id);
+      return setConversationsArchived(ids, true, e.currentTarget, state.staleDays);
     });
 
     // Preview toolbar events
@@ -1637,28 +1744,34 @@
       $('deleteModalDesc').textContent = `确定要永久删除会话「${state.previewData.title}」吗？该操作会彻底删除对话记录且无法恢复（若只想隐藏，建议点击「归档」）。`;
       $('deleteModal').classList.add('show');
     });
-    $('deleteCancelBtn').addEventListener('click', () => {
-      state.pendingDeleteId = null;
-      $('deleteModal').classList.remove('show');
-    });
+    $('deleteCancelBtn').addEventListener('click', closeDeleteModal);
     $('deleteConfirmBtn').addEventListener('click', async () => {
       const id = state.pendingDeleteId;
-      $('deleteModal').classList.remove('show');
-      state.pendingDeleteId = null;
-      if (!id) return;
+      closeDeleteModal();
+      if (!id || id !== state.previewData?.id) return;
+      const preview = state.previewData;
+      const requestId = previewRequestId;
+      state.previewData = null;
+      setPreviewControlsReady(false);
       try {
-        await apiPost('/api/delete', { conversationId: id });
+        const result = await apiPost('/api/delete', { conversationId: id });
         if (state.selectedId === id) {
+          ++previewRequestId;
           state.selectedId = null;
           state.previewData = null;
           $('previewContent').style.display = 'none';
           $('previewEmpty').style.display = 'flex';
           $('mainSplit').classList.remove('show-preview');
         }
-        showToast('已永久删除该会话');
+        showToast(['已永久删除该会话', ...(result.warnings || [])].join('。'));
         await loadList();
       } catch (err) {
-        showToast('删除失败: ' + err.message);
+        if (state.selectedId === id && !state.previewData && previewRequestId === requestId) {
+          state.previewData = preview;
+          setPreviewControlsReady(true);
+          renderPreview();
+        }
+        showToast('删除失败 · ' + err.message);
       }
     });
 

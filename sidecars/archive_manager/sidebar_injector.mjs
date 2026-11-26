@@ -7,6 +7,7 @@ import http from 'node:http';
 
 const INSTANCE_TS = Date.now();
 const INTERVAL_MS = 2500;
+const COUNT_TTL_MS = 10_000;
 
 function getCandidatePortFiles() {
   const home = homedir();
@@ -279,34 +280,73 @@ function mountLeftSidebarButton(payload) {
 export function startSidebarInjector(getArchivedCountAsync) {
   let busy = false;
   let stopped = false;
+  let refreshRequested = false;
+  let archivedCount = 0;
+  let nextCountReadAt = 0;
+  let pendingMount;
 
   async function tick() {
     if (busy || stopped) return;
     busy = true;
+    refreshRequested = false;
     try {
-      const archivedCount = await getArchivedCountAsync();
       const pages = await discoverMainPages();
+      if (stopped || pages.length === 0) return;
+
+      if (Date.now() >= nextCountReadAt) {
+        refreshRequested = false;
+        try {
+          archivedCount = await getArchivedCountAsync();
+        } catch {
+          // Keep the last successful count on a transient failure.
+        }
+        if (!refreshRequested) nextCountReadAt = Date.now() + COUNT_TTL_MS;
+      }
+
       for (const page of pages) {
+        if (stopped || refreshRequested) break;
         const expr = `(${mountLeftSidebarButton.toString()})(${JSON.stringify({
           instanceTs: INSTANCE_TS,
           archivedCount,
         })})`;
-        await evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});
+        pendingMount = evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});
+        await pendingMount;
+        pendingMount = undefined;
       }
+    } catch {
+      // The optional sidebar can retry on the next poll.
     } finally {
       busy = false;
+      if (refreshRequested) void tick();
     }
   }
 
   const timer = setInterval(tick, INTERVAL_MS);
-  setTimeout(tick, 500);
+  const startupTimer = setTimeout(tick, 500);
 
-  return async function cleanup() {
+  function invalidateCount() {
+    if (stopped) return;
+    nextCountReadAt = 0;
+    refreshRequested = true;
+    void tick();
+  }
+
+  async function cleanup() {
     stopped = true;
     clearInterval(timer);
-    const pages = await discoverMainPages();
+    clearTimeout(startupTimer);
+    // Wait only for an evaluation that could still mount the button.
+    if (pendingMount) await pendingMount;
+    const pages = await discoverMainPages().catch(() => []);
+    const expr = `
+      if (!(window.__agArchiveNavOwnerTs > ${INSTANCE_TS})) {
+        document.getElementById('ag-archive-nav-btn')?.remove();
+      }
+    `;
     for (const page of pages) {
-      await evalCdp(page.webSocketDebuggerUrl, `document.getElementById('ag-archive-nav-btn')?.remove()`).catch(() => {});
+      await evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});
     }
-  };
+  }
+
+  return { cleanup, invalidateCount };
 }

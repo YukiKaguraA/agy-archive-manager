@@ -1,8 +1,8 @@
 {
   "name": "archive-manager",
   "displayName": "会话管理 (Session Manager)",
-  "version": "2.1.0",
-  "description": "基于 Antigravity v2.35.0+ 官方 ConversationService API 打造的零侵入会话管理插件：支持分类浏览、全文检索、完整记录免恢复预览（超长单条自动折叠与快速定位）、无感归档/恢复（含撤回）、批量与闲置清理、原生置顶/星标/重命名/安全删除、标签备注及一键导出 Markdown。",
+  "version": "2.1.1",
+  "description": "Antigravity 会话管理插件，支持分类浏览、全文检索、免恢复预览、归档与恢复（含撤回）、批量归档闲置会话、置顶、星标、重命名、删除、标签与备注，以及 Markdown 导出。",
   "author": {
     "name": "YukiKagura",
     "url": "https://github.com/YukiKaguraA"
