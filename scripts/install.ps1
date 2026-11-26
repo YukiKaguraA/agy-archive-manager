@@ -13,34 +13,78 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
+function Sync-Directory {
+    param(
+        [Parameter(Mandatory)][string]$SourceDir,
+        [Parameter(Mandatory)][string]$DestDir
+    )
+
+    $srcRoot = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd('\', '/')
+    $dstRoot = [System.IO.Path]::GetFullPath($DestDir).TrimEnd('\', '/')
+    New-Item -ItemType Directory -Path $dstRoot -Force | Out-Null
+
+    $expectedDirs = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $expectedFiles = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+
+    # Copy/update files in place without removing directories that may be locked as a running sidecar's CWD.
+    Get-ChildItem -LiteralPath $srcRoot -Directory -Recurse | ForEach-Object {
+        $rel = $_.FullName.Substring($srcRoot.Length + 1)
+        [void]$expectedDirs.Add($rel)
+        New-Item -ItemType Directory -Path (Join-Path $dstRoot $rel) -Force | Out-Null
+    }
+
+    Get-ChildItem -LiteralPath $srcRoot -File -Recurse | ForEach-Object {
+        $rel = $_.FullName.Substring($srcRoot.Length + 1)
+        [void]$expectedFiles.Add($rel)
+        $dstFile = Join-Path $dstRoot $rel
+        $dstParent = Split-Path -Parent $dstFile
+        if (-not (Test-Path -LiteralPath $dstParent -PathType Container)) {
+            New-Item -ItemType Directory -Path $dstParent -Force | Out-Null
+        }
+        Copy-Item -LiteralPath $_.FullName -Destination $dstFile -Force
+    }
+
+    # Prune stale files and obsolete empty subdirectories after the new payload is in place.
+    Get-ChildItem -LiteralPath $dstRoot -File -Recurse | ForEach-Object {
+        $rel = $_.FullName.Substring($dstRoot.Length + 1)
+        if (-not $expectedFiles.Contains($rel)) {
+            Remove-Item -LiteralPath $_.FullName -Force
+        }
+    }
+
+    Get-ChildItem -LiteralPath $dstRoot -Directory -Recurse |
+        Sort-Object { $_.FullName.Length } -Descending |
+        ForEach-Object {
+            $rel = $_.FullName.Substring($dstRoot.Length + 1)
+            if (-not $expectedDirs.Contains($rel)) {
+                try {
+                    Remove-Item -LiteralPath $_.FullName -Force
+                } catch [System.IO.IOException] {
+                    Write-Warning "Skipped removing locked obsolete directory: $($_.FullName)"
+                }
+            }
+        }
+}
+
 $files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'CHANGELOG.md', 'LICENSE')
 foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
-    if (Test-Path $src) {
-        Copy-Item -Path $src -Destination (Join-Path $TargetDir $f) -Force
+    if (Test-Path -LiteralPath $src -PathType Leaf) {
+        Copy-Item -LiteralPath $src -Destination (Join-Path $TargetDir $f) -Force
     }
 }
 
 $screenshots = Join-Path $repoRoot 'docs/screenshots'
 if (Test-Path -LiteralPath $screenshots -PathType Container) {
-    $targetDocs = Join-Path $TargetDir 'docs'
-    $targetScreenshots = Join-Path $targetDocs 'screenshots'
-    New-Item -ItemType Directory -Path $targetDocs -Force | Out-Null
-    if (Test-Path -LiteralPath $targetScreenshots) {
-        Remove-Item -LiteralPath $targetScreenshots -Recurse -Force
-    }
-    Copy-Item -LiteralPath $screenshots -Destination $targetDocs -Recurse -Force
+    Sync-Directory -SourceDir $screenshots -DestDir (Join-Path $TargetDir 'docs\screenshots')
 }
 
 $dirs = @('skills', 'sidecars')
 foreach ($d in $dirs) {
     $src = Join-Path $repoRoot $d
     $dst = Join-Path $TargetDir $d
-    if (Test-Path $src) {
-        if (Test-Path $dst) {
-            Remove-Item -Path $dst -Recurse -Force
-        }
-        Copy-Item -Path $src -Destination $TargetDir -Recurse -Force
+    if (Test-Path -LiteralPath $src -PathType Container) {
+        Sync-Directory -SourceDir $src -DestDir $dst
     }
 }
 
