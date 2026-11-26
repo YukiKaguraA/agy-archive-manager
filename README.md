@@ -27,6 +27,12 @@
 - **一键导出 Markdown**。将可读取的对话内容连同会话信息、标签和备注保存到 `~/Documents/Antigravity-Exports`，支持定位文件或打开导出目录。
 - **左侧导航栏快捷入口（可选）**。启用 CDP 后，左侧栏显示「会话管理」入口与已归档数量。右侧面板插件菜单和对话技能也可打开面板。
 
+## v2.2.0 更新
+
+- 面板顶部可切换 **简体中文 / English**。首次打开时根据面板浏览器的语言选择，手动切换后由插件记住所选语言。
+- 面板操作、确认与失败提示、Markdown 导出的固定字段随所选语言显示（左栏快捷入口同步按当前语言精简展示，消息时间戳按本地时区显示）。会话正文、标题、标签和备注保留原文。
+- 通用适配主流 Antigravity 宿主主题与美化插件：主色、表面层次、字体与深色代码块/Toast 优先跟随宿主语义变量，并加固自定义浮岛布局下的左侧栏唤起稳定性。
+
 ## v2.1.1 更新
 
 - 修复快速切换会话或筛选条件时，较晚返回的旧请求覆盖当前预览或列表的问题。
@@ -64,6 +70,8 @@ chmod +x scripts/install.sh
 - `plugin.json`
 - `logo.svg`
 - `README.md`
+- `README.en.md`
+- `docs/screenshots/`（文档预览图）
 - `LICENSE`
 - `skills/`
 - `sidecars/`
@@ -92,6 +100,7 @@ agy-archive-manager/
 │   └── archive_manager/
 │       ├── sidecar.json                # Sidecar 进程与面板入口配置
 │       ├── server.mjs                  # 本地 HTTP + ConversationService 后端
+│       ├── server-locale.mjs           # 后端提示与 Markdown 导出文案
 │       ├── sidebar_injector.mjs        # 左侧栏快捷入口注入器（可选 CDP）
 │       └── index.html                  # 前端双栏管理面板
 └── test/                               # 本地回归测试套件

@@ -12,11 +12,18 @@
       --am-sidebar: var(--sidebar, #f1f5f9);
       --am-fg: var(--foreground, #0f172a);
       --am-muted: var(--muted-foreground, #64748b);
-      --am-border: var(--border, #e2e8f0);
+      --am-border: var(--card-border, var(--border, #e2e8f0));
       --am-accent: var(--primary, #6366f1);
       --am-accent-fg: var(--primary-foreground, #ffffff);
-      --am-hover: rgba(99, 102, 241, 0.10);
-      --am-selected-bg: rgba(99, 102, 241, 0.15);
+      --am-surface: color-mix(in srgb, var(--am-card) 92%, transparent);
+      --am-hover: color-mix(in srgb, var(--am-accent) 10%, transparent);
+      --am-selected-bg: color-mix(in srgb, var(--am-accent) 15%, transparent);
+      --am-sub-bg: color-mix(in srgb, var(--am-accent) 8%, transparent);
+      --am-sub-border: color-mix(in srgb, var(--am-accent) 24%, transparent);
+      --am-tag-bg: color-mix(in srgb, var(--am-accent) 14%, transparent);
+      --am-subtle-bg: color-mix(in srgb, var(--am-fg) 6%, transparent);
+      --am-code-bg: color-mix(in srgb, var(--am-fg) 8%, transparent);
+      --am-code-inline-bg: color-mix(in srgb, var(--am-fg) 12%, transparent);
       --am-star: #f59e0b;
       --am-restore-bg: rgba(16, 185, 129, 0.14);
       --am-restore-fg: #10b981;
@@ -27,8 +34,8 @@
       --am-danger-bg: rgba(239, 68, 68, 0.12);
       --am-danger-fg: #ef4444;
       --am-danger-border: rgba(239, 68, 68, 0.40);
-      --am-badge-archived-bg: rgba(129, 140, 248, 0.18);
-      --am-badge-archived-fg: #818cf8;
+      --am-badge-archived-bg: color-mix(in srgb, var(--am-accent) 16%, transparent);
+      --am-badge-archived-fg: var(--am-accent);
       --am-badge-active-bg: rgba(16, 185, 129, 0.16);
       --am-badge-active-fg: #10b981;
       --am-badge-run-bg: rgba(34, 197, 94, 0.20);
@@ -43,7 +50,7 @@
       padding: 0;
       background: var(--am-bg);
       color: var(--am-fg);
-      font-family: "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--font-sans, "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
       font-size: 13px;
       line-height: 1.5;
       overflow: hidden;
@@ -60,7 +67,7 @@
     .header {
       flex-shrink: 0;
       padding: 10px 12px 8px;
-      background: var(--am-card);
+      background: var(--am-surface);
       border-bottom: 1px solid var(--am-border);
       display: flex;
       flex-direction: column;
@@ -69,6 +76,15 @@
 
     .header-top {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .header-identity {
+      display: flex;
+      flex: 1 1 auto;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
@@ -89,12 +105,18 @@
       border-radius: 999px;
       background: rgba(16, 185, 129, 0.15);
       color: #10b981;
+      white-space: nowrap;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
+    }
+
+    @media (max-width: 315px) {
+      .brand .api-pill { display: none; }
     }
 
     /* Tabs */
@@ -200,6 +222,9 @@
       max-width: 130px;
       cursor: pointer;
     }
+    select.ctrl-select:focus-visible { border-color: var(--am-accent); }
+    #languageSelect { flex: 0 0 auto; padding: 3px 4px; }
+    #languageStatus { color: var(--am-danger-fg); font-size: 12px; }
 
     .btn {
       display: inline-flex;
@@ -279,8 +304,8 @@
       gap: 6px;
       padding: 6px 9px;
       border-radius: 8px;
-      background: rgba(99, 102, 241, 0.08);
-      border: 1px solid rgba(99, 102, 241, 0.22);
+      background: var(--am-sub-bg);
+      border: 1px solid var(--am-sub-border);
       font-size: 12px;
     }
     .sub-bar.show { display: flex; }
@@ -345,7 +370,7 @@
       padding: 10px 11px;
       border-radius: 10px;
       border: 1px solid var(--am-border);
-      background: var(--am-card);
+      background: var(--am-surface);
       cursor: pointer;
       transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
       display: flex;
@@ -439,8 +464,8 @@
     .pill-archived { background: var(--am-badge-archived-bg); color: var(--am-badge-archived-fg); }
     .pill-active { background: var(--am-badge-active-bg); color: var(--am-badge-active-fg); }
     .pill-run { background: var(--am-badge-run-bg); color: var(--am-badge-run-fg); }
-    .pill-proj { background: rgba(128, 128, 128, 0.13); color: var(--am-fg); }
-    .pill-tag { background: rgba(139, 92, 246, 0.14); color: var(--am-accent); }
+    .pill-proj { background: var(--am-subtle-bg); color: var(--am-fg); }
+    .pill-tag { background: var(--am-tag-bg); color: var(--am-accent); }
 
     .run-dot {
       width: 6px;
@@ -494,7 +519,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      background: var(--am-card);
+      background: var(--am-surface);
     }
 
     .preview-title-row {
@@ -564,7 +589,7 @@
       padding: 2px 7px;
       border-radius: 999px;
       font-size: 11.5px;
-      background: rgba(99, 102, 241, 0.14);
+      background: var(--am-tag-bg);
       color: var(--am-accent);
     }
     .tag-chip button {
@@ -633,7 +658,7 @@
       padding: 6px 12px;
       border: 0;
       border-top: 1px solid var(--am-border);
-      background: rgba(128, 128, 128, 0.04);
+      background: color-mix(in srgb, var(--am-fg) 4%, transparent);
       color: var(--am-accent);
       font-size: 12px;
       font-weight: 500;
@@ -654,7 +679,7 @@
     }
     .msg-head {
       padding: 6px 11px;
-      background: rgba(128, 128, 128, 0.06);
+      background: var(--am-subtle-bg);
       border-bottom: 1px solid var(--am-border);
       display: flex;
       align-items: center;
@@ -671,11 +696,11 @@
     }
     .msg-body.raw {
       white-space: pre-wrap;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
       font-size: 12px;
     }
     .msg-body pre {
-      background: rgba(15, 23, 42, 0.08);
+      background: var(--am-code-bg);
       padding: 8px 10px;
       border-radius: 6px;
       overflow-x: auto;
@@ -683,10 +708,10 @@
       margin: 6px 0;
     }
     .msg-body code {
-      background: rgba(128, 128, 128, 0.14);
+      background: var(--am-code-inline-bg);
       padding: 1px 4px;
       border-radius: 4px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
       font-size: 12px;
     }
     .msg-body pre code { background: transparent; padding: 0; }
@@ -746,11 +771,12 @@
       right: 14px;
       bottom: 14px;
       z-index: 9999;
-      background: #1e293b;
-      color: #ffffff;
+      background: var(--popover, var(--am-card));
+      color: var(--popover-foreground, var(--am-fg));
+      border: 1px solid color-mix(in srgb, var(--am-accent) 32%, var(--am-border));
       padding: 9px 13px;
       border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
       font-size: 12px;
       display: flex;
       align-items: center;
@@ -765,8 +791,9 @@
     .toast-link:disabled { opacity: 0.55; cursor: not-allowed; }
     .toast-link {
       border: 0;
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
+      background: var(--am-tag-bg);
+      color: var(--am-accent);
+      font-weight: 500;
       padding: 3px 8px;
       border-radius: 5px;
       font-size: 11.5px;
@@ -778,28 +805,35 @@
   <div class="app">
     <div class="header">
       <div class="header-top">
-        <div class="brand">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="3" width="20" height="5" rx="1.5"/>
-            <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
-            <line x1="10" y1="13" x2="14" y2="13"/>
-          </svg>
-          <span>会话管理</span>
-          <span class="api-pill" title="通过 Antigravity 的 ConversationService 管理会话">原生 API</span>
+        <div class="header-identity">
+          <div class="brand">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="5" rx="1.5"/>
+              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+              <line x1="10" y1="13" x2="14" y2="13"/>
+            </svg>
+            <span data-i18n="brand">会话管理</span>
+            <span class="api-pill" data-i18n="nativeApi" data-i18n-title="nativeApiHelp">原生 API</span>
+          </div>
+          <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
+            <option value="zh-CN" lang="zh-CN">简体中文</option>
+            <option value="en" lang="en">English</option>
+          </select>
         </div>
         <div class="header-actions">
-          <button id="batchToggleBtn" class="btn btn-sm" title="开启或关闭多选批量操作">☑ 批量</button>
-          <button id="openExportDirBtn" class="btn btn-sm" title="打开 Markdown 导出文件夹">📂 导出目录</button>
-          <button id="refreshBtn" class="btn btn-sm" title="刷新会话列表">↻ 刷新</button>
+          <button id="batchToggleBtn" class="btn btn-sm" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
+          <button id="openExportDirBtn" class="btn btn-sm" data-i18n="exportDir" data-i18n-title="exportDirHelp">📂 导出目录</button>
+          <button id="refreshBtn" class="btn btn-sm" data-i18n="refresh" data-i18n-title="refreshHelp">↻ 刷新</button>
         </div>
       </div>
+      <div id="languageStatus" role="status" hidden></div>
 
       <div class="tabs" id="tabs">
-        <button class="tab-btn active" data-tab="archived">📦 已归档 <span class="tab-count" id="cnt-archived">0</span></button>
-        <button class="tab-btn" data-tab="active">💬 未归档 <span class="tab-count" id="cnt-active">0</span></button>
-        <button class="tab-btn" data-tab="starred">⭐ 收藏 <span class="tab-count" id="cnt-starred">0</span></button>
-        <button class="tab-btn" data-tab="stale">🧹 闲置 <span class="tab-count" id="cnt-stale">0</span></button>
-        <button class="tab-btn" data-tab="all">📚 全部 <span class="tab-count" id="cnt-all">0</span></button>
+        <button class="tab-btn active" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
+        <button class="tab-btn" data-tab="active"><span data-i18n="activeTab">💬 未归档</span><span class="tab-count" id="cnt-active">0</span></button>
+        <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
+        <button class="tab-btn" data-tab="stale"><span data-i18n="staleTab">🧹 闲置</span><span class="tab-count" id="cnt-stale">0</span></button>
+        <button class="tab-btn" data-tab="all"><span data-i18n="allTab">📚 全部</span><span class="tab-count" id="cnt-all">0</span></button>
       </div>
 
       <div class="filters-bar">
@@ -807,49 +841,49 @@
           <span class="search-icon">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <input id="searchInput" type="text" placeholder="全文搜索标题、项目、消息正文或标签..." />
-          <button id="clearSearchBtn" class="search-clear" title="清空搜索">×</button>
+          <input id="searchInput" type="text" data-i18n-placeholder="searchPlaceholder" data-i18n-label="search" placeholder="全文搜索标题、项目、消息正文或标签..." />
+          <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
         </div>
-        <select id="projectSelect" class="ctrl-select" title="按项目筛选">
-          <option value="">全部项目</option>
+        <select id="projectSelect" class="ctrl-select" data-i18n-title="filterProject" data-i18n-label="filterProject">
+          <option value="" data-i18n="allProjects">全部项目</option>
         </select>
-        <select id="tagSelect" class="ctrl-select" title="按标签筛选">
-          <option value="">全部标签</option>
+        <select id="tagSelect" class="ctrl-select" data-i18n-title="filterTag" data-i18n-label="filterTag">
+          <option value="" data-i18n="allTags">全部标签</option>
         </select>
-        <select id="sortSelect" class="ctrl-select" title="排序方式">
-          <option value="updated">最近更新</option>
-          <option value="steps">步数最多</option>
-          <option value="title">按标题</option>
+        <select id="sortSelect" class="ctrl-select" data-i18n-title="sortBy" data-i18n-label="sortBy">
+          <option value="updated" data-i18n="recent">最近更新</option>
+          <option value="steps" data-i18n="mostSteps">步数最多</option>
+          <option value="title" data-i18n="byTitle">按标题</option>
         </select>
       </div>
 
       <!-- Stale quick cleanup bar -->
       <div id="staleBar" class="sub-bar">
         <div class="sub-bar-left">
-          <span>闲置超过</span>
-          <select id="staleDaysSelect" class="ctrl-select">
+          <span data-i18n="idleFor">闲置超过</span>
+          <select id="staleDaysSelect" class="ctrl-select" data-i18n-label="idleThreshold">
             <option value="3">3 天</option>
             <option value="7" selected>7 天</option>
             <option value="14">14 天</option>
             <option value="30">30 天</option>
           </select>
-          <span style="color:var(--am-muted);">（自动跳过运行中/已置顶/已收藏）</span>
+          <span style="color:var(--am-muted);" data-i18n="idleHelp">（自动跳过运行中/已置顶/已收藏）</span>
         </div>
         <div class="sub-bar-right">
-          <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary" disabled>📦 一键归档当前闲置</button>
+          <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary" data-i18n="archiveIdle" disabled>📦 一键归档当前闲置</button>
         </div>
       </div>
 
       <!-- Batch selection bar -->
       <div id="batchBar" class="sub-bar">
         <div class="sub-bar-left">
-          <button id="selectAllBtn" class="btn btn-sm">全选</button>
+          <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">全选</button>
           <span id="batchCountText">已选 0 条</span>
         </div>
         <div class="sub-bar-right">
-          <button id="batchRestoreBtn" class="btn btn-sm btn-restore">♻️ 批量恢复</button>
-          <button id="batchArchiveBtn" class="btn btn-sm btn-archive">📦 批量归档</button>
-          <button id="batchExitBtn" class="btn btn-sm">完成</button>
+          <button id="batchRestoreBtn" class="btn btn-sm btn-restore" data-i18n="restoreAll">♻️ 批量恢复</button>
+          <button id="batchArchiveBtn" class="btn btn-sm btn-archive" data-i18n="archiveAll">📦 批量归档</button>
+          <button id="batchExitBtn" class="btn btn-sm" data-i18n="done">完成</button>
         </div>
       </div>
     </div>
@@ -857,40 +891,40 @@
     <div id="listWarning" class="data-status" role="status" hidden></div>
     <div id="mainSplit" class="main">
       <div id="listPane" class="list-pane">
-        <div class="empty-state">正在连接 ConversationService...</div>
+        <div class="empty-state" data-i18n="connecting">正在连接 ConversationService...</div>
       </div>
 
       <div id="previewPane" class="preview-pane">
         <div id="previewEmpty" class="empty-state">
           <div style="font-size:26px;">📦</div>
-          <div>点击左侧任意会话即可免恢复预览正文、重命名、打标签或一键导出 Markdown</div>
+          <div data-i18n="previewHint">点击左侧任意会话即可免恢复预览正文、重命名、打标签或一键导出 Markdown</div>
         </div>
 
         <div id="previewContent" style="display:none;flex:1;flex-direction:column;min-height:0;">
           <div class="preview-header">
             <div class="preview-title-row">
-              <button id="backBtn" class="btn btn-sm back-btn">← 返回</button>
+              <button id="backBtn" class="btn btn-sm back-btn" data-i18n="back">← 返回</button>
               <div id="pvTitle" class="preview-title"></div>
-              <input id="pvTitleInput" class="title-edit-input" style="display:none;" />
-              <button id="pvRenameBtn" class="btn btn-sm" title="原地重命名此会话">✏️ 重命名</button>
+              <input id="pvTitleInput" class="title-edit-input" style="display:none;" data-i18n-label="conversationTitle" />
+              <button id="pvRenameBtn" class="btn btn-sm" data-i18n-title="renameHelp">✏️ 重命名</button>
             </div>
             <div class="preview-toolbar">
-              <button id="pvOpenBtn" class="btn btn-sm btn-primary">↗ 打开对话</button>
+              <button id="pvOpenBtn" class="btn btn-sm btn-primary" data-i18n="openChat">↗ 打开对话</button>
               <button id="pvArchiveToggleBtn" class="btn btn-sm btn-restore">♻️ 恢复</button>
-              <button id="pvExportFileBtn" class="btn btn-sm">📥 导出 .md</button>
-              <button id="pvRawBtn" class="btn btn-sm" title="切换 Markdown 排版与原文">原文</button>
-              <button id="pvCollapseAllBtn" class="btn btn-sm" title="一键展开或折叠所有超长消息" disabled>⊞ 展开全部</button>
-              <button id="pvScrollTopBtn" class="btn btn-sm" title="回到会话顶部" disabled>⬆ 顶部</button>
-              <button id="pvScrollBottomBtn" class="btn btn-sm" title="跳到会话底部" disabled>⬇ 底部</button>
-              <button id="pvDeleteBtn" class="btn btn-sm btn-danger" title="永久删除此会话">🗑️ 删除</button>
+              <button id="pvExportFileBtn" class="btn btn-sm" data-i18n="exportMarkdown">📥 导出 .md</button>
+              <button id="pvRawBtn" class="btn btn-sm" data-i18n-title="rawHelp">原文</button>
+              <button id="pvCollapseAllBtn" class="btn btn-sm" disabled>⊞ 展开全部</button>
+              <button id="pvScrollTopBtn" class="btn btn-sm" data-i18n="top" data-i18n-title="topHelp" disabled>⬆ 顶部</button>
+              <button id="pvScrollBottomBtn" class="btn btn-sm" data-i18n="bottom" data-i18n-title="bottomHelp" disabled>⬇ 底部</button>
+              <button id="pvDeleteBtn" class="btn btn-sm btn-danger" data-i18n="delete" data-i18n-title="deleteHelp">🗑️ 删除</button>
             </div>
           </div>
 
           <div id="pvMetaEditor" class="meta-editor">
             <div class="tags-row" id="pvTagsRow">
-              <input id="tagInput" class="inline-input" style="width:128px;" placeholder="+ 添加标签后回车" />
+              <input id="tagInput" class="inline-input" style="width:128px;" data-i18n-placeholder="tagPlaceholder" data-i18n-label="addTag" />
             </div>
-            <input id="noteInput" class="inline-input" style="width:100%;" placeholder="添加个人备注（自动保存）..." />
+            <input id="noteInput" class="inline-input" style="width:100%;" data-i18n-placeholder="notePlaceholder" data-i18n-label="note" />
           </div>
 
           <div id="pvSource" class="data-status" role="status" hidden></div>
@@ -902,23 +936,145 @@
 
   <!-- Double-confirm modal for permanent delete -->
   <div id="deleteModal" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-title">⚠️ 永久删除会话（不可撤销）</div>
+    <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
+      <div id="deleteModalTitle" class="modal-title" data-i18n="deleteHeading">⚠️ 永久删除会话（不可撤销）</div>
       <div id="deleteModalDesc" class="modal-desc"></div>
       <div class="modal-actions">
-        <button id="deleteCancelBtn" class="btn">取消</button>
-        <button id="deleteConfirmBtn" class="btn btn-danger">确认永久删除</button>
+        <button id="deleteCancelBtn" class="btn" data-i18n="cancel">取消</button>
+        <button id="deleteConfirmBtn" class="btn btn-danger" data-i18n="confirmDelete">确认永久删除</button>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast">
-    <span id="toastText"></span>
+    <span id="toastText" role="status"></span>
     <button id="toastAction" class="toast-link" style="display:none;"></button>
   </div>
 
   <script>
+    const messages = {
+      'zh-CN': {
+        brand: '会话管理', nativeApi: '原生 API', language: '界面语言',
+        nativeApiHelp: '通过 Antigravity 的 ConversationService 管理会话',
+        batch: '☑ 批量', batchHelp: '开启或关闭多选批量操作',
+        exportDir: '📂 导出目录', exportDirHelp: '打开 Markdown 导出文件夹',
+        refresh: '↻ 刷新', refreshHelp: '刷新会话列表',
+        archivedTab: '📦 已归档', activeTab: '💬 未归档', starredTab: '⭐ 收藏',
+        staleTab: '🧹 闲置', allTab: '📚 全部',
+        search: '搜索会话', searchPlaceholder: '搜索标题、项目、正文或标签…', clearSearch: '清空搜索',
+        allProjects: '全部项目', filterProject: '按项目筛选', allTags: '全部标签', filterTag: '按标签筛选',
+        sortBy: '排序方式', recent: '最近更新', mostSteps: '步数最多', byTitle: '按标题',
+        idleFor: '闲置超过', idleThreshold: '闲置天数', idleHelp: '（跳过运行中、置顶和收藏的会话）',
+        days: (n) => `${number(n)} 天`, archiveIdle: '📦 归档当前闲置',
+        selectAll: '全选', selected: (n) => `已选 ${number(n)} 条`,
+        restoreAll: '♻️ 批量恢复', archiveAll: '📦 批量归档', done: '完成',
+        connecting: '正在连接 ConversationService…',
+        previewHint: '选择会话以预览正文、重命名、添加标签或导出 Markdown。',
+        back: '← 返回', conversationTitle: '会话标题', rename: '✏️ 重命名', renameHelp: '重命名此会话', save: '✓ 保存',
+        openChat: '↗ 打开对话', restoreButton: '♻️ 恢复', archiveButton: '📦 归档', exportMarkdown: '📥 导出 .md',
+        raw: '原文', formatted: '排版', rawHelp: '切换 Markdown 排版与原文',
+        expandAll: '⊞ 展开全部', foldAll: '⊟ 全部折叠',
+        expandLongHelp: '展开全部超长消息', foldLongHelp: '折叠全部超长消息',
+        expandAllHelp: '展开全部消息', foldAllHelp: '折叠全部消息正文',
+        top: '⬆ 顶部', topHelp: '回到会话顶部', bottom: '⬇ 底部', bottomHelp: '跳到会话底部',
+        delete: '🗑️ 删除', deleteHelp: '永久删除此会话',
+        addTag: '添加标签', tagPlaceholder: '+ 添加标签后回车', removeTag: (tag) => `移除标签 #${tag}`,
+        note: '个人备注', notePlaceholder: '添加个人备注（自动保存）…',
+        deleteHeading: '⚠️ 永久删除会话（不可撤销）', cancel: '取消', confirmDelete: '确认永久删除',
+        deleteConfirm: (title) => `确定要永久删除会话「${title}」吗？对话记录将被彻底删除。只想隐藏时，可以使用「归档」。`,
+        justNow: '刚刚', unknownTime: '未知时间', loadFailed: (error) => `加载失败 · ${error}`,
+        noMatches: (query) => `没有找到包含「${query}」的会话`, noArchived: '当前没有已归档会话',
+        noStarred: '还没有收藏的会话，点击卡片上的 ☆ 即可收藏',
+        noStale: (days) => `暂无闲置超过 ${t('days', days)}的活跃会话`, noSessions: '暂无符合条件的会话',
+        running: '运行中', archived: '已归档', active: '活跃', steps: (n) => `${number(n)} 步`,
+        restoreHelp: '在 Antigravity 中取消归档并恢复', archiveHelp: '在 Antigravity 中归档此会话',
+        runningHelp: '运行中的会话暂不可归档', selectChat: (title) => `选择会话「${title}」`,
+        pin: '原生置顶', unpin: '取消置顶', star: '原生星标收藏', unstar: '取消星标收藏',
+        pinned: '已置顶会话', unpinned: '已取消置顶', starred: '已星标收藏', unstarred: '已取消收藏',
+        hostOpened: '已在主窗口打开该会话', hostUnavailable: '当前环境不支持原生跳转',
+        updateFailed: (error) => `更新失败 · ${error}`,
+        archive: '归档', restore: '恢复', undo: '撤回', working: (verb) => `${verb}中…`,
+        archiveSuccess: (verb, n) => `${verb}成功 ${number(n)} 条`,
+        archiveUnchanged: (n) => `未变更 ${number(n)} 条`,
+        archiveFailures: (n, details) => `失败 ${number(n)} 条${details ? `（${details}）` : ''}`,
+        archiveError: (verb, error) => `${verb}失败 · ${error}`, moreReasons: '等', reasonSeparator: '、', summarySeparator: '，',
+        noticeSeparator: '。', loading: '加载中…', loadingMessages: '正在读取历史消息…',
+        previewMismatch: '返回的会话与当前选择不一致', previewFailed: '预览加载失败',
+        source: (label) => `来源 · ${label}`, fullLog: '完整日志', compactLog: '紧凑日志',
+        mergedLog: '完整日志和紧凑日志', indexLog: '索引片段', noSource: '无可用文本', unknownSource: '未知',
+        noMessages: '该会话暂无可预览的文本消息，请点击上方「打开对话」查看。',
+        userRole: '👤 用户', assistantRole: '🤖 助手', expandMessage: '展开全文 ▾', foldMessage: '收起 ▴',
+        tagsFailed: (error) => `保存标签失败 · ${error}`, noteFailed: (error) => `保存备注失败 · ${error}`,
+        exported: (filename) => `已导出 · ${filename}`, revealFile: '定位文件',
+        revealFailed: (error) => `无法定位导出文件 · ${error}`, exportFailed: (error) => `导出失败 · ${error}`,
+        refreshed: '已刷新会话列表', noExports: '尚未导出过文件，请先导出任意会话',
+        renamed: '已重命名会话', deleted: '已永久删除该会话', deleteFailed: (error) => `删除失败 · ${error}`,
+        languageFailed: '未能保存界面语言，请重试。',
+      },
+      en: {
+        brand: 'Session Manager', nativeApi: 'Native API', language: 'Display language',
+        nativeApiHelp: 'Manages chats through Antigravity’s ConversationService',
+        batch: '☑ Batch', batchHelp: 'Toggle batch selection',
+        exportDir: '📂 Exports', exportDirHelp: 'Open the Markdown export folder',
+        refresh: '↻ Refresh', refreshHelp: 'Refresh the conversation list',
+        archivedTab: '📦 Archived', activeTab: '💬 Active', starredTab: '⭐ Starred',
+        staleTab: '🧹 Idle', allTab: '📚 All',
+        search: 'Search conversations', searchPlaceholder: 'Search title, project, text, or tags…', clearSearch: 'Clear search',
+        allProjects: 'All projects', filterProject: 'Filter by project', allTags: 'All tags', filterTag: 'Filter by tag',
+        sortBy: 'Sort by', recent: 'Recent', mostSteps: 'Most steps', byTitle: 'Title',
+        idleFor: 'Idle for over', idleThreshold: 'Days idle', idleHelp: '(Skips running, pinned, and starred chats)',
+        days: (n) => plural(n, 'day'), archiveIdle: '📦 Archive idle chats',
+        selectAll: 'Select all', selected: (n) => `${number(n)} selected`,
+        restoreAll: '♻️ Restore selected', archiveAll: '📦 Archive selected', done: 'Done',
+        connecting: 'Connecting to ConversationService…',
+        previewHint: 'Select a chat to preview, rename, tag, or export it as Markdown.',
+        back: '← Back', conversationTitle: 'Conversation title', rename: '✏️ Rename', renameHelp: 'Rename this chat', save: '✓ Save',
+        openChat: '↗ Open chat', restoreButton: '♻️ Restore', archiveButton: '📦 Archive', exportMarkdown: '📥 Export .md',
+        raw: 'Raw', formatted: 'Markdown', rawHelp: 'Toggle between formatted Markdown and raw text',
+        expandAll: '⊞ Expand all', foldAll: '⊟ Collapse all',
+        expandLongHelp: 'Expand all long messages', foldLongHelp: 'Collapse all long messages',
+        expandAllHelp: 'Expand all messages', foldAllHelp: 'Collapse all message bodies',
+        top: '⬆ Top', topHelp: 'Go to the top of the chat', bottom: '⬇ Bottom', bottomHelp: 'Go to the bottom of the chat',
+        delete: '🗑️ Delete', deleteHelp: 'Permanently delete this chat',
+        addTag: 'Add a tag', tagPlaceholder: '+ Tag, then Enter', removeTag: (tag) => `Remove tag #${tag}`,
+        note: 'Personal note', notePlaceholder: 'Add a personal note (autosaved)…',
+        deleteHeading: '⚠️ Permanently delete chat?', cancel: 'Cancel', confirmDelete: 'Delete permanently',
+        deleteConfirm: (title) => `Delete “${title}” and its message history permanently? You can archive it to hide it.`,
+        justNow: 'Just now', unknownTime: 'Unknown time', loadFailed: (error) => `Loading failed · ${error}`,
+        noMatches: (query) => `No chats match “${query}”`, noArchived: 'No archived chats',
+        noStarred: 'No starred chats yet. Click ☆ on a chat to star it.',
+        noStale: (days) => `No active chats have been idle for over ${t('days', days)}`, noSessions: 'No matching chats',
+        running: 'Running', archived: 'Archived', active: 'Active', steps: (n) => plural(n, 'step'),
+        restoreHelp: 'Unarchive this chat in Antigravity', archiveHelp: 'Archive this chat in Antigravity',
+        runningHelp: 'Running chats cannot be archived', selectChat: (title) => `Select chat “${title}”`,
+        pin: 'Pin chat', unpin: 'Unpin chat', star: 'Star chat', unstar: 'Unstar chat',
+        pinned: 'Chat pinned', unpinned: 'Chat unpinned', starred: 'Chat starred', unstarred: 'Chat unstarred',
+        hostOpened: 'Chat opened in the main window', hostUnavailable: 'Opening chats requires Antigravity',
+        updateFailed: (error) => `Update failed · ${error}`,
+        archive: 'Archive', restore: 'Restore', undo: 'Undo', working: (verb) => `${verb} in progress…`,
+        archiveSuccess: (verb, n) => `${verb} succeeded for ${plural(n, 'chat')}`,
+        archiveUnchanged: (n) => `${number(n)} unchanged`,
+        archiveFailures: (n, details) => `${number(n)} failed${details ? ` (${details})` : ''}`,
+        archiveError: (verb, error) => `${verb} failed · ${error}`, moreReasons: ', etc.', reasonSeparator: ', ', summarySeparator: ' · ',
+        noticeSeparator: ' · ', loading: 'Loading…', loadingMessages: 'Reading message history…',
+        previewMismatch: 'The response was for a different chat', previewFailed: 'Could not load preview',
+        source: (label) => `Source · ${label}`, fullLog: 'Full transcript', compactLog: 'Compact transcript',
+        mergedLog: 'Full and compact transcripts', indexLog: 'Index snippets', noSource: 'No available text', unknownSource: 'Unknown',
+        noMessages: 'This chat has no text to preview. Select Open chat to view it.',
+        userRole: '👤 User', assistantRole: '🤖 Assistant', expandMessage: 'Show full text ▾', foldMessage: 'Collapse ▴',
+        tagsFailed: (error) => `Could not save tags · ${error}`, noteFailed: (error) => `Could not save note · ${error}`,
+        exported: (filename) => `Exported · ${filename}`, revealFile: 'Show file',
+        revealFailed: (error) => `Could not show the exported file · ${error}`, exportFailed: (error) => `Export failed · ${error}`,
+        refreshed: 'Conversation list refreshed', noExports: 'Export a chat to create the export folder.',
+        renamed: 'Chat renamed', deleted: 'Chat permanently deleted', deleteFailed: (error) => `Deletion failed · ${error}`,
+        languageFailed: 'Could not save the display language. Please try again.',
+      },
+    };
+
+    const browserLanguage = navigator.language;
+    const defaultLocale = !browserLanguage || /^zh\b/i.test(browserLanguage) ? 'zh-CN' : 'en';
     const state = {
+      locale: defaultLocale,
       tab: 'archived',
       query: '',
       project: '',
@@ -941,9 +1097,44 @@
     const $ = (id) => document.getElementById(id);
     let searchTimer = null;
     let toastTimer = null;
+    let toastContent;
     let listRequestId = 0;
     let previewRequestId = 0;
-    let previewArchivedOverride;
+    let previewOverrides = {};
+    const deletingIds = new Set();
+
+    const dateFormats = new Map();
+    function t(key, ...args) {
+      const entry = messages[state.locale][key];
+      return typeof entry === 'function' ? entry(...args) : entry;
+    }
+
+    function number(value) {
+      return Number(value).toLocaleString(state.locale);
+    }
+
+    function plural(value, noun) {
+      return `${number(value)} ${value === 1 ? noun : `${noun}s`}`;
+    }
+
+    function applyLocale(locale) {
+      state.locale = locale;
+      document.documentElement.lang = locale;
+      document.title = t('brand');
+      $('languageSelect').value = locale;
+      for (const node of document.querySelectorAll('[data-i18n]')) {
+        const pending = node.dataset.pendingAction;
+        node.textContent = pending ? t('working', t(pending)) : t(node.dataset.i18n);
+      }
+      for (const node of document.querySelectorAll('[data-i18n-title]')) node.title = t(node.dataset.i18nTitle);
+      for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
+      for (const node of document.querySelectorAll('[data-i18n-label]')) node.setAttribute('aria-label', t(node.dataset.i18nLabel));
+      for (const option of document.querySelectorAll('#staleDaysSelect option')) option.textContent = t('days', Number(option.value));
+      updateBatchBar();
+      $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
+      updatePreviewArchiveButton();
+      updateToastText();
+    }
 
     function escapeHtml(s) {
       return String(s || '')
@@ -964,36 +1155,73 @@
     }
 
     function formatTime(ms, raw) {
-      if (!ms) return raw ? raw.slice(0, 10) : '未知时间';
+      if (!ms) return raw ? raw.slice(0, 10) : t('unknownTime');
       const diffSec = Math.floor((Date.now() - ms) / 1000);
-      if (diffSec < 60) return '刚刚';
-      if (diffSec < 3600) return `${Math.floor(diffSec / 60)} 分钟前`;
-      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} 小时前`;
-      if (diffSec < 86400 * 14) return `${Math.floor(diffSec / 86400)} 天前`;
-      const d = new Date(ms);
-      const pad = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      if (diffSec < 60) return t('justNow');
+      for (const [unit, seconds, limit] of [['minute', 60, 3600], ['hour', 3600, 86400], ['day', 86400, 86400 * 14]]) {
+        if (diffSec < limit) return getDateFormats().relative.format(-Math.floor(diffSec / seconds), unit);
+      }
+      return getDateFormats().date.format(ms);
     }
 
-    function showToast(msg, actionLabel, actionFn) {
-      const toast = $('toast');
-      $('toastText').textContent = msg;
+    function getDateFormats() {
+      const locale = state.locale;
+      if (!dateFormats.has(locale)) {
+        const date = { year: 'numeric', month: 'short', day: 'numeric' };
+        dateFormats.set(locale, {
+          date: new Intl.DateTimeFormat(locale, date),
+          timestamp: new Intl.DateTimeFormat(locale, {
+            ...date, hour: '2-digit', minute: '2-digit', second: '2-digit',
+          }),
+          relative: new Intl.RelativeTimeFormat(locale),
+        });
+      }
+      return dateFormats.get(locale);
+    }
+
+    function formatTimestamp(raw) {
+      if (!raw) return '';
+      const ms = Date.parse(raw);
+      return Number.isFinite(ms) ? getDateFormats().timestamp.format(ms) : raw;
+    }
+
+    function updateToastText() {
+      if (!toastContent) return;
+      $('toastText').textContent = typeof toastContent === 'function' ? toastContent() : t(toastContent);
+      const btn = $('toastAction');
+      if (btn.dataset.action) btn.textContent = t(btn.dataset.action);
+    }
+
+    function hideToast() {
+      $('toast').classList.remove('show');
+      toastContent = undefined;
+      const btn = $('toastAction');
+      delete btn.dataset.action;
+      btn.onclick = null;
+      btn.style.display = 'none';
+    }
+
+    function showToast(message, action, actionFn) {
+      toastContent = message;
       const btn = $('toastAction');
       btn.disabled = false;
-      if (actionLabel && actionFn) {
-        btn.textContent = actionLabel;
+      if (action && actionFn) {
+        btn.dataset.action = action;
         btn.style.display = 'inline-block';
         btn.onclick = () => {
-          toast.classList.remove('show');
-          actionFn();
+          hideToast();
+          return actionFn();
         };
       } else {
+        delete btn.dataset.action;
+        btn.textContent = '';
         btn.style.display = 'none';
         btn.onclick = null;
       }
-      toast.classList.add('show');
+      updateToastText();
+      $('toast').classList.add('show');
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toast.classList.remove('show'), 5200);
+      toastTimer = setTimeout(hideToast, 5200);
     }
 
     function renderMarkdown(md, q) {
@@ -1059,10 +1287,10 @@
       return highlightText(s, q);
     }
 
-    async function apiPost(path, body = {}) {
+    async function apiPost(path, body = {}, locale = state.locale) {
       const res = await window.sidecar.fetch(path, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, locale }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -1079,7 +1307,7 @@
       $('batchToggleBtn').classList.toggle('btn-primary', state.batchMode);
       const count = state.checkedIds.size;
       const canApply = state.listReady && !state.archivePending;
-      $('batchCountText').textContent = `已选 ${count} 条`;
+      $('batchCountText').textContent = t('selected', count);
       $('selectAllBtn').disabled = !canApply || state.items.length === 0;
       $('batchRestoreBtn').disabled = !canApply || count === 0;
       $('batchArchiveBtn').disabled = !canApply || count === 0;
@@ -1111,7 +1339,7 @@
         });
         if (requestId !== listRequestId) return false;
         state.items = data.items || [];
-        showDataStatus('listWarning', (data.warnings || []).join('。'));
+        showDataStatus('listWarning', (data.warnings || []).join(t('noticeSeparator')));
 
         // Prune checked IDs not in current list
         const validIds = new Set(state.items.map((x) => x.id));
@@ -1121,23 +1349,24 @@
 
         for (const key of ['archived', 'active', 'starred', 'stale', 'all']) {
           const el = $(`cnt-${key}`);
-          if (el) el.textContent = String(data.counts?.[key] ?? 0);
+          if (el) el.textContent = number(data.counts?.[key] ?? 0);
         }
 
         const projSel = $('projectSelect');
         const curProj = state.project;
-        projSel.innerHTML = '<option value="">全部项目</option>';
+        projSel.innerHTML = `<option value="" data-i18n="allProjects">${escapeHtml(t('allProjects'))}</option>`;
         for (const p of data.projects || []) {
           const opt = document.createElement('option');
           opt.value = p;
-          opt.textContent = p;
+          const labels = data.projectLabels || {};
+          opt.textContent = Object.hasOwn(labels, p) ? (labels[p] ?? p) : p;
           if (p === curProj) opt.selected = true;
           projSel.appendChild(opt);
         }
 
         const tagSel = $('tagSelect');
         const curTag = state.tag;
-        tagSel.innerHTML = '<option value="">全部标签</option>';
+        tagSel.innerHTML = `<option value="" data-i18n="allTags">${escapeHtml(t('allTags'))}</option>`;
         for (const t of data.allTags || []) {
           const opt = document.createElement('option');
           opt.value = t;
@@ -1157,7 +1386,7 @@
         state.listReady = false;
         showDataStatus('listWarning', '');
         updateBatchBar();
-        $('listPane').innerHTML = `<div class="empty-state" role="status">加载失败 · ${escapeHtml(err.message)}</div>`;
+        $('listPane').innerHTML = `<div class="empty-state" role="status">${escapeHtml(t('loadFailed', err.message))}</div>`;
         return false;
       }
     }
@@ -1165,17 +1394,9 @@
     function renderList() {
       const pane = $('listPane');
       if (!state.items.length) {
-        const hint =
-          state.query
-            ? `没有找到包含「${escapeHtml(state.query)}」的会话`
-            : state.tab === 'archived'
-              ? '当前没有已归档会话'
-              : state.tab === 'starred'
-                ? '还没有收藏的会话，点击任意卡片右上角 ☆ 即可原生星标收藏'
-                : state.tab === 'stale'
-                  ? `暂无闲置超过 ${state.staleDays} 天的活跃会话`
-                  : '暂无符合条件的会话';
-        pane.innerHTML = `<div class="empty-state"><div style="font-size:24px;">📭</div><div>${hint}</div></div>`;
+        const hints = { archived: 'noArchived', starred: 'noStarred', stale: 'noStale' };
+        const hint = state.query ? t('noMatches', state.query) : t(hints[state.tab] ?? 'noSessions', state.staleDays);
+        pane.innerHTML = `<div class="empty-state"><div style="font-size:24px;">📭</div><div>${escapeHtml(hint)}</div></div>`;
         return;
       }
 
@@ -1185,10 +1406,10 @@
         card.className = 'conv-card' + (item.id === state.selectedId ? ' selected' : '');
 
         const statusBadge = item.isRunning
-          ? '<span class="pill pill-run"><span class="run-dot"></span>运行中</span>'
+          ? `<span class="pill pill-run"><span class="run-dot"></span>${escapeHtml(t('running'))}</span>`
           : item.archived
-            ? '<span class="pill pill-archived">已归档</span>'
-            : '<span class="pill pill-active">活跃</span>';
+            ? `<span class="pill pill-archived">${escapeHtml(t('archived'))}</span>`
+            : `<span class="pill pill-active">${escapeHtml(t('active'))}</span>`;
 
         const tagsHtml = (item.tags || [])
           .map((t) => `<span class="pill pill-tag">#${escapeHtml(t)}</span>`)
@@ -1200,25 +1421,26 @@
           ? `<div class="card-note">📝 ${highlightText(escapeHtml(item.note), state.query)}</div>`
           : '';
 
-        const stepText = item.stepCount > 0 ? `<span>${item.stepCount} 步</span><span>·</span>` : '';
-        const archiveActionBtn = item.archived
-          ? '<button class="btn btn-sm btn-restore js-toggle-archive" title="在 Antigravity 中取消归档并恢复">♻️ 恢复</button>'
-          : `<button class="btn btn-sm btn-archive js-toggle-archive" ${item.isRunning ? 'disabled title="运行中的会话暂不可归档"' : 'title="在 Antigravity 中归档此会话"'}>📦 归档</button>`;
+        const stepText = item.stepCount > 0 ? `<span>${escapeHtml(t('steps', item.stepCount))}</span><span>·</span>` : '';
+        const archiveAction = item.archived ? 'restore' : 'archive';
+        const archiveHelp = item.archived ? 'restoreHelp' : item.isRunning ? 'runningHelp' : 'archiveHelp';
+        const pinLabel = escapeHtml(t(item.pinned ? 'unpin' : 'pin'));
+        const starLabel = escapeHtml(t(item.starred ? 'unstar' : 'star'));
 
         card.innerHTML = `
           <div class="card-top">
             <div class="card-top-left">
-              <input type="checkbox" class="card-check" ${state.checkedIds.has(item.id) ? 'checked' : ''} />
+              <input type="checkbox" class="card-check" aria-label="${escapeHtml(t('selectChat', item.title))}" ${state.checkedIds.has(item.id) ? 'checked' : ''} />
               <div class="card-title">${highlightText(escapeHtml(item.title), state.query)}</div>
             </div>
             <div class="icon-toggles">
-              <button class="icon-btn js-pin ${item.pinned ? 'pinned' : ''}" title="${item.pinned ? '取消置顶' : '原生置顶'}">📌</button>
-              <button class="icon-btn js-star ${item.starred ? 'starred' : ''}" title="${item.starred ? '取消星标收藏' : '原生星标收藏'}">${item.starred ? '★' : '☆'}</button>
+              <button class="icon-btn js-pin ${item.pinned ? 'pinned' : ''}" title="${pinLabel}" aria-label="${pinLabel}">📌</button>
+              <button class="icon-btn js-star ${item.starred ? 'starred' : ''}" title="${starLabel}" aria-label="${starLabel}">${item.starred ? '★' : '☆'}</button>
             </div>
           </div>
           <div class="card-meta">
             ${statusBadge}
-            <span class="pill pill-proj">${escapeHtml(item.project)}</span>
+            <span class="pill pill-proj">${escapeHtml(item.projectLabel ?? item.project)}</span>
             ${stepText}
             <span>${escapeHtml(formatTime(item.lastModifiedMs, item.lastModified))}</span>
             ${tagsHtml}
@@ -1226,8 +1448,8 @@
           ${noteHtml}
           ${snippetHtml}
           <div class="card-actions">
-            <button class="btn btn-sm js-open">↗ 打开对话</button>
-            ${archiveActionBtn}
+            <button class="btn btn-sm js-open">${escapeHtml(t('openChat'))}</button>
+            <button class="btn btn-sm btn-${archiveAction} js-toggle-archive" title="${escapeHtml(t(archiveHelp))}" ${item.isRunning && !item.archived ? 'disabled' : ''}>${escapeHtml(t(`${archiveAction}Button`))}</button>
           </div>
         `;
 
@@ -1251,11 +1473,11 @@
 
         card.querySelector('.js-pin').addEventListener('click', async (e) => {
           e.stopPropagation();
-          await updateNativeAnnotation(item.id, { pinned: !item.pinned }, !item.pinned ? '已置顶会话' : '已取消置顶');
+          await updateNativeAnnotation(item.id, { pinned: !item.pinned }, item.pinned ? 'unpinned' : 'pinned');
         });
         card.querySelector('.js-star').addEventListener('click', async (e) => {
           e.stopPropagation();
-          await updateNativeAnnotation(item.id, { starred: !item.starred }, !item.starred ? '已星标收藏' : '已取消收藏');
+          await updateNativeAnnotation(item.id, { starred: !item.starred }, item.starred ? 'unstarred' : 'starred');
         });
         card.querySelector('.js-open').addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1273,43 +1495,48 @@
     function openConversationInHost(convId) {
       if (window.sidecar?.ui?.toggleConversation) {
         window.sidecar.ui.toggleConversation(convId);
-        showToast('已在主窗口打开该会话');
+        showToast('hostOpened');
       } else {
-        showToast('当前环境不支持原生跳转');
+        showToast('hostUnavailable');
+      }
+    }
+
+    function applyPreviewPatch(convId, patch) {
+      if (state.selectedId === convId) Object.assign(previewOverrides, patch);
+      if (state.previewData?.id === convId) {
+        Object.assign(state.previewData, patch);
+        updatePreviewHeaderState();
       }
     }
 
     async function updateNativeAnnotation(convId, patch, successMsg) {
       try {
         await apiPost('/api/meta/update', { conversationId: convId, ...patch });
-        if (state.previewData && state.previewData.id === convId) {
-          Object.assign(state.previewData, patch);
-          updatePreviewHeaderState();
-        }
+        applyPreviewPatch(convId, patch);
         if (successMsg) showToast(successMsg);
         await loadList();
       } catch (err) {
-        showToast('更新失败: ' + err.message);
+        showToast(() => t('updateFailed', err.message));
       }
     }
 
     function setConversationsArchived(ids, archived, triggerBtn, staleDays) {
       if (!ids.length) return;
-      return applyArchiveChange({ conversationIds: ids, archived, staleDays }, archived ? '归档' : '恢复', triggerBtn);
+      return applyArchiveChange({ conversationIds: ids, archived, staleDays }, archived ? 'archive' : 'restore', triggerBtn);
     }
 
     async function applyArchiveChange(request, verb, triggerBtn) {
       if (state.archivePending) return;
       state.archivePending = true;
       const toastAction = $('toastAction');
-      if (toastAction.textContent === '撤回') toastAction.disabled = true;
-      const prevText = triggerBtn?.textContent;
-      const pendingText = `${verb}中...`;
+      if (toastAction.dataset.action === 'undo') toastAction.disabled = true;
       if (triggerBtn) {
+        triggerBtn.dataset.pendingAction = verb;
         triggerBtn.disabled = true;
-        triggerBtn.textContent = pendingText;
+        triggerBtn.textContent = t('working', t(verb));
       }
       updateBatchBar();
+      const requestLocale = state.locale;
       try {
         const { succeeded, unchanged, failed, changes } = await apiPost('/api/set-archived', request);
         for (const id of [...succeeded, ...unchanged]) state.checkedIds.delete(id);
@@ -1318,39 +1545,37 @@
         const archiveState = previewChange?.archived ?? (unchanged.includes(selectedId)
           ? (request.undo?.find((change) => change.id === selectedId)?.previousArchived ?? request.archived)
           : undefined);
-        if (typeof archiveState === 'boolean') {
-          previewArchivedOverride = archiveState;
-          if (state.previewData?.id === selectedId) {
-            state.previewData.archived = archiveState;
-            updatePreviewHeaderState();
-          }
-        }
-        const summary = [`${verb}成功 ${succeeded.length} 条`];
-        if (unchanged.length) summary.push(`未变更 ${unchanged.length} 条`);
-        if (failed.length) {
-          const reasons = [...new Set(failed.map(({ error }) => error))];
-          summary.push(`失败 ${failed.length} 条（${reasons.slice(0, 3).join('、')}${reasons.length > 3 ? '等' : ''}）`);
-        }
+        if (typeof archiveState === 'boolean') applyPreviewPatch(selectedId, { archived: archiveState });
         void loadList();
         const canUndo = !request.undo && changes.length > 0;
-        showToast(summary.join('，'), canUndo ? '撤回' : null,
-          canUndo ? () => applyArchiveChange({ undo: changes }, '撤回') : null);
+        const summarize = () => {
+          const summary = [t('archiveSuccess', t(verb), succeeded.length)];
+          if (unchanged.length) summary.push(t('archiveUnchanged', unchanged.length));
+          if (failed.length) {
+            const reasons = requestLocale === state.locale ? [...new Set(failed.map(({ error }) => error))] : [];
+            const details = reasons.slice(0, 3).join(t('reasonSeparator')) + (reasons.length > 3 ? t('moreReasons') : '');
+            summary.push(t('archiveFailures', failed.length, details));
+          }
+          return summary.join(t('summarySeparator'));
+        };
+        showToast(summarize, canUndo ? 'undo' : null,
+          canUndo ? () => applyArchiveChange({ undo: changes }, 'undo') : null);
       } catch (err) {
-        showToast(`${verb}失败 · ${err.message}`);
+        showToast(() => t('archiveError', t(verb), err.message));
       } finally {
         state.archivePending = false;
-        if (triggerBtn && triggerBtn.textContent === pendingText) {
-          triggerBtn.disabled = triggerBtn === $('pvArchiveToggleBtn')
-            ? !state.previewData || (state.previewData.isRunning && !state.previewData.archived)
-            : false;
-          triggerBtn.textContent = prevText;
+        if (triggerBtn) {
+          delete triggerBtn.dataset.pendingAction;
+          triggerBtn.textContent = t(triggerBtn.dataset.i18n ?? `${verb}Button`);
+          if (triggerBtn === $('pvArchiveToggleBtn')) updatePreviewArchiveButton();
+          else triggerBtn.disabled = false;
         }
         updateBatchBar();
       }
     }
 
     function setPreviewControlsReady(ready) {
-      for (const id of ['pvRenameBtn', 'pvOpenBtn', 'pvArchiveToggleBtn', 'pvExportFileBtn',
+      for (const id of ['pvRenameBtn', 'pvTitleInput', 'pvOpenBtn', 'pvArchiveToggleBtn', 'pvExportFileBtn',
         'pvRawBtn', 'pvDeleteBtn', 'tagInput', 'noteInput', 'pvCollapseAllBtn', 'pvScrollTopBtn', 'pvScrollBottomBtn']) {
         $(id).disabled = !ready;
       }
@@ -1362,30 +1587,33 @@
       $('deleteModal').classList.remove('show');
     }
 
-    async function openPreview(convId) {
+    async function openPreview(convId, { refreshLocale = false } = {}) {
+      if (deletingIds.has(convId)) return;
+      const previous = refreshLocale && state.previewData?.id === convId ? state.previewData : null;
       const requestId = ++previewRequestId;
-      previewArchivedOverride = undefined;
+      previewOverrides = {};
       state.selectedId = convId;
       state.previewData = null;
       closeDeleteModal();
-      exitTitleEdit();
+      if (previous && $('pvTitleInput').style.display !== 'none') $('pvRenameBtn').textContent = t('save');
+      else exitTitleEdit();
       setPreviewControlsReady(false);
       showDataStatus('pvSource', '');
-      $('mainSplit').classList.add('show-preview');
+      if (!refreshLocale) $('mainSplit').classList.add('show-preview');
       $('previewEmpty').style.display = 'none';
       $('previewContent').style.display = 'flex';
-      $('pvTitle').textContent = '加载中...';
-      $('pvMessages').innerHTML = '<div class="empty-state">正在读取历史消息...</div>';
+      $('pvTitle').textContent = t('loading');
+      $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(t('loadingMessages'))}</div>`;
+      syncCollapseAllBtn();
       if (state.listReady) renderList();
 
       try {
         const data = await apiPost('/api/preview', { conversationId: convId });
         if (requestId !== previewRequestId) return;
-        if (data.id !== convId) throw new Error('返回的会话与当前选择不一致');
-        if (previewArchivedOverride !== undefined) data.archived = previewArchivedOverride;
-        state.previewData = data;
-        $('tagInput').value = '';
-        $('noteInput').value = data.note || '';
+        if (data.id !== convId) throw new Error(t('previewMismatch'));
+        state.previewData = Object.assign(data, previewOverrides);
+        if (!previous) $('tagInput').value = '';
+        if (!previous || $('noteInput').value === (previous.note || '')) $('noteInput').value = data.note || '';
         setPreviewControlsReady(true);
         renderPreview();
       } catch (err) {
@@ -1393,7 +1621,8 @@
         state.previewData = null;
         setPreviewControlsReady(false);
         showDataStatus('pvSource', '');
-        $('pvTitle').textContent = '预览加载失败';
+        exitTitleEdit();
+        $('pvTitle').textContent = t('previewFailed');
         $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
       }
     }
@@ -1401,49 +1630,52 @@
     function exitTitleEdit() {
       $('pvTitle').style.display = '';
       $('pvTitleInput').style.display = 'none';
-      $('pvRenameBtn').textContent = '✏️ 重命名';
+      $('pvRenameBtn').textContent = t('rename');
+    }
+
+    function updatePreviewArchiveButton() {
+      const archBtn = $('pvArchiveToggleBtn');
+      const d = state.previewData;
+      const pending = archBtn.dataset.pendingAction;
+      const action = d?.archived ? 'restore' : 'archive';
+      archBtn.disabled = Boolean(!d || pending || (d.isRunning && !d.archived));
+      archBtn.textContent = pending ? t('working', t(pending)) : t(`${action}Button`);
+      archBtn.title = t(d?.isRunning && !d.archived ? 'runningHelp' : `${action}Help`);
+      archBtn.classList.toggle('btn-restore', Boolean(d?.archived));
+      archBtn.classList.toggle('btn-archive', !d?.archived);
     }
 
     function updatePreviewHeaderState() {
       const d = state.previewData;
       if (!d) return;
       $('pvTitle').textContent = d.title;
-      const archBtn = $('pvArchiveToggleBtn');
-      archBtn.disabled = Boolean(d.isRunning && !d.archived);
-      if (d.archived) {
-        archBtn.textContent = '♻️ 恢复';
-        archBtn.classList.add('btn-restore');
-        archBtn.classList.remove('btn-archive');
-      } else {
-        archBtn.textContent = '📦 归档';
-        archBtn.classList.remove('btn-restore');
-        archBtn.classList.add('btn-archive');
-      }
-      $('pvRawBtn').textContent = state.rawMode ? '排版' : '原文';
+      updatePreviewArchiveButton();
+      $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       $('pvDeleteBtn').disabled = Boolean(d.isRunning);
       const sourceLabels = {
-        transcript_full: '完整日志',
-        transcript: '紧凑日志',
-        'transcript_full+transcript': '完整日志和紧凑日志',
-        fts: '索引片段',
-        none: '无可用文本',
+        transcript_full: 'fullLog',
+        transcript: 'compactLog',
+        'transcript_full+transcript': 'mergedLog',
+        fts: 'indexLog',
+        none: 'noSource',
       };
       const pvWarnings = d.warnings || [];
       const showSourceBanner = Boolean(pvWarnings.length) || (Boolean(d.source) && d.source !== 'transcript_full');
       showDataStatus(
         'pvSource',
-        showSourceBanner ? [`来源 · ${sourceLabels[d.source] || d.source || '未知'}`, ...pvWarnings].join('。') : ''
+        showSourceBanner ? [t('source', t(sourceLabels[d.source] ?? 'unknownSource')), ...pvWarnings].join(t('noticeSeparator')) : ''
       );
 
       const row = $('pvTagsRow');
       const input = $('tagInput');
       row.querySelectorAll('.tag-chip').forEach((n) => n.remove());
-      for (const t of d.tags || []) {
+      for (const tag of d.tags || []) {
         const chip = document.createElement('span');
         chip.className = 'tag-chip';
-        chip.innerHTML = `<span>#${escapeHtml(t)}</span><button type="button" title="移除标签">×</button>`;
+        const label = escapeHtml(t('removeTag', tag));
+        chip.innerHTML = `<span>#${escapeHtml(tag)}</span><button type="button" title="${label}" aria-label="${label}">×</button>`;
         chip.querySelector('button').addEventListener('click', async () => {
-          const nextTags = (d.tags || []).filter((x) => x !== t);
+          const nextTags = (d.tags || []).filter((x) => x !== tag);
           await saveTags(d.id, nextTags);
         });
         row.insertBefore(chip, input);
@@ -1460,17 +1692,18 @@
       $('pvScrollTopBtn').disabled = !hasMsgs;
       $('pvScrollBottomBtn').disabled = !hasMsgs;
       if (!hasMsgs) {
-        btn.textContent = '⊞ 展开全部';
+        btn.textContent = t('expandAll');
+        btn.title = t('expandAllHelp');
         return;
       }
       if (longBlocks.length > 0) {
         const hasCollapsed = Boolean(box.querySelector('.msg-block.is-collapsed, .msg-block.is-folded'));
-        btn.textContent = hasCollapsed ? '⊞ 展开全部' : '⊟ 全部折叠';
-        btn.title = hasCollapsed ? '展开全部超长消息' : '折叠全部超长消息';
+        btn.textContent = t(hasCollapsed ? 'expandAll' : 'foldAll');
+        btn.title = t(hasCollapsed ? 'expandLongHelp' : 'foldLongHelp');
       } else {
         const hasFolded = Boolean(box.querySelector('.msg-block.is-folded'));
-        btn.textContent = hasFolded ? '⊞ 展开全部' : '⊟ 全部折叠';
-        btn.title = hasFolded ? '展开全部消息' : '折叠全部消息正文';
+        btn.textContent = t(hasFolded ? 'expandAll' : 'foldAll');
+        btn.title = t(hasFolded ? 'expandAllHelp' : 'foldAllHelp');
       }
     }
 
@@ -1484,7 +1717,7 @@
         for (const blk of longBlocks) {
           blk.classList.toggle('is-collapsed', !shouldExpand);
           const eb = blk.querySelector('.msg-expand-btn');
-          if (eb) eb.textContent = shouldExpand ? '收起 ▴' : '展开全文 ▾';
+          if (eb) eb.textContent = t(shouldExpand ? 'foldMessage' : 'expandMessage');
         }
       } else if (allBlocks.length > 0) {
         const shouldExpand = Boolean(box.querySelector('.msg-block.is-folded'));
@@ -1502,7 +1735,7 @@
 
       const box = $('pvMessages');
       if (!d.messages || !d.messages.length) {
-        box.innerHTML = '<div class="empty-state">该会话暂无可预览的文本消息，请点击上方「打开对话」查看。</div>';
+        box.innerHTML = `<div class="empty-state">${escapeHtml(t('noMessages'))}</div>`;
         syncCollapseAllBtn();
         return;
       }
@@ -1511,22 +1744,22 @@
       for (const m of d.messages) {
         const blk = document.createElement('div');
         blk.className = `msg-block ${m.role}`;
-        const roleLabel = m.role === 'user' ? '👤 User' : '🤖 Assistant';
-        const tsLabel = m.timestamp ? m.timestamp.replace('T', ' ').replace('Z', '') : '';
+        const roleLabel = t(m.role === 'user' ? 'userRole' : 'assistantRole');
+        const tsLabel = formatTimestamp(m.timestamp);
         const bodyHtml = state.rawMode
           ? highlightText(escapeHtml(m.content), state.query)
           : renderMarkdown(m.content, state.query);
 
         blk.innerHTML = `
           <div class="msg-head">
-            <span>${roleLabel}</span>
+            <span>${escapeHtml(roleLabel)}</span>
             <span style="font-weight:400;">${escapeHtml(tsLabel)}</span>
           </div>
           <div class="msg-body-wrap">
             <div class="msg-body ${state.rawMode ? 'raw' : ''}">${bodyHtml}</div>
             <div class="msg-fade"></div>
           </div>
-          <button type="button" class="msg-expand-btn" style="display:none;">展开全文 ▾</button>
+          <button type="button" class="msg-expand-btn" style="display:none;">${escapeHtml(t('expandMessage'))}</button>
         `;
         box.appendChild(blk);
 
@@ -1535,12 +1768,11 @@
         if (bodyEl.scrollHeight > MSG_COLLAPSE_THRESHOLD) {
           blk.classList.add('is-long', 'is-collapsed');
           expandBtn.style.display = 'block';
-          expandBtn.textContent = '展开全文 ▾';
         }
         expandBtn.addEventListener('click', () => {
           const willCollapse = !blk.classList.contains('is-collapsed');
           blk.classList.toggle('is-collapsed', willCollapse);
-          expandBtn.textContent = willCollapse ? '展开全文 ▾' : '收起 ▴';
+          expandBtn.textContent = t(willCollapse ? 'expandMessage' : 'foldMessage');
           if (willCollapse && blk.getBoundingClientRect().top < box.getBoundingClientRect().top) {
             blk.scrollIntoView({ block: 'nearest' });
           }
@@ -1560,42 +1792,77 @@
     async function saveTags(convId, tags) {
       try {
         const res = await apiPost('/api/meta/update', { conversationId: convId, tags });
-        if (state.previewData && state.previewData.id === convId) {
-          state.previewData.tags = res.meta.tags || [];
-          updatePreviewHeaderState();
-        }
+        applyPreviewPatch(convId, { tags: res.meta.tags || [] });
         await loadList();
       } catch (err) {
-        showToast('保存标签失败: ' + err.message);
+        showToast(() => t('tagsFailed', err.message));
       }
     }
 
     async function saveNote(convId, note) {
       try {
         const res = await apiPost('/api/meta/update', { conversationId: convId, note });
-        if (state.previewData && state.previewData.id === convId) {
-          state.previewData.note = res.meta.note || '';
-        }
+        applyPreviewPatch(convId, { note: res.meta.note || '' });
         await loadList();
       } catch (err) {
-        showToast('保存备注失败: ' + err.message);
+        showToast(() => t('noteFailed', err.message));
       }
     }
 
     async function exportConversationToFile(convId) {
       try {
         const res = await apiPost('/api/export', { conversationId: convId, saveToDisk: true });
-        showToast(`已导出: ${res.filename}`, '定位文件', async () => {
+        showToast(() => t('exported', res.filename), 'revealFile', async () => {
           try {
             await apiPost('/api/reveal-file', { path: res.savedPath, isFile: true });
           } catch (err) {
-            showToast('无法定位导出文件 · ' + err.message);
+            showToast(() => t('revealFailed', err.message));
           }
         });
       } catch (err) {
-        showToast('导出失败: ' + err.message);
+        showToast(() => t('exportFailed', err.message));
       }
     }
+
+    async function initializePanel() {
+      const select = $('languageSelect');
+      applyLocale(defaultLocale);
+      try {
+        const { language } = await apiPost('/api/preferences');
+        if (Object.hasOwn(messages, language)) applyLocale(language);
+      } catch {
+        // The WebView language still applies if the preferences are unavailable.
+      } finally {
+        select.disabled = false;
+      }
+      await loadList();
+    }
+
+    $('languageSelect').addEventListener('change', async () => {
+      const select = $('languageSelect');
+      const language = select.value;
+      if (select.disabled || language === state.locale || !Object.hasOwn(messages, language)) return;
+      showDataStatus('languageStatus', '');
+      select.disabled = true;
+      try {
+        const saved = await apiPost('/api/preferences', { language }, language);
+        if (saved.language !== language) throw new Error();
+        applyLocale(language);
+      } catch {
+        select.value = state.locale;
+        showDataStatus('languageStatus', t('languageFailed'));
+        return;
+      } finally {
+        select.disabled = false;
+      }
+
+      clearTimeout(searchTimer);
+      showDataStatus('listWarning', '');
+      $('listPane').innerHTML = `<div class="empty-state" role="status">${escapeHtml(t('loading'))}</div>`;
+      const list = loadList();
+      const preview = state.selectedId && openPreview(state.selectedId, { refreshLocale: true });
+      await Promise.all([list, preview]);
+    });
 
     // Tabs & Filter events
     $('tabs').addEventListener('click', (e) => {
@@ -1636,14 +1903,14 @@
 
     $('refreshBtn').addEventListener('click', async () => {
       if (state.selectedId) openPreview(state.selectedId);
-      if (await loadList()) showToast('已刷新会话列表');
+      if (await loadList()) showToast('refreshed');
     });
 
     $('openExportDirBtn').addEventListener('click', async () => {
       try {
         await apiPost('/api/reveal-file', { path: '', isFile: false });
       } catch {
-        showToast('尚未导出过文件，请先导出任意会话');
+        showToast('noExports');
       }
     });
 
@@ -1715,7 +1982,7 @@
       const oldTitle = state.previewData.title;
       exitTitleEdit();
       if (nextTitle && nextTitle !== oldTitle) {
-        await updateNativeAnnotation(state.previewData.id, { title: nextTitle }, '已重命名会话');
+        await updateNativeAnnotation(state.previewData.id, { title: nextTitle }, 'renamed');
       }
     }
     $('pvRenameBtn').addEventListener('click', () => {
@@ -1728,7 +1995,7 @@
       $('pvTitle').style.display = 'none';
       input.style.display = 'block';
       input.value = state.previewData.title || '';
-      $('pvRenameBtn').textContent = '✓ 保存';
+      $('pvRenameBtn').textContent = t('save');
       input.focus();
       input.select();
     });
@@ -1741,16 +2008,19 @@
     $('pvDeleteBtn').addEventListener('click', () => {
       if (!state.previewData || state.previewData.isRunning) return;
       state.pendingDeleteId = state.previewData.id;
-      $('deleteModalDesc').textContent = `确定要永久删除会话「${state.previewData.title}」吗？该操作会彻底删除对话记录且无法恢复（若只想隐藏，建议点击「归档」）。`;
+      $('deleteModalDesc').textContent = t('deleteConfirm', state.previewData.title);
       $('deleteModal').classList.add('show');
     });
     $('deleteCancelBtn').addEventListener('click', closeDeleteModal);
     $('deleteConfirmBtn').addEventListener('click', async () => {
       const id = state.pendingDeleteId;
       closeDeleteModal();
-      if (!id || id !== state.previewData?.id) return;
+      if (!id || id !== state.previewData?.id || deletingIds.has(id)) return;
       const preview = state.previewData;
       const requestId = previewRequestId;
+      const requestLocale = state.locale;
+      let reloadPreview = false;
+      deletingIds.add(id);
       state.previewData = null;
       setPreviewControlsReady(false);
       try {
@@ -1763,16 +2033,22 @@
           $('previewEmpty').style.display = 'flex';
           $('mainSplit').classList.remove('show-preview');
         }
-        showToast(['已永久删除该会话', ...(result.warnings || [])].join('。'));
+        showToast(() => [t('deleted'), ...(result.warnings || [])].join(t('noticeSeparator')));
         await loadList();
       } catch (err) {
         if (state.selectedId === id && !state.previewData && previewRequestId === requestId) {
-          state.previewData = preview;
-          setPreviewControlsReady(true);
-          renderPreview();
+          reloadPreview = requestLocale !== state.locale;
+          if (!reloadPreview) {
+            state.previewData = preview;
+            setPreviewControlsReady(true);
+            renderPreview();
+          }
         }
-        showToast('删除失败 · ' + err.message);
+        showToast(() => t('deleteFailed', err.message));
+      } finally {
+        deletingIds.delete(id);
       }
+      if (reloadPreview) await openPreview(id, { refreshLocale: true });
     });
 
     // Tags & note inputs
@@ -1795,8 +2071,10 @@
     });
 
     // Initial load & auto-refresh on focus
-    loadList();
-    window.addEventListener('focus', () => loadList());
+    initializePanel();
+    window.addEventListener('focus', () => {
+      if (!$('languageSelect').disabled) loadList();
+    });
   </script>
 </body>
 </html>

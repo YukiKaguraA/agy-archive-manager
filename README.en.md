@@ -26,6 +26,12 @@ A session manager plugin (Sidecar + Skill) for Google Antigravity. Browse, archi
 - **Markdown Export**. Save available conversation content, metadata, tags, and notes to `~/Documents/Antigravity-Exports`. Open the export folder or reveal the saved file from the panel.
 - **Optional Left-Sidebar Quick Entry**. With CDP enabled, the left sidebar shows a **Session Manager** button and the archived count. The side-panel Plugins menu and skill prompts also open the panel.
 
+## What's new in v2.2.0
+
+- Use the **简体中文 / English** menu at the top of the panel to change languages. The browser language determines whether the panel opens in Chinese or English the first time. The plugin remembers your choice.
+- The selected language applies to panel controls, confirmations, errors, concise left-sidebar labels, and labels in Markdown exports, while timestamps follow your local timezone. Conversation text, titles, tags, and notes stay in their original language.
+- Universal host theme & UI pack compatibility: dynamic `color-mix` accent/surface tokens, inherited host fonts, dark/light-safe code blocks & toasts, and hardened left-sidebar tab matching across custom layouts.
+
 ## What's new in v2.1.1
 
 - When conversations or filters change quickly, older responses no longer overwrite the current preview or list.
@@ -63,6 +69,8 @@ Copy the plugin payload into `~/.gemini/config/plugins/archive-manager/` (`%USER
 - `plugin.json`
 - `logo.svg`
 - `README.md`
+- `README.en.md`
+- `docs/screenshots/` (images used in the READMEs)
 - `LICENSE`
 - `skills/`
 - `sidecars/`

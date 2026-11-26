@@ -20,6 +20,7 @@ function mockSidebarEnvironment(t, {
   pages = [MAIN_PAGE],
   waitForMount = async () => {},
   ownerTimestamp,
+  onMount = () => {},
 } = {}) {
   t.mock.timers.enable({ apis: ['Date', 'setInterval', 'setTimeout'] });
   const originalExistsSync = fs.existsSync;
@@ -72,6 +73,7 @@ function mockSidebarEnvironment(t, {
         operations.push('mount');
         badgeCounts.push(Number(count[1]));
         await waitForMount();
+        onMount(params.expression);
       } else {
         runInNewContext(params.expression, { window, document });
       }
@@ -228,4 +230,57 @@ test('cleanup leaves the button owned by a newer sidecar instance', async (t) =>
   await cleanup();
 
   assert.deepEqual(operations, []);
+});
+
+test('mounts a concise locale-aware sidebar entry and updates it on language switch', async (t) => {
+  const makeElement = () => ({
+    attributes: {},
+    children: [],
+    style: {},
+    handlers: {},
+    setAttribute(key, value) { this.attributes[key] = value; },
+    getAttribute(key) { return this.attributes[key] ?? null; },
+    appendChild(child) { this.children.push(child); },
+    addEventListener(event, handler) { this.handlers[event] = handler; },
+  });
+  const nav = makeElement();
+  const labelNode = makeElement();
+  labelNode.id = 'ag-archive-nav-label';
+  let tabClicks = 0;
+  const existingTab = {
+    id: 'existing-tab',
+    innerText: '会话管理 (Session Manager)',
+    getAttribute: (key) => key === 'role' ? 'tab' : null,
+    getBoundingClientRect: () => ({ x: 240, y: 115, width: 180, height: 30 }),
+    click() { tabClicks++; },
+  };
+  const pageDocument = {
+    getElementById(id) {
+      if (id === 'ag-archive-nav-label') return nav.children.length ? labelNode : null;
+      return nav.children[0]?.children.find((element) => element.id === id) || (nav.children[0]?.id === id ? nav.children[0] : null);
+    },
+    querySelector: (selector) => selector.includes('automations-button') ? { parentElement: nav } : null,
+    querySelectorAll: () => [existingTab],
+    createElement: makeElement,
+  };
+  const { advance } = mockSidebarEnvironment(t, {
+    onMount: (expression) => runInNewContext(expression, { window: {}, document: pageDocument }),
+  });
+  let currentLang = 'zh-CN';
+  const { invalidateCount } = startSidebarInjector(async () => 4, () => currentLang);
+  await advance(500);
+  const [button] = nav.children;
+  assert.equal(button.attributes['aria-label'], '会话管理');
+  assert.equal(labelNode.textContent, '会话管理');
+  assert.equal(button.children[1].title, '当前有 4 条已归档会话');
+
+  currentLang = 'en';
+  invalidateCount();
+  await setImmediate();
+  assert.equal(button.attributes['aria-label'], 'Session Manager');
+  assert.equal(labelNode.textContent, 'Session Manager');
+  assert.equal(button.children[1].title, '4 archived sessions');
+
+  await button.handlers.click();
+  assert.equal(tabClicks, 1);
 });

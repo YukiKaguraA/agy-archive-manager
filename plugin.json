@@ -1,8 +1,8 @@
 {
   "name": "archive-manager",
   "displayName": "会话管理 (Session Manager)",
-  "version": "2.1.1",
-  "description": "Antigravity 会话管理插件，支持分类浏览、全文检索、免恢复预览、归档与恢复（含撤回）、批量归档闲置会话、置顶、星标、重命名、删除、标签与备注，以及 Markdown 导出。",
+  "version": "2.2.0",
+  "description": "Antigravity 会话管理插件，支持分类浏览、全文检索、免恢复预览、归档与恢复（含撤回）、批量归档闲置会话、置顶、星标、重命名、删除、标签与备注，以及 Markdown 导出。 Archive, restore, search, preview, and export Antigravity sessions in English or Simplified Chinese.",
   "author": {
     "name": "YukiKagura",
     "url": "https://github.com/YukiKaguraA"
@@ -11,7 +11,7 @@
   "repository": "https://github.com/YukiKaguraA/agy-archive-manager",
   "logo": "logo.svg",
   "suggestedPrompts": [
-    "打开会话管理面板",
+    "打开会话管理面板 / Open Session Manager",
     "帮我检索并管理已归档的历史对话",
     "导出某条历史会话为 Markdown 文件"
   ]

@@ -6,23 +6,30 @@ import { createContext, runInContext } from 'node:vm';
 const html = readFileSync(new URL('../sidecars/archive_manager/index.html', import.meta.url), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
-function createPanel(fetch) {
+function createPanel(fetch, language) {
   const elements = new Map();
+  function makeElement() {
+    return {
+      style: {}, dataset: {}, handlers: {}, children: [], textContent: '',
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+      setAttribute(name, value) { this[name] = value; },
+      addEventListener(event, handler) { this.handlers[event] = handler; },
+      querySelectorAll() { return []; },
+      appendChild(child) { this.children.push(child); },
+    };
+  }
   function element(id) {
-    if (!elements.has(id)) {
-      elements.set(id, {
-        style: {}, handlers: {},
-        classList: { add() {}, remove() {}, toggle() {} },
-        addEventListener(event, handler) { this.handlers[event] = handler; },
-        querySelectorAll() { return []; },
-        appendChild() {},
-      });
-    }
+    if (!elements.has(id)) elements.set(id, makeElement());
     return elements.get(id);
   }
 
   const context = createContext({
-    document: { body: { contains: () => true }, getElementById: element },
+    navigator: { language },
+    setTimeout() {}, clearTimeout() {},
+    document: {
+      body: { contains: () => true }, documentElement: {}, getElementById: element,
+      createElement: makeElement, querySelectorAll: () => [],
+    },
     window: {
       addEventListener() {},
       sidecar: { fetch: async (path, req) => ({
@@ -31,9 +38,17 @@ function createPanel(fetch) {
     },
   });
   const run = (code) => runInContext(code, context);
-  run(script.replace('    loadList();\n    window.addEventListener', '    window.addEventListener'));
+  run(script.replace(/    (?:loadList|initializePanel)\(\);\r?\n    window.addEventListener/, '    window.addEventListener'));
   run("renderList = () => {}; renderPreview = () => { updatePreviewHeaderState(); };");
-  run("showToast = (message, label, action) => { globalThis.toast = { message, label, action }; };");
+  run(`const originalShowToast = showToast;
+    showToast = (...args) => {
+      originalShowToast(...args);
+      globalThis.toast = {
+        message: $('toastText').textContent,
+        label: $('toastAction').textContent,
+        action: $('toastAction').onclick,
+      };
+    };`);
   return { element, run };
 }
 
@@ -98,7 +113,7 @@ test('a late list response cannot become the input to stale cleanup', async () =
   assert.equal(run('state.items[0].id'), 'stale');
   assert.equal(element('archiveAllStaleBtn').disabled, false);
   await element('archiveAllStaleBtn').handlers.click({ currentTarget: element('archiveAllStaleBtn') });
-  assert.deepEqual(requests[0], { conversationIds: ['stale'], archived: true, staleDays: 14 });
+  assert.deepEqual(requests[0], { conversationIds: ['stale'], archived: true, staleDays: 14, locale: 'zh-CN' });
 });
 
 test('a failed list refresh disables stale cleanup and bulk actions', async () => {
@@ -129,7 +144,7 @@ test('partial batch failure is visible and undo sends only the recorded changes'
   assert.match(run('toast.message'), /成功 1 条.*失败 1 条.*会话正在运行/);
   assert.equal(run('toast.label'), '撤回');
   await run('toast.action()');
-  assert.deepEqual(requests[1], { undo: changes });
+  assert.deepEqual(requests[1], { undo: changes, locale: 'zh-CN' });
 });
 
 test('preview displays its transcript source and any warning', async () => {
@@ -206,8 +221,7 @@ test('the previous undo button is disabled during a second archive request', asy
     ? { items: [] }
     : reply.promise);
   const undoButton = element('toastAction');
-  undoButton.textContent = '撤回';
-  undoButton.disabled = false;
+  run("showToast(() => '已归档', 'undo', () => {})");
   const archive = run("setConversationsArchived(['B'], true)");
   try {
     assert.equal(undoButton.disabled, true);
@@ -217,3 +231,157 @@ test('the previous undo button is disabled during a second archive request', asy
   }
 });
 
+test('the first list request uses the saved language or the WebView default', async () => {
+  for (const [webViewLanguage, saved, initialLocale, expected] of [
+    ['zh-TW', 'en', 'zh-CN', 'en'],
+    ['en-US', null, 'en', 'en'],
+    [undefined, null, 'zh-CN', 'zh-CN'],
+  ]) {
+    const requests = [];
+    const { element, run } = createPanel((path, body) => {
+      requests.push([path, body.locale]);
+      if (path === '/api/preferences') return { language: saved };
+      return { items: [] };
+    }, webViewLanguage);
+    await run('initializePanel()');
+    assert.equal(element('languageSelect').value, expected);
+    assert.equal(run('document.documentElement.lang'), expected);
+    assert.deepEqual(requests, [['/api/preferences', initialLocale], ['/api/conversations', expected]]);
+  }
+});
+
+test('switching language reloads the current filters and preview without accepting earlier responses', async () => {
+  const oldList = deferred();
+  const oldPreview = deferred();
+  const requests = [];
+  const { element, run } = createPanel((path, body) => {
+    requests.push([path, body]);
+    if (path === '/api/preferences') return { language: body.language };
+    if (path === '/api/conversations') return body.locale === 'en'
+      ? { items: [{ id: 'A' }], warnings: ['List warning.'], projects: ['原项目'], projectLabels: { 原项目: 'No project' } }
+      : oldList.promise;
+    return body.locale === 'en'
+      ? { id: 'A', title: '项目原名', source: 'fts', warnings: ['Index fallback.'] }
+      : oldPreview.promise;
+  });
+  run("state.tab = 'all'; state.query = '术语'; state.project = '原项目'; state.tag = '标签';");
+  const listRequest = run('loadList()');
+  const previewRequest = run("openPreview('A')");
+  element('languageSelect').value = 'en';
+  await element('languageSelect').handlers.change();
+  oldList.resolve({ items: [], warnings: ['旧警告'] });
+  oldPreview.resolve({ id: 'A', title: '旧标题', warnings: ['旧正文警告'] });
+  await Promise.all([listRequest, previewRequest]);
+  assert.deepEqual(requests[2], ['/api/preferences', { language: 'en', locale: 'en' }]);
+  const preview = requests.find(([path, body]) => path === '/api/preview' && body.locale === 'en');
+  assert.deepEqual(preview?.[1], { conversationId: 'A', locale: 'en' });
+  const list = requests.find(([path, body]) => path === '/api/conversations' && body.locale === 'en');
+  assert.deepEqual(list?.[1], { tab: 'all', query: '术语', project: '原项目', tag: '标签', sort: 'updated', staleDays: 7, locale: 'en' });
+  const option = element('projectSelect').children[0];
+  assert.equal(option.value, '原项目');
+  assert.equal(option.textContent, 'No project');
+  assert.equal(option.selected, true);
+  assert.equal(element('listWarning').textContent, 'List warning.');
+  assert.equal(element('pvTitle').textContent, '项目原名');
+  assert.match(element('pvSource').textContent, /Index.*Index fallback\./);
+});
+
+test('language change keeps Undo available in the selected language', async () => {
+  const requests = [];
+  const changes = [{ id: 'A', previousArchived: false, archived: true }];
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/preferences') return { language: body.language };
+    if (path === '/api/conversations') return { items: [] };
+    requests.push(body);
+    return { succeeded: ['A'], unchanged: [], failed: [], changes };
+  });
+  await run("setConversationsArchived(['A'], true)");
+  assert.equal(element('toastAction').textContent, '撤回');
+  element('languageSelect').value = 'en';
+  await element('languageSelect').handlers.change();
+  assert.equal(element('toastAction').textContent, 'Undo');
+  assert.equal(element('toastAction').disabled, false);
+  await element('toastAction').onclick();
+  assert.deepEqual(requests[1], { undo: changes, locale: 'en' });
+});
+
+test('a failed language save leaves the previous language and Undo available', async () => {
+  const requests = [];
+  const changes = [{ id: 'A', previousArchived: false, archived: true }];
+  const { element, run } = createPanel((path, body) => {
+    requests.push([path, body]);
+    if (path === '/api/preferences') throw new Error('offline');
+    if (path === '/api/conversations') return { items: [] };
+    return { succeeded: ['A'], unchanged: [], failed: [], changes };
+  });
+  await run("setConversationsArchived(['A'], true)");
+  element('languageSelect').value = 'en';
+  await element('languageSelect').handlers.change();
+  assert.equal(element('languageSelect').value, 'zh-CN');
+  assert.equal(element('languageSelect').disabled, false);
+  assert.match(element('languageStatus').textContent, /未能保存界面语言/);
+  assert.equal(element('toastAction').textContent, '撤回');
+  await element('toastAction').onclick();
+  assert.deepEqual(requests.find(([, body]) => body.undo), ['/api/set-archived', { undo: changes, locale: 'zh-CN' }]);
+});
+
+test('a rename completed during a language refresh supersedes the preview snapshot', async () => {
+  const rename = deferred();
+  const englishPreview = deferred();
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/preferences') return { language: body.language };
+    if (path === '/api/conversations') return { items: [] };
+    if (path === '/api/meta/update') return rename.promise;
+    if (body.locale === 'en') return englishPreview.promise;
+    return { id: 'A', title: '原来的标题' };
+  });
+  await run("openPreview('A')");
+  const updating = run("updateNativeAnnotation('A', { title: '新标题' }, 'renamed')");
+  element('languageSelect').value = 'en';
+  const switching = element('languageSelect').handlers.change();
+  await new Promise((resolve) => setImmediate(resolve));
+  rename.resolve({});
+  await updating;
+  englishPreview.resolve({ id: 'A', title: '原来的标题' });
+  await switching;
+  assert.equal(element('pvTitle').textContent, '新标题');
+});
+
+
+test('switching language keeps a pending deletion locked until the request finishes', async () => {
+  const deletion = deferred();
+  const requests = [];
+  const { element, run } = createPanel((path, body) => {
+    requests.push([path, body]);
+    if (path === '/api/preferences') return { language: body.language };
+    if (path === '/api/conversations') return { items: [] };
+    if (path === '/api/delete') return deletion.promise;
+    return { id: 'A', title: 'Session A', source: 'fts', warnings: [body.locale === 'en' ? 'Index only.' : '仅索引'] };
+  });
+
+  await run("openPreview('A')");
+  element('pvDeleteBtn').handlers.click();
+  const pending = element('deleteConfirmBtn').handlers.click();
+  try {
+    element('languageSelect').value = 'en';
+    await element('languageSelect').handlers.change();
+    assert.equal(requests.some(([path, body]) => path === '/api/preview' && body.locale === 'en'), false);
+    assert.equal(element('pvDeleteBtn').disabled, true);
+    assert.equal(run('state.previewData'), null);
+  } finally {
+    deletion.reject(new Error('Delete request failed'));
+    await pending;
+  }
+  assert.equal(element('pvDeleteBtn').disabled, false);
+  assert.match(element('pvSource').textContent, /Index only\./);
+  assert.equal(requests.filter(([path]) => path === '/api/delete').length, 1);
+});
+
+test('English brand uses Session Manager and timestamps format in local timezone', () => {
+  const { run } = createPanel(() => ({ items: [] }), 'en-US');
+  run("applyLocale('en')");
+  assert.equal(run('document.title'), 'Session Manager');
+  const formatted = run("formatTimestamp('2026-11-26T10:30:00Z')");
+  assert.ok(formatted.length > 0);
+  assert.equal(formatted.includes('UTC'), false);
+});

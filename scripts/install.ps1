@@ -13,12 +13,23 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
-$files = @('plugin.json', 'logo.svg', 'README.md', 'LICENSE')
+$files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'LICENSE')
 foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
     if (Test-Path $src) {
         Copy-Item -Path $src -Destination (Join-Path $TargetDir $f) -Force
     }
+}
+
+$screenshots = Join-Path $repoRoot 'docs/screenshots'
+if (Test-Path -LiteralPath $screenshots -PathType Container) {
+    $targetDocs = Join-Path $TargetDir 'docs'
+    $targetScreenshots = Join-Path $targetDocs 'screenshots'
+    New-Item -ItemType Directory -Path $targetDocs -Force | Out-Null
+    if (Test-Path -LiteralPath $targetScreenshots) {
+        Remove-Item -LiteralPath $targetScreenshots -Recurse -Force
+    }
+    Copy-Item -LiteralPath $screenshots -Destination $targetDocs -Recurse -Force
 }
 
 $dirs = @('skills', 'sidecars')

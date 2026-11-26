@@ -10,6 +10,7 @@ const home = mkdtempSync(join(tmpdir(), 'archive-manager-test-'));
 const agyDir = join(home, '.gemini', 'antigravity');
 const dataDir = join(home, 'data');
 const metaFile = join(dataDir, 'meta.json');
+const preferencesFile = join(dataDir, 'preferences.json');
 const dbFile = join(agyDir, 'conversation_summaries.db');
 const routes = new Map();
 let archivedCount;
@@ -87,7 +88,7 @@ beforeEach(() => {
   sparseUpdates = new Set();
   afterUpdate = null;
   invalidations = 0;
-  for (const file of [metaFile, dbFile, join(dataDir, 'meta.json.tmp')]) {
+  for (const file of [metaFile, preferencesFile, dbFile, join(dataDir, 'meta.json.tmp')]) {
     rmSync(file, { force: true });
   }
 });
@@ -114,6 +115,103 @@ function call(path, input) {
 function mutationIds(method) {
   return requests.filter((request) => request.method === method).map((request) => request.input.conversationId);
 }
+
+test('language preference persists in a separate file and rejects unsupported values', async () => {
+  const existingNotes = JSON.stringify({ conversations: { 'note-id': { note: '保留备注' } } });
+  writeFileSync(metaFile, existingNotes);
+  assert.deepEqual(await call('preferences', { locale: 'en' }), { language: null });
+  assert.equal(existsSync(preferencesFile), false);
+
+  assert.deepEqual(await call('preferences', { language: 'en' }), { language: 'en' });
+  assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'en' });
+  assert.deepEqual(await call('preferences', { locale: 'zh-CN' }), { language: 'en' });
+  for (const language of ['fr', 'EN', null, 1, ['en']]) {
+    await assert.rejects(call('preferences', { locale: 'en', language }), /Unsupported language/);
+  }
+  assert.deepEqual(await call('preferences', {}), { language: 'en' });
+  assert.deepEqual(await call('preferences', { locale: 'en', language: 'zh-CN' }), { language: 'zh-CN' });
+  assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'zh-CN' });
+  assert.equal(readFileSync(metaFile, 'utf8'), existingNotes);
+  assert.deepEqual(readdirSync(dataDir).sort(), ['meta.json', 'preferences.json']);
+});
+
+test('invalid preference data stays on disk until a valid language is saved', async () => {
+  const invalid = '{"language":"invalid"}';
+  writeFileSync(preferencesFile, invalid);
+  await assert.rejects(call('preferences', { locale: 'en' }), /Invalid language preferences.*preferences\.json/);
+  assert.equal(readFileSync(preferencesFile, 'utf8'), invalid);
+  assert.deepEqual(await call('preferences', { language: 'en' }), { language: 'en' });
+  assert.deepEqual(await call('preferences', {}), { language: 'en' });
+});
+
+test('concurrent requests keep independent languages in archive and delete safety errors', async () => {
+  addConversation('running', { runState: 'RUN_STATE_RUNNING' });
+  addConversation('pinned', { pinned: true });
+  addConversation('upstream-error');
+  failures.add('UpdateConversation:upstream-error');
+
+  const archive = { conversationIds: ['pinned', 'upstream-error'], archived: true, staleDays: 7 };
+  const [english, chinese] = await Promise.all([
+    call('set-archived', { ...archive, locale: 'en' }),
+    call('set-archived', { ...archive, locale: 'zh-CN' }),
+    assert.rejects(call('delete', { conversationId: 'running', locale: 'en' }), /Stop it before deleting/),
+    assert.rejects(call('delete', { conversationId: 'running' }), /请先停止后再删除/),
+  ]);
+  assert.deepEqual(english.failed, [
+    { id: 'pinned', error: 'The conversation is pinned' },
+    { id: 'upstream-error', error: 'ConversationService.UpdateConversation failed: request rejected' },
+  ]);
+  assert.deepEqual(chinese.failed, [
+    { id: 'pinned', error: '会话已置顶' },
+    { id: 'upstream-error', error: 'ConversationService.UpdateConversation 失败: request rejected' },
+  ]);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('project labels and fallback titles follow the request without changing project filter values', async () => {
+  addConversation('outside');
+  delete conversations.get('outside').annotations.title;
+  addConversation('named');
+  conversations.get('named').annotations.title = '未命名会话';
+  conversations.get('named').metadata.projectId = '实际项目';
+
+  const [english, chinese] = await Promise.all([
+    call('conversations', { tab: 'all', locale: 'en' }),
+    call('conversations', { tab: 'all', locale: 'unsupported' }),
+  ]);
+  assert.deepEqual(new Set(english.projects), new Set(chinese.projects));
+  assert.deepEqual(english.projects, ['未归属项目', '实际项目']);
+  assert.deepEqual(chinese.projects, ['实际项目', '未归属项目']);
+  assert.equal(english.projectLabels['未归属项目'], 'No project');
+  assert.equal(chinese.projectLabels['未归属项目'], '未归属项目');
+  const outside = english.items.find(({ id }) => id === 'outside');
+  assert.equal(outside.project, '未归属项目');
+  assert.equal(outside.projectLabel, 'No project');
+  assert.equal(outside.title, 'Untitled conversation');
+  const named = english.items.find(({ id }) => id === 'named');
+  assert.equal(named.projectLabel, '实际项目');
+  assert.equal(named.title, '未命名会话');
+  for (const query of ['未归属项目', 'no project']) {
+    const result = await call('conversations', { tab: 'all', locale: 'en', project: outside.project, query });
+    assert.deepEqual(result.items.map(({ id }) => id), ['outside']);
+  }
+});
+
+test('title and tag sorting follow the requested language', async () => {
+  addConversation('alpha');
+  conversations.get('alpha').annotations.tags = ['Alpha'];
+  addConversation('china');
+  Object.assign(conversations.get('china').annotations, { title: '中国', tags: ['中国'] });
+
+  const [english, chinese] = await Promise.all([
+    call('conversations', { tab: 'all', sort: 'title', locale: 'en' }),
+    call('conversations', { tab: 'all', sort: 'title' }),
+  ]);
+  assert.deepEqual(english.items.map(({ id }) => id), ['alpha', 'china']);
+  assert.deepEqual(chinese.items.map(({ id }) => id), ['china', 'alpha']);
+  assert.deepEqual(english.allTags, ['Alpha', '中国']);
+  assert.deepEqual(chinese.allTags, ['中国', 'Alpha']);
+});
 
 test('archive records only actual changes and keeps per-item failures', async () => {
   addConversation('active');
@@ -405,6 +503,31 @@ test('preview can report an unreadable index without claiming indexed content', 
   } finally {
     rmdirSync(dbFile);
   }
+});
+
+test('English export translates its labels and warnings while preserving saved Chinese snapshots', async () => {
+  const id = 'bilingual-export';
+  addConversation(id, { archived: true, pinned: true, starred: true });
+  conversations.get(id).annotations.title = '保留标题';
+  writeFileSync(metaFile, JSON.stringify({ conversations: { [id]: { tags: ['测试标签'], note: '用户备注' } } }));
+  writeTranscript(id, 'transcript.jsonl', [user(0, '保留用户消息'), reply(1, '保留助手回答'), '{ broken']);
+
+  const chinese = await call('export', { conversationId: id, saveToDisk: true });
+  const english = await call('export', { conversationId: id, locale: 'en', saveToDisk: true });
+
+  assert.match(chinese.markdown, /\*\*所属项目\*\*: 未归属项目/);
+  for (const phrase of [
+    '**Project**: No project', '**Archive status**: Archived', '**Pin status**: Pinned',
+    '**Star status**: Starred', '**Last updated**:', '**Tags**: #测试标签', '**Note**: 用户备注',
+    '**Transcript source**: `transcript`', '**Warning**: This transcript is from the compact log and may be incomplete',
+    '**Warning**: Could not parse 1 line in transcript.jsonl. The transcript may be incomplete',
+    '# 保留标题', '## 👤 User', '保留用户消息', '## 🤖 Assistant', '保留助手回答',
+  ]) {
+    assert.ok(english.markdown.includes(phrase), phrase);
+  }
+  assert.notEqual(english.filename, chinese.filename);
+  assert.equal(readFileSync(chinese.savedPath, 'utf8'), chinese.markdown);
+  assert.equal(readFileSync(english.savedPath, 'utf8'), english.markdown);
 });
 
 test('same-day exports use exclusive filenames and preserve successive snapshots', async () => {

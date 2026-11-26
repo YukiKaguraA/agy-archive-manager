@@ -128,8 +128,10 @@ function mountLeftSidebarButton(payload) {
   const navContainer = autoBtn?.parentElement;
   if (!navContainer) return 'no-nav';
 
+  const isEn = payload.language === 'en';
+  const buttonLabel = isEn ? 'Session Manager' : '会话管理';
   let btn = document.getElementById('ag-archive-nav-btn');
-  if (btn && btn.getAttribute('data-ver') !== '3') {
+  if (btn && btn.getAttribute('data-ver') !== '5') {
     btn.remove();
     btn = null;
   }
@@ -138,7 +140,9 @@ function mountLeftSidebarButton(payload) {
     btn = document.createElement('button');
     btn.id = 'ag-archive-nav-btn';
     btn.type = 'button';
-    btn.setAttribute('data-ver', '3');
+    btn.setAttribute('data-ver', '5');
+    btn.setAttribute('aria-label', buttonLabel);
+    btn.title = buttonLabel;
     btn.setAttribute('data-testid', 'archive-manager-nav-button');
     btn.setAttribute('translate', 'no');
     btn.className = autoBtn.className || 'agy-button agy-button-custom inline-flex items-center font-medium';
@@ -152,7 +156,7 @@ function mountLeftSidebarButton(payload) {
       '<path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>' +
       '<line x1="10" y1="13" x2="14" y2="13"/>' +
       '</svg>' +
-      '<span class="truncate">会话管理</span>';
+      '<span id="ag-archive-nav-label" class="truncate"></span>';
 
     const badge = document.createElement('span');
     badge.id = 'ag-archive-nav-badge';
@@ -164,7 +168,7 @@ function mountLeftSidebarButton(payload) {
     btn.appendChild(leftWrap);
     btn.appendChild(badge);
 
-    const PANEL_LABELS = ['会话管理', '归档会话', 'Session Manager', 'Archive Manager', 'archive-manager'];
+    const PANEL_LABELS = ['会话管理 (Session Manager)', '会话管理', '归档会话', 'Session Manager', 'Archive Manager', 'archive-manager'];
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -173,7 +177,7 @@ function mountLeftSidebarButton(payload) {
         ...document.querySelectorAll('[role="menuitem"], [role="option"], [data-radix-collection-item], [cmdk-item], button'),
       ];
       for (const el of candidates) {
-        if (el.id === 'ag-archive-nav-btn' || el.closest('#ag-archive-nav-btn')) continue;
+        if (el.id === 'ag-archive-nav-btn' || el.closest?.('#ag-archive-nav-btn')) continue;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) continue;
         const txt = (el.innerText || '').trim();
@@ -188,11 +192,15 @@ function mountLeftSidebarButton(payload) {
     function findExistingPanelTab() {
       const btns = [...document.querySelectorAll('button, [role="tab"]')];
       for (const el of btns) {
-        if (el.id === 'ag-archive-nav-btn') continue;
+        if (el.id === 'ag-archive-nav-btn' || el.closest?.('#ag-archive-nav-btn')) continue;
+        if (typeof navContainer.contains === 'function' && navContainer.contains(el)) continue;
         const r = el.getBoundingClientRect();
-        if (r.y < 10 || r.y > 90 || r.x < 300 || r.width === 0) continue;
-        const txt = (el.innerText || el.getAttribute('title') || el.getAttribute('aria-label') || '').trim();
-        if (PANEL_LABELS.includes(txt)) return el;
+        if (r.width === 0 || r.height === 0) continue;
+        const txt = (el.innerText || el.getAttribute?.('title') || el.getAttribute?.('aria-label') || '').trim();
+        if (!txt || txt.length > 48) continue;
+        const isTab = el.getAttribute?.('role') === 'tab' || Boolean(el.closest?.('[role="tablist"]'));
+        if (isTab ? (r.y < 0 || r.y > 180) : (r.y < 0 || r.y > 160 || r.x < 180)) continue;
+        if (PANEL_LABELS.includes(txt) || PANEL_LABELS.some((kw) => txt.includes(kw))) return el;
       }
       return null;
     }
@@ -267,17 +275,24 @@ function mountLeftSidebarButton(payload) {
     navContainer.appendChild(btn);
   }
 
+  btn.setAttribute('aria-label', buttonLabel);
+  btn.title = buttonLabel;
+  const labelEl = document.getElementById('ag-archive-nav-label');
+  if (labelEl) labelEl.textContent = buttonLabel;
+
   const badge = document.getElementById('ag-archive-nav-badge');
   if (badge) {
     const cnt = Number(payload.archivedCount || 0);
     badge.textContent = String(cnt);
-    badge.title = `当前有 ${cnt} 条已归档会话`;
+    badge.title = isEn
+      ? `${cnt} archived ${cnt === 1 ? 'session' : 'sessions'}`
+      : `当前有 ${cnt} 条已归档会话`;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
   }
   return 'ok';
 }
 
-export function startSidebarInjector(getArchivedCountAsync) {
+export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 'zh-CN') {
   let busy = false;
   let stopped = false;
   let refreshRequested = false;
@@ -293,6 +308,10 @@ export function startSidebarInjector(getArchivedCountAsync) {
       const pages = await discoverMainPages();
       if (stopped || pages.length === 0) return;
 
+      const language = (() => {
+        try { return getLanguage() === 'en' ? 'en' : 'zh-CN'; } catch { return 'zh-CN'; }
+      })();
+
       if (Date.now() >= nextCountReadAt) {
         refreshRequested = false;
         try {
@@ -307,6 +326,7 @@ export function startSidebarInjector(getArchivedCountAsync) {
         if (stopped || refreshRequested) break;
         const expr = `(${mountLeftSidebarButton.toString()})(${JSON.stringify({
           instanceTs: INSTANCE_TS,
+          language,
           archivedCount,
         })})`;
         pendingMount = evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});

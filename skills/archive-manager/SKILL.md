@@ -7,4 +7,4 @@ description: Manage, search, preview, restore/archive, star, tag, and export arc
 
 When the user wants to browse, search, preview, restore, or export Antigravity conversations, surface the one-click pill to open the Session Manager side panel:
 
-`[会话管理](sidecar://archive-manager/archive_manager/)`
+`[会话管理 (Session Manager)](sidecar://archive-manager/archive_manager/)`

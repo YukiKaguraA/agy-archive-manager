@@ -2,11 +2,12 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SidecarApp } from 'sidecar_sdk';
+import { getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -20,6 +21,7 @@ const DATA_DIR =
   process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR ||
   join(AGY_DIR, 'sidecar_data', 'archive-manager', 'archive_manager', 'data');
 const META_FILE = join(DATA_DIR, 'meta.json');
+const PREFERENCES_FILE = join(DATA_DIR, 'preferences.json');
 const EXPORT_DIR = join(HOME, 'Documents', 'Antigravity-Exports');
 
 const LS_ADDRESS = process.env.ANTIGRAVITY_LS_ADDRESS || 'localhost:5387';
@@ -56,10 +58,10 @@ async function callConversationService(method, body = {}) {
   }
   if (!res.ok) {
     const msg = parsed?.message || parsed?.error || text || `HTTP ${res.status}`;
-    throw new Error(`ConversationService.${method} 失败: ${msg}`);
+    throw new Error(t('upstreamFailed', method, msg));
   }
   if (!isRecord(parsed) || Object.hasOwn(parsed, 'raw')) {
-    throw new Error(`ConversationService.${method} 返回了无效数据`);
+    throw new Error(t('upstreamInvalidResponse', method));
   }
   return parsed;
 }
@@ -74,12 +76,12 @@ async function listAllNativeConversations() {
     const res = await callConversationService('ListConversations', req);
     const batch = res.conversations ?? [];
     if (!Array.isArray(batch) || batch.some((conversation) => typeof conversation?.id !== 'string' || !conversation.id)) {
-      throw new Error('ConversationService.ListConversations 返回了无效会话列表');
+      throw new Error(t('upstreamInvalidList'));
     }
     for (const conversation of batch) all.set(conversation.id, conversation);
     pageToken = res.nextPageToken ?? '';
     if (typeof pageToken !== 'string' || seenTokens.has(pageToken)) {
-      throw new Error('ConversationService.ListConversations 返回了无效分页标记');
+      throw new Error(t('upstreamInvalidPageToken'));
     }
     if (pageToken) seenTokens.add(pageToken);
   } while (pageToken);
@@ -96,22 +98,22 @@ function readMetaStore() {
     raw = readFileSync(META_FILE, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') return { conversations: Object.create(null) };
-    throw new Error('无法读取本地标签和备注文件 meta.json', { cause: err });
+    throw new Error(t('metaRead'), { cause: err });
   }
 
   try {
     const store = JSON.parse(raw);
-    if (!isRecord(store) || !isRecord(store.conversations)) throw new Error('无效会话元数据');
+    if (!isRecord(store) || !isRecord(store.conversations)) throw new Error(t('metaInvalidShape'));
     for (const entry of Object.values(store.conversations)) {
       if (!isRecord(entry) ||
           (Object.hasOwn(entry, 'tags') && (!Array.isArray(entry.tags) || entry.tags.some((tag) => typeof tag !== 'string'))) ||
           (Object.hasOwn(entry, 'note') && typeof entry.note !== 'string')) {
-        throw new Error('无效标签或备注');
+        throw new Error(t('metaInvalidEntry'));
       }
     }
     return { ...store, conversations: Object.assign(Object.create(null), store.conversations) };
   } catch (err) {
-    throw new Error('本地标签和备注文件 meta.json 格式无效，已保留原文件', { cause: err });
+    throw new Error(t('metaInvalid'), { cause: err });
   }
 }
 
@@ -123,8 +125,8 @@ function readMetaForDisplay() {
   }
 }
 
-function writeMetaStore(store) {
-  const tempFile = join(DATA_DIR, `meta-${randomUUID()}.tmp`);
+function writeSidecarJson(file, store) {
+  const tempFile = join(DATA_DIR, `${basename(file, '.json')}-${randomUUID()}.tmp`);
   let ownsTemp = false;
   try {
     mkdirSync(DATA_DIR, { recursive: true });
@@ -135,15 +137,40 @@ function writeMetaStore(store) {
     } finally {
       closeSync(handle);
     }
-    renameSync(tempFile, META_FILE);
+    renameSync(tempFile, file);
     ownsTemp = false;
-  } catch (err) {
-    throw new Error('无法保存本地标签和备注文件 meta.json', { cause: err });
   } finally {
     if (ownsTemp) {
       try { unlinkSync(tempFile); } catch {}
     }
   }
+}
+
+function writeMetaStore(store) {
+  try {
+    writeSidecarJson(META_FILE, store);
+  } catch (err) {
+    throw new Error(t('metaWrite'), { cause: err });
+  }
+}
+
+function readLanguagePreference() {
+  let raw;
+  try {
+    raw = readFileSync(PREFERENCES_FILE, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw new Error(t('preferencesRead'), { cause: err });
+  }
+
+  let store;
+  try {
+    store = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(t('preferencesInvalid'), { cause: err });
+  }
+  if (!isSupportedLanguage(store?.language)) throw new Error(t('preferencesInvalid'));
+  return store.language;
 }
 
 function loadProjectMap() {
@@ -207,13 +234,13 @@ function getConversationStatus(conversation, nowMs = Date.now()) {
 }
 
 function getStaleExclusion(status, staleDays) {
-  if (status.isSubagent) return '子代理会话不参与闲置归档';
-  if (status.archived) return '会话已归档';
-  if (status.pinned) return '会话已置顶';
-  if (status.starred) return '会话已加星标';
-  if (status.isRunning) return '会话正在运行';
-  if (status.runState !== 'RUN_STATE_IDLE') return '无法确认会话已停止';
-  if (status.idleDays < staleDays) return `会话闲置时间不足 ${staleDays} 天`;
+  if (status.isSubagent) return t('staleSubagent');
+  if (status.archived) return t('staleArchived');
+  if (status.pinned) return t('stalePinned');
+  if (status.starred) return t('staleStarred');
+  if (status.isRunning) return t('staleRunning');
+  if (status.runState !== 'RUN_STATE_IDLE') return t('staleUnknown');
+  if (status.idleDays < staleDays) return t('staleRecent', staleDays);
   return '';
 }
 
@@ -283,7 +310,7 @@ async function loadAllConversations() {
     const projectName =
       projectMap.get(projectId) ||
       dbInfo.workspaceName ||
-      (projectId === 'outside-of-project' || !projectId ? '未归属项目' : projectId);
+      (projectId === 'outside-of-project' ? '' : projectId);
 
     // Prefer local tags override when user explicitly manages tags (supports clearing to empty cleanly),
     // otherwise fall back to native annotations.tags / metadata.tags.
@@ -295,7 +322,7 @@ async function loadAllConversations() {
       ? localMeta.tags
       : [...new Set(nativeTags.map((t) => String(t).trim()).filter(Boolean))];
 
-    const title = (ann.title || st.summary || dbInfo.preview || '未命名会话').trim();
+    const title = (ann.title || st.summary || dbInfo.preview || t('untitled')).trim();
 
     items.push({
       id,
@@ -304,7 +331,8 @@ async function loadAllConversations() {
       stepCount: dbInfo.stepCount || 0,
       createTime: md.createTime || '',
       ...getConversationStatus(c, nowMs),
-      project: projectName,
+      project: projectName || UNASSIGNED_PROJECT,
+      projectLabel: projectName || t('unassignedProject'),
       projectId,
       tags,
       note: typeof localMeta.note === 'string' ? localMeta.note : '',
@@ -356,7 +384,7 @@ function readTranscript(logsDir, source, warnings) {
   try {
     raw = readFileSync(join(logsDir, filename), 'utf8');
   } catch (err) {
-    if (err.code !== 'ENOENT') warnings.push(`无法读取 ${filename}`);
+    if (err.code !== 'ENOENT') warnings.push(t('transcriptUnreadable', filename));
     return null;
   }
 
@@ -367,11 +395,11 @@ function readTranscript(logsDir, source, warnings) {
     if (!line.trim()) continue;
     try {
       const step = JSON.parse(line);
-      if (!isRecord(step) || typeof step.type !== 'string') throw new Error('无效记录');
+      if (!isRecord(step) || typeof step.type !== 'string') throw new Error(t('transcriptInvalidRecord'));
       const user = step.type === 'USER_INPUT' && step.source === 'USER_EXPLICIT';
       if (!user && step.type !== 'PLANNER_RESPONSE') continue;
       if (step.content == null) continue;
-      if (typeof step.content !== 'string') throw new Error('无效文本');
+      if (typeof step.content !== 'string') throw new Error(t('transcriptInvalidText'));
       const content = user ? stripUserPromptWrappers(step.content) : step.content.trim();
       if (!content) continue;
       const index = step.step_index;
@@ -388,7 +416,7 @@ function readTranscript(logsDir, source, warnings) {
       badLines++;
     }
   }
-  if (badLines) warnings.push(`${filename} 有 ${badLines} 行无法解析，记录可能不完整`);
+  if (badLines) warnings.push(t('transcriptMalformed', filename, badLines));
   return { source, messages, indexable };
 }
 
@@ -446,11 +474,11 @@ function loadFtsPreview(conversationId, warnings) {
       }
     }
   } catch {
-    warnings.push('无法读取全文索引（FTS）');
+    warnings.push(t('ftsUnreadable'));
   } finally {
     db?.close();
   }
-  warnings.push(messages.length ? '内容来自全文索引（FTS）摘要，可能不完整' : '未找到可预览的对话正文');
+  warnings.push(t(messages.length ? 'ftsOnly' : 'transcriptMissing'));
   return { source: messages.length ? 'fts' : 'none', messages };
 }
 
@@ -461,11 +489,11 @@ function loadTranscript(conversationId, warnings) {
   if (full?.messages.length && compact?.messages.length) {
     const merged = mergeTranscripts(full, compact);
     if (merged && merged.length > full.messages.length) {
-      warnings.push('正文由完整与精简记录合并，可能不完整');
+      warnings.push(t('transcriptMerged'));
       return { source: 'transcript_full+transcript', messages: merged };
     }
     if (!merged) {
-      warnings.push('两份记录的消息无法可靠对齐，已保留 transcript_full.jsonl 中可读取的正文');
+      warnings.push(t('transcriptConflict'));
     }
   }
   if (full?.messages.length) return full;
@@ -476,10 +504,10 @@ function loadTranscript(conversationId, warnings) {
 async function loadConversationPreview(conversationId) {
   const { items, warnings } = await loadAllConversations();
   const conv = items.find((c) => c.id === conversationId);
-  if (!conv) throw new Error(`未找到会话: ${conversationId}`);
+  if (!conv) throw new Error(t('conversationNotFound', conversationId));
 
   const { source, messages } = loadTranscript(conversationId, warnings);
-  if (source === 'transcript') warnings.push('正文来自精简记录，可能不完整');
+  if (source === 'transcript') warnings.push(t('transcriptCompact'));
 
   return {
     ...conv,
@@ -495,15 +523,15 @@ function buildMarkdownExport(previewData) {
   lines.push(`# ${previewData.title}`);
   lines.push('');
   lines.push(`- **Conversation ID**: \`${previewData.id}\``);
-  lines.push(`- **所属项目**: ${previewData.project}`);
-  lines.push(`- **归档状态**: ${previewData.archived ? '已归档' : '未归档'}`);
-  if (previewData.pinned) lines.push(`- **置顶状态**: 已置顶`);
-  if (previewData.starred) lines.push(`- **收藏状态**: 已星标收藏`);
-  if (previewData.lastModified) lines.push(`- **最后更新**: ${previewData.lastModified}`);
-  if (previewData.tags?.length) lines.push(`- **标签**: ${previewData.tags.map((t) => `#${t}`).join(' ')}`);
-  if (previewData.note) lines.push(`- **备注**: ${previewData.note}`);
-  lines.push(`- **对话来源**: \`${previewData.source}\``);
-  for (const warning of previewData.warnings) lines.push(`- **提示**: ${warning}`);
+  lines.push(`- **${t('exportProject')}**: ${previewData.projectLabel}`);
+  lines.push(`- **${t('exportArchiveStatus')}**: ${t(previewData.archived ? 'exportArchived' : 'exportUnarchived')}`);
+  if (previewData.pinned) lines.push(`- **${t('exportPinStatus')}**: ${t('exportPinned')}`);
+  if (previewData.starred) lines.push(`- **${t('exportStarStatus')}**: ${t('exportStarred')}`);
+  if (previewData.lastModified) lines.push(`- **${t('exportUpdated')}**: ${previewData.lastModified}`);
+  if (previewData.tags?.length) lines.push(`- **${t('exportTags')}**: ${previewData.tags.map((tag) => `#${tag}`).join(' ')}`);
+  if (previewData.note) lines.push(`- **${t('exportNote')}**: ${previewData.note}`);
+  lines.push(`- **${t('exportSource')}**: \`${previewData.source}\``);
+  for (const warning of previewData.warnings) lines.push(`- **${t('exportWarning')}**: ${warning}`);
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -560,6 +588,10 @@ function saveMarkdownSnapshot(stem, markdown) {
 // Start Sidecar HTTP app
 const app = new SidecarApp();
 
+function registerApi(path, handler) {
+  app.api(path, withRequestLocale(handler));
+}
+
 // Keep each native mutation and its initial-state check in the same queue.
 let pendingMutation = Promise.resolve();
 function serializeMutation(handler) {
@@ -572,7 +604,20 @@ function serializeMutation(handler) {
 
 app.page('/', () => readFileSync(join(__dirname, 'index.html'), 'utf8'));
 
-app.api('/api/conversations', async (data = {}) => {
+registerApi('/api/preferences', async (data) => {
+  if (!Object.hasOwn(data, 'language')) return { language: readLanguagePreference() };
+  const { language } = data;
+  if (!isSupportedLanguage(language)) throw new Error(t('invalidLanguage'));
+  try {
+    writeSidecarJson(PREFERENCES_FILE, { language });
+  } catch (err) {
+    throw new Error(t('preferencesWrite'), { cause: err });
+  }
+  invalidateCount();
+  return { language };
+});
+
+registerApi('/api/conversations', async (data) => {
   const tab = String(data.tab || 'archived');
   const query = String(data.query || '').trim();
   const queryLower = query.toLowerCase();
@@ -580,15 +625,17 @@ app.api('/api/conversations', async (data = {}) => {
   const tagFilter = String(data.tag || '').trim();
   const sortBy = String(data.sort || 'updated');
   const staleDays = Math.max(1, Number(data.staleDays) || 7);
+  const collator = new Intl.Collator(getRequestLanguage());
 
   const { items, warnings } = await loadAllConversations();
   const baseList = items.filter((c) => !c.isSubagent);
   const stale = baseList.filter((c) => !getStaleExclusion(c, staleDays));
 
-  const projectsSet = new Set();
+  const projectLabels = new Map();
   const tagsSet = new Set();
   for (const c of baseList) {
-    if (c.project) projectsSet.add(c.project);
+    // A real project can share the legacy fallback value. Retain its actual name in the filter.
+    if (!projectLabels.has(c.project) || c.project === c.projectLabel) projectLabels.set(c.project, c.projectLabel);
     for (const t of c.tags) tagsSet.add(t);
   }
 
@@ -619,7 +666,7 @@ app.api('/api/conversations', async (data = {}) => {
       .map((c) => {
         const titleHit = c.title.toLowerCase().includes(queryLower);
         const summaryHit = c.summary.toLowerCase().includes(queryLower);
-        const projHit = c.project.toLowerCase().includes(queryLower);
+        const projHit = c.project.toLowerCase().includes(queryLower) || c.projectLabel.toLowerCase().includes(queryLower);
         const tagHit = c.tags.some((t) => t.toLowerCase().includes(queryLower));
         const noteHit = c.note.toLowerCase().includes(queryLower);
         const idHit = c.id.toLowerCase().includes(queryLower);
@@ -636,22 +683,23 @@ app.api('/api/conversations', async (data = {}) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     }
     if (sortBy === 'steps') return b.stepCount - a.stepCount || b.lastModifiedMs - a.lastModifiedMs;
-    if (sortBy === 'title') return a.title.localeCompare(b.title, 'zh-CN');
+    if (sortBy === 'title') return collator.compare(a.title, b.title);
     return b.lastModifiedMs - a.lastModifiedMs;
   });
 
   return {
     items: filtered,
     counts,
-    projects: [...projectsSet].sort((a, b) => a.localeCompare(b, 'zh-CN')),
-    allTags: [...tagsSet].sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    projects: [...projectLabels.keys()].sort((a, b) => collator.compare(projectLabels.get(a), projectLabels.get(b))),
+    projectLabels: Object.fromEntries(projectLabels),
+    allTags: [...tagsSet].sort(collator.compare),
     warnings,
   };
 });
 
-app.api('/api/preview', async (data = {}) => {
+registerApi('/api/preview', async (data) => {
   const id = String(data.conversationId || '').trim();
-  if (!id) throw new Error('缺少 conversationId');
+  if (!id) throw new Error(t('missingConversationId'));
   return loadConversationPreview(id);
 });
 
@@ -659,17 +707,17 @@ function parseArchiveRequest(data) {
   if (Object.hasOwn(data, 'undo')) {
     if (!Array.isArray(data.undo) || !data.undo.length ||
         ['conversationIds', 'conversationId', 'archived', 'staleDays'].some((key) => Object.hasOwn(data, key))) {
-      throw new Error('无效的撤销请求');
+      throw new Error(t('invalidUndoRequest'));
     }
     const targets = new Map();
     for (const change of data.undo) {
       const id = typeof change?.id === 'string' ? change.id.trim() : '';
       if (!id || typeof change.previousArchived !== 'boolean' || typeof change.archived !== 'boolean' ||
           change.previousArchived === change.archived) {
-        throw new Error('无效的撤销记录');
+        throw new Error(t('invalidUndoRecord'));
       }
       if (targets.has(id) && targets.get(id).archived !== change.previousArchived) {
-        throw new Error(`会话 ${id} 的撤销记录互相冲突`);
+        throw new Error(t('conflictingUndo', id));
       }
       targets.set(id, { id, archived: change.previousArchived, expectedArchived: change.archived });
     }
@@ -680,22 +728,22 @@ function parseArchiveRequest(data) {
 
   const ids = Array.isArray(data.conversationIds) ? data.conversationIds : [data.conversationId];
   const uniqueIds = [...new Set(ids.map((id) => typeof id === 'string' ? id.trim() : '').filter(Boolean))];
-  if (!uniqueIds.length) throw new Error('缺少 conversationId');
-  if (typeof data.archived !== 'boolean') throw new Error('缺少有效的 archived 状态');
+  if (!uniqueIds.length) throw new Error(t('missingConversationId'));
+  if (typeof data.archived !== 'boolean') throw new Error(t('missingArchiveState'));
   const { archived, staleDays } = data;
   if (Object.hasOwn(data, 'staleDays') && (!archived || !Number.isInteger(staleDays) || staleDays < 1)) {
-    throw new Error('闲置归档需要有效的闲置天数');
+    throw new Error(t('missingStaleDays'));
   }
   return { ops: uniqueIds.map((id) => ({ id, archived })), archived, staleDays };
 }
 
 function getKnownArchiveState(conversation) {
   if (conversation.annotations != null && !isRecord(conversation.annotations)) {
-    throw new Error('无法确认会话的归档状态');
+    throw new Error(t('unknownArchiveState'));
   }
   const archived = conversation.annotations?.archived;
   // The native archive annotation is optional. An absent annotation is unarchived.
-  if (archived !== undefined && typeof archived !== 'boolean') throw new Error('无法确认会话的归档状态');
+  if (archived !== undefined && typeof archived !== 'boolean') throw new Error(t('unknownArchiveState'));
   return archived === true;
 }
 
@@ -703,7 +751,7 @@ function unpackConversation(response, id) {
   const conversation = response.conversation ?? response;
   if (!isRecord(conversation) || (conversation.id !== undefined && conversation.id !== id) ||
       (conversation.id === undefined && !isRecord(conversation.state) && !isRecord(conversation.annotations))) {
-    throw new Error('无法确认上游返回的会话信息');
+    throw new Error(t('unknownConversation'));
   }
   return conversation;
 }
@@ -721,17 +769,19 @@ async function updateNativeAnnotations(id, annotations) {
     typeof repliedAnnotations.archived === 'boolean';
   const updated = hasArchiveState ? unpackConversation(reply, id) : await getNativeConversation(id);
   if (getKnownArchiveState(updated) !== annotations.archived) {
-    throw new Error('上游返回的归档状态未发生预期变化');
+    throw new Error(t('unexpectedArchiveState'));
   }
 }
 
 function requireIdle(status, operation) {
-  if (status.isRunning) throw new Error(`该会话正在运行中，请先停止后再${operation}`);
-  if (status.runState !== 'RUN_STATE_IDLE') throw new Error(`无法确认会话已停止，未${operation}`);
+  if (status.isRunning) throw new Error(t(operation === 'archive' ? 'runningArchive' : 'runningDelete'));
+  if (status.runState !== 'RUN_STATE_IDLE') {
+    throw new Error(t(operation === 'archive' ? 'unknownArchive' : 'unknownDelete'));
+  }
 }
 
 // Single or batch native archive / restore via ConversationService.UpdateConversation.
-app.api('/api/set-archived', serializeMutation(async (data) => {
+registerApi('/api/set-archived', serializeMutation(async (data) => {
   const { ops, archived, staleDays } = parseArchiveRequest(data);
   const result = { ok: true, archived, succeeded: [], unchanged: [], failed: [], changes: [] };
   for (const op of ops) {
@@ -750,9 +800,9 @@ app.api('/api/set-archived', serializeMutation(async (data) => {
         continue;
       }
       if (expectedArchived !== undefined && previousArchived !== expectedArchived) {
-        throw new Error('归档状态已变化，无法撤销');
+        throw new Error(t('undoStateChanged'));
       }
-      if (op.archived) requireIdle(status, '归档');
+      if (op.archived) requireIdle(status, 'archive');
       await updateNativeAnnotations(id, { archived: op.archived });
       result.succeeded.push(id);
       result.changes.push({ id, previousArchived, archived: op.archived });
@@ -766,9 +816,9 @@ app.api('/api/set-archived', serializeMutation(async (data) => {
 }));
 
 // Native update of title, pinned, starred, tags + local note persistence
-app.api('/api/meta/update', serializeMutation(async (data) => {
+registerApi('/api/meta/update', serializeMutation(async (data) => {
   const id = String(data.conversationId || '').trim();
-  if (!id) throw new Error('缺少 conversationId');
+  if (!id) throw new Error(t('missingConversationId'));
 
   const nativeAnn = {};
   if (typeof data.title === 'string' && data.title.trim()) nativeAnn.title = data.title.trim().slice(0, 160);
@@ -787,7 +837,7 @@ app.api('/api/meta/update', serializeMutation(async (data) => {
   if (typeof data.archived === 'boolean') {
     const current = await getNativeConversation(id);
     if (getKnownArchiveState(current) !== data.archived) {
-      if (data.archived) requireIdle(getConversationStatus(current), '归档');
+      if (data.archived) requireIdle(getConversationStatus(current), 'archive');
       nativeAnn.archived = data.archived;
     }
   }
@@ -825,11 +875,11 @@ app.api('/api/meta/update', serializeMutation(async (data) => {
 }));
 
 // Native permanent delete requires an explicit idle state.
-app.api('/api/delete', serializeMutation(async (data) => {
+registerApi('/api/delete', serializeMutation(async (data) => {
   const id = String(data.conversationId || '').trim();
-  if (!id) throw new Error('缺少 conversationId');
+  if (!id) throw new Error(t('missingConversationId'));
   const current = await getNativeConversation(id);
-  requireIdle(getConversationStatus(current), '删除');
+  requireIdle(getConversationStatus(current), 'delete');
   await callConversationService('DeleteConversation', { conversationId: id });
   invalidateCount();
 
@@ -846,9 +896,9 @@ app.api('/api/delete', serializeMutation(async (data) => {
   return { ok: true, deletedId: id, warnings };
 }));
 
-app.api('/api/export', async (data = {}) => {
+registerApi('/api/export', async (data) => {
   const id = String(data.conversationId || '').trim();
-  if (!id) throw new Error('缺少 conversationId');
+  if (!id) throw new Error(t('missingConversationId'));
   const previewData = await loadConversationPreview(id);
   const markdown = buildMarkdownExport(previewData);
   const dateTag = new Date().toISOString().slice(0, 10);
@@ -860,9 +910,9 @@ app.api('/api/export', async (data = {}) => {
   return { ok: true, filename: `${stem}.md`, markdown };
 });
 
-app.api('/api/reveal-file', async (data = {}) => {
+registerApi('/api/reveal-file', async (data) => {
   const target = resolve(String(data.path || EXPORT_DIR));
-  if (!existsSync(target)) throw new Error(`路径不存在: ${target}`);
+  if (!existsSync(target)) throw new Error(t('pathNotFound', target));
   if (process.platform === 'win32') {
     const isFile = Boolean(data.isFile);
     const psCmd = isFile
@@ -885,7 +935,15 @@ app.api('/api/reveal-file', async (data = {}) => {
 
 app.run();
 
-const { cleanup: cleanupSidebar, invalidateCount } = startSidebarInjector(getArchivedCount);
+function getSidebarLanguage() {
+  try {
+    return readLanguagePreference() || 'zh-CN';
+  } catch {
+    return 'zh-CN';
+  }
+}
+
+const { cleanup: cleanupSidebar, invalidateCount } = startSidebarInjector(getArchivedCount, getSidebarLanguage);
 
 process.on('SIGTERM', async () => {
   await cleanupSidebar();
