@@ -8,11 +8,11 @@
 
 五大视图 · 全文检索 · 免恢复预览 · 批量归档（可撤回） · 标签与备注 · Markdown 导出 · 中英双语
 
-[**简体中文**](./README.md) · [**English**](./README.en.md) · [**更新日志**](./CHANGELOG.md) · [**问题反馈**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
+[**简体中文**](./README.md) · [**English**](./README.en.md) · [**更新日志**](./CHANGELOG.md) · [**版本发布**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**问题反馈**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
 
 <p>
-  <img src="https://img.shields.io/badge/Version-2.2.0-0f172a?style=flat-square" alt="Version 2.2.0" />
-  <img src="https://img.shields.io/badge/Antigravity-%E2%89%A5%202.35.0-3186ff?style=flat-square" alt="Antigravity 2.35.0+" />
+  <a href="https://github.com/YukiKaguraA/agy-archive-manager/releases"><img src="https://img.shields.io/github/v/release/YukiKaguraA/agy-archive-manager?style=flat-square&color=3186ff&label=Release" alt="Latest Release" /></a>
+  <img src="https://img.shields.io/badge/Antigravity-%E2%89%A5%202.35.0-0f172a?style=flat-square" alt="Antigravity 2.35.0+" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-1e293b?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/Node.js-22.13%2B%20%7C%2024%20LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22.13+ or 24 LTS" />
   <img src="https://img.shields.io/badge/i18n-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%20%7C%20English-8b5cf6?style=flat-square" alt="简体中文 | English" />
