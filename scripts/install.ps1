@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
-$files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'LICENSE')
+$files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'CHANGELOG.md', 'LICENSE')
 foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
     if (Test-Path $src) {

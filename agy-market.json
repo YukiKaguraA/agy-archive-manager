@@ -4,6 +4,8 @@
   "categories": ["productivity"],
   "tags": ["session-manager", "archive", "conversation", "markdown-export", "sidebar"],
   "screenshots": [
+    "docs/screenshots/hero-light.png",
+    "docs/screenshots/hero-dark.png",
     "docs/screenshots/preview-main.png",
     "docs/screenshots/preview-archived.png"
   ],
