@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "pluginRoot": ".",
+  "categories": ["productivity"],
+  "tags": ["session-manager", "archive", "conversation", "markdown-export", "sidebar"],
+  "screenshots": [
+    "docs/screenshots/preview-main.png",
+    "docs/screenshots/preview-archived.png"
+  ],
+  "minAntigravityVersion": "2.35.0",
+  "platforms": ["win32", "darwin", "linux"],
+  "releaseAsset": "archive-manager.tar.gz"
+}
