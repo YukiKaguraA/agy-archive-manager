@@ -2,6 +2,16 @@
 
 专为 **Google Antigravity (v2.35.0+)** 打造的零侵入全能会话管理插件（Sidecar + Skill）。基于官方 `ConversationService` Connect API 与只读 SQLite 摘要索引构建，**不修改 `app.asar`、不直接写入官方内部数据库**，客户端升级后依然安全稳定。
 
+## 界面预览
+
+**主面板与超长消息自动折叠（未归档视图 · 琥珀淡黄归档按钮）**
+
+![主面板与自动折叠预览](docs/screenshots/preview-main.png)
+
+**已归档视图、全文检索高亮与完整 Markdown 展开预览（绿色一键恢复）**
+
+![已归档视图与全文检索预览](docs/screenshots/preview-archived.png)
+
 ## 核心功能
 
 - **多视图分类浏览**：一键切换「已归档」「未归档」「收藏」「闲置」「全部」五大视图并实时统计数量。
