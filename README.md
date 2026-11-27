@@ -6,16 +6,16 @@
 
 **为 Google Antigravity 打造的会话归档 / 检索 / 预览 / 导出面板**
 
-五大视图 · 全文检索 · 免恢复预览 · 批量归档（可撤回） · 标签与备注 · Markdown 导出 · 中英双语
+五大视图 · 全文检索 · 免恢复预览 · 批量归档（可撤回） · 标签与备注 · Markdown 导出 · 四种界面语言
 
-[**简体中文**](./README.md) · [**English**](./README.en.md) · [**更新日志**](./CHANGELOG.md) · [**版本发布**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**问题反馈**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
+[**简体中文**](./README.md) · [**English**](./README.en.md) · [**繁體中文**](./README.zh-TW.md) · [**日本語**](./README.ja.md) · [**更新日志**](./CHANGELOG.md) · [**版本发布**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**问题反馈**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
 
 <p>
   <a href="https://github.com/YukiKaguraA/agy-archive-manager/releases"><img src="https://img.shields.io/github/v/release/YukiKaguraA/agy-archive-manager?style=flat-square&color=3186ff&label=Release" alt="Latest Release" /></a>
   <img src="https://img.shields.io/badge/Antigravity-%E2%89%A5%202.35.0-0f172a?style=flat-square" alt="Antigravity 2.35.0+" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-1e293b?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/Node.js-22.13%2B%20%7C%2024%20LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22.13+ or 24 LTS" />
-  <img src="https://img.shields.io/badge/i18n-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87%20%7C%20English-8b5cf6?style=flat-square" alt="简体中文 | English" />
+  <img src="https://img.shields.io/badge/i18n-4_languages-8b5cf6?style=flat-square" alt="简体中文 | English | 繁體中文 | 日本語" />
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563eb?style=flat-square" alt="License: MIT" /></a>
 </p>
 
@@ -37,13 +37,13 @@
 
 ## ✨ 亮点
 
-- **五大视图，一眼分清**：已归档、未归档、收藏、闲置、全部，切换时实时计数。
+- **五大视图，一眼分清**：活跃、已归档、收藏、闲置、全部。打开面板时默认显示活跃会话。
 - **什么都搜得到**：标题、项目、正文、标签、备注一起全文检索，命中处高亮。
 - **不恢复也能看**：直接预览历史对话，超长消息自动折叠，排版视图和原文视图一键切换。
 - **归档后悔了？撤回**：支持批量归档 / 恢复、按闲置天数一键归档，操作都能撤回。
 - **整理顺手**：置顶 📌、星标 ★、`#标签`、自动保存的备注、原地重命名。
 - **一键导出 Markdown**：连同会话信息、标签和备注一起导出到 `~/Documents/Antigravity-Exports`。
-- **中英双语，跟随主题**：面板语言随时切换，配色跟随宿主主题和美化插件。
+- **四种界面语言**：可切换简体中文、English、繁體中文或日本語。面板会记住所选语言，配色跟随宿主主题。
 - **安全兜底**：运行中的会话禁止删除，SQLite 只读打开，本地备注原子保存。
 
 ---
@@ -52,7 +52,7 @@
 
 ### 1. 主面板与超长消息折叠
 
-未归档视图下，琥珀色「归档」按钮随手可点；单条超过 450px 的消息自动折叠，附带渐隐遮罩和「展开全文 / 收起」。
+活跃视图下，琥珀色「归档」按钮随手可点；单条超过 450px 的消息自动折叠，附带渐隐遮罩和「展开全文 / 收起」。
 
 <p align="center">
   <img src="docs/screenshots/preview-main.png" width="100%" alt="主面板与超长消息自动折叠" />
@@ -60,7 +60,7 @@
 
 ### 2. 已归档视图与全文检索高亮
 
-在已归档视图中检索，命中词高亮显示；Markdown 预览可展开阅读，绿色「恢复」一键放回未归档。
+在已归档视图中检索，命中词高亮显示；Markdown 预览可展开阅读，绿色「恢复」一键放回活跃视图。
 
 <p align="center">
   <img src="docs/screenshots/preview-archived.png" width="100%" alt="已归档视图、全文检索高亮与 Markdown 预览" />
@@ -109,7 +109,7 @@ chmod +x scripts/install.sh
 将以下文件复制到 `~/.gemini/config/plugins/archive-manager/`（Windows 为 `%USERPROFILE%\.gemini\config\plugins\archive-manager\`）：
 
 - `plugin.json`、`logo.svg`、`LICENSE`
-- `README.md`、`README.en.md`、`CHANGELOG.md`
+- `README.md`、`README.en.md`、`README.zh-TW.md`、`README.ja.md`、`CHANGELOG.md`
 - `docs/screenshots/`（文档预览图）
 - `skills/`、`sidecars/`
 
@@ -134,14 +134,13 @@ node -e "import('node:sqlite').then(m => console.log(typeof m.DatabaseSync))"
 
 ---
 
-## 🆕 v2.3.0
+## 🆕 v2.3.1
 
-- 会话列表每页显示 50 个会话。点开后可阅读该会话可用的全部转录消息。
-- 搜索可选“原文片段”或“多关键词”。可以组合项目、原生分组和标签筛选条件。重名项目分别列出。
-- “已归档 → 批量 → 永久删除所选”支持跨页勾选。确认框列出具体会话，结果区列出已删除、跳过和失败项。永久删除无法撤回。
-- 如果旧版保存的本地标签与宿主不同，预览区会同时显示两者，可采用宿主标签，或将本地标签同步到宿主。备注仍保存在本机。Antigravity 2.35.2 可能忽略清空最后一个标签的请求。面板会读回核对，未生效时提示并保留本地记录。
+- 「活跃」成为首个视图，打开面板时默认显示全部未归档会话。
+- 新增繁體中文和日本語。界面、操作提示及 Markdown 导出的固定字段随所选语言切换。
+- GitHub README 新增繁體中文版和日文版。
 
-👉 [查看完整更新日志](./CHANGELOG.md)
+[查看完整更新日志](./CHANGELOG.md)
 
 ---
 
@@ -178,7 +177,7 @@ Sidecar 通过 `node` 命令启动，要求 Antigravity 实际使用的 Node.js 
 <details>
 <summary><strong>导出的 Markdown 文件在哪里？标签和备注存在哪里？</strong></summary>
 
-导出文件保存在 `~/Documents/Antigravity-Exports`，每次导出生成独立文件，面板里可以一键定位。面板通过宿主服务更新原生标签，并读回核对。备注与旧版本留下的本地标签记录保存在 Sidecar 数据目录。
+导出文件保存在 `~/Documents/Antigravity-Exports`，每次导出生成独立文件，面板里可以一键定位。面板通过宿主服务更新原生标签，并读回核对。备注与旧版本留下的本地标签记录保存在 Sidecar 数据目录。Antigravity 2.35.2 可能忽略清空最后一个标签的请求，面板会读回核对，未生效时提示并保留本地记录。
 
 </details>
 
@@ -204,7 +203,7 @@ agy-archive-manager/
 ├── plugin.json                         # 插件清单与元信息
 ├── agy-market.json                     # AGY Market 市场伴随配置
 ├── logo.svg                            # 插件图标
-├── README.md / README.en.md            # 中 / 英文说明文档
+├── README*.md                          # 四语说明文档
 ├── CHANGELOG.md                        # 更新日志
 ├── LICENSE                             # MIT 开源协议
 ├── docs/

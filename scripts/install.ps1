@@ -66,7 +66,7 @@ function Sync-Directory {
         }
 }
 
-$files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'CHANGELOG.md', 'LICENSE')
+$files = @('plugin.json', 'logo.svg', 'README.md', 'README.en.md', 'README.zh-TW.md', 'README.ja.md', 'CHANGELOG.md', 'LICENSE')
 foreach ($f in $files) {
     $src = Join-Path $repoRoot $f
     if (Test-Path -LiteralPath $src -PathType Leaf) {

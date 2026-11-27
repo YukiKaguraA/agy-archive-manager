@@ -1,0 +1,84 @@
+# 會話管理 · Session Manager
+
+**在 Google Antigravity 中搜尋、預覽、封存及匯出會話。**
+
+[**简体中文**](./README.md) · [**English**](./README.en.md) · [**繁體中文**](./README.zh-TW.md) · [**日本語**](./README.ja.md)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
+  <img src="docs/screenshots/hero-light.png" width="100%" alt="會話管理面板預覽，預設顯示活躍會話" />
+</picture>
+
+這是獨立社群外掛。Google Antigravity 用於說明相容性。面板支援簡體中文、English、繁體中文和日本語，並會記住所選語言。會話標題、訊息、標籤及備註依原文顯示。
+
+## 使用方式
+
+開啟面板時預設顯示「活躍」，收錄所有尚未封存的會話。導覽順序為「活躍、已封存、收藏、閒置、全部」，各檢視顯示會話數量。清單每頁最多 50 個會話。點選任一會話即可查看目前可取得的所有訊息。
+
+| 要做的事 | 操作 |
+| --- | --- |
+| 找到舊會話 | 選擇「原文片段」或「多關鍵字」，搭配專案、原生群組和標籤篩選。搜尋命中處會反白。 |
+| 封存與還原 | 使用會話卡片或預覽工具列。批次封存、批次還原和閒置清理均可復原。 |
+| 批次永久刪除 | 在「已封存」開啟批次模式，可跨頁選取。確認前會列出會話，完成後可查看刪除、略過和失敗的項目。永久刪除無法復原。 |
+| 清理閒置會話 | 在「閒置」選擇 3、7、14 或 30 天。執行時會重新確認會話狀態。 |
+| 閱讀長會話 | 預覽可在排版與原文之間切換。長訊息自動摺疊，可展開、收合或跳到頂端和底端。 |
+| 整理與匯出 | 將會話置頂、收藏、重新命名或加入標籤與備註。匯出 Markdown 會附上會話資訊、內容來源、標籤及備註。 |
+
+<img src="docs/screenshots/preview-archived.png" width="100%" alt="已封存會話中的搜尋反白、訊息預覽與還原按鈕" />
+
+## 安裝或更新
+
+適用於 Antigravity 2.35.0 以上。Sidecar 需要可直接匯入 `node:sqlite` 的 Node.js，建議使用 22.13 以上的 22.x LTS 或 24 LTS。
+
+**Windows（PowerShell）**
+
+```powershell
+git clone https://github.com/YukiKaguraA/agy-archive-manager.git
+cd agy-archive-manager
+.\scripts\install.ps1
+```
+
+**macOS / Linux**
+
+```bash
+git clone https://github.com/YukiKaguraA/agy-archive-manager.git
+cd agy-archive-manager
+chmod +x scripts/install.sh
+./scripts/install.sh
+```
+
+如要手動安裝，將 `plugin.json`、`logo.svg`、四份 README、`CHANGELOG.md`、`LICENSE`、`docs/screenshots/`、`skills/` 與 `sidecars/` 複製到 `~/.gemini/config/plugins/archive-manager/`。Windows 位置為 `%USERPROFILE%\.gemini\config\plugins\archive-manager\`。
+
+在 Antigravity 的 **Customizations → Plugins** 啟用 **会话管理 (Session Manager)**，再從右側外掛選單開啟。安裝後可從面板上方切換語言，或在對話中請助理開啟會話管理面板。從本機原始碼更新時，重新執行同一個安裝指令即可。
+
+## 常見問題
+
+**左側欄沒有快捷入口**
+
+左側欄入口與封存計數徽章使用 Chrome DevTools Protocol（CDP）。若需要此入口，請使用 `--remote-debugging-port=0` 啟動 Antigravity。也可以從右側外掛選單開啟面板。
+
+**面板無法開啟，或出現 SQLite 錯誤**
+
+確認用來啟動 Sidecar 的 Node.js 可載入 `node:sqlite`。以下指令應輸出 `function`。
+
+```sh
+node -e "import('node:sqlite').then(m => console.log(typeof m.DatabaseSync))"
+```
+
+**部分舊會話只能看到摘要**
+
+預覽優先使用 `transcript_full.jsonl`，可用時會結合 `transcript.jsonl`。兩者皆無法提供內容時，面板改用全文索引摘要並提示內容可能不完整。
+
+**匯出檔案、標籤與備註放在哪裡**
+
+Markdown 匯出儲存在 `~/Documents/Antigravity-Exports`，每次匯出會建立一個檔案。可在面板中定位檔案。標籤透過宿主服務更新並讀回確認。本機備註及舊版的標籤覆寫資料存於 Sidecar 資料目錄。若舊標籤和宿主標籤不同，可在預覽中查看兩者並選擇要採用的版本。Antigravity 2.35.2 可能忽略清空最後一個標籤的要求，外掛會核對結果並保留本機資料。
+
+**更新 Antigravity 後功能異常**
+
+封存使用宿主的 `ConversationService`。搜尋及預覽以唯讀方式查詢 SQLite 索引，並讀取會話轉錄。若更新後發生問題，請附上 Antigravity 版本回報。[回報問題](https://github.com/YukiKaguraA/agy-archive-manager/issues) · [Sidecar 文件](https://antigravity.google/docs/sidecars/)
+
+## 開發與驗證
+
+在儲存庫根目錄執行 `node --test`，測試使用模擬服務與暫存會話。以 Node.js 22.15 以上的 22.x LTS 或 24 LTS 執行測試。更新介面後，使用 `node tools/render-hero.mjs` 產生亮色和暗色主圖。[歷史會話效能基準](https://github.com/YukiKaguraA/agy-archive-manager/blob/v2.3.0/docs/benchmark-v2.3.0.md)
+
+[更新日誌](./CHANGELOG.md) · [版本發布](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [MIT 授權](./LICENSE)

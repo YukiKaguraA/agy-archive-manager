@@ -118,7 +118,7 @@ function mockScript() {
 function buildPage(theme) {
   const vars = Object.entries(themes[theme]).map(([k, v]) => `${k}: ${v};`).join(' ');
   const head = `<style>:root { ${vars} } *, *::before, *::after { transition: none !important; animation: none !important; }</style>${mockScript()}`;
-  const autoOpen = `<script>setTimeout(() => { document.querySelector('.tab-btn[data-tab="active"]')?.click(); setTimeout(() => openPreview('c1'), 200); }, 200);</script>`;
+  const autoOpen = `<script>setTimeout(() => openPreview('c1'), 200);</script>`;
   return panelHtml
     .replace('<script src="/preload.js"></script>', head)
     .replace(/<\/body>/i, `${autoOpen}</body>`);

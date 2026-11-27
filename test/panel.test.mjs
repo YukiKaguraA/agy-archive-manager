@@ -233,7 +233,18 @@ test('the previous undo button is disabled during a second archive request', asy
 
 test('the first list request uses the saved language or the WebView default', async () => {
   for (const [webViewLanguage, saved, initialLocale, expected] of [
-    ['zh-TW', 'en', 'zh-CN', 'en'],
+    ['zh-TW', 'en', 'zh-TW', 'en'],
+    ['zh-TW', null, 'zh-TW', 'zh-TW'],
+    ['zh-Hant', null, 'zh-TW', 'zh-TW'],
+    ['zh-HK', null, 'zh-TW', 'zh-TW'],
+    ['zh-MO', null, 'zh-TW', 'zh-TW'],
+    ['zh-Hans-TW', null, 'zh-CN', 'zh-CN'],
+    ['zh-Hant-CN', null, 'zh-TW', 'zh-TW'],
+    ['ja-JP', null, 'ja', 'ja'],
+    ['ja', 'zh-CN', 'ja', 'zh-CN'],
+    ['en-US', 'ja', 'en', 'ja'],
+    ['en-US', 'zh-TW', 'en', 'zh-TW'],
+    ['ko-KR', null, 'en', 'en'],
     ['en-US', null, 'en', 'en'],
     [undefined, null, 'zh-CN', 'zh-CN'],
   ]) {
@@ -416,8 +427,8 @@ test('bulk deletion freezes confirmed IDs and cancellation sends no mutation', a
     if (path === '/api/delete-batch') { submitted.push(body.conversationIds); return {deleted:['A'], skipped:[], failed:[], warnings:[]}; }
     return {items:[{id:'A', title:'First', archived:true}],page:1,total:1};
   });
+  run("state.tab = 'archived'; state.batchMode = true");
   await run('loadList()');
-  run('state.batchMode = true');
   element('selectAllBtn').handlers.click();
   element('batchDeleteBtn').handlers.click();
   element('deleteCancelBtn').handlers.click();
@@ -482,4 +493,47 @@ test('groupSelect hides without native groups and vanished active filters keep f
   assert.equal(element('groupSelect').children.at(-1).value, 'group:gone');
   assert.equal(element('tagSelect').value, 'goneTag');
   assert.equal(element('tagSelect').children.at(-1).value, 'goneTag');
+});
+
+test('Active is the first tab and the default list query keeps unarchived chats', async () => {
+  const tabs = [...html.matchAll(/class="(tab-btn[^"]*)" data-tab="([^"]+)"/g)].map(([, style, tab]) => [style, tab]);
+  assert.deepEqual(tabs.map(([, tab]) => tab), ['active', 'archived', 'starred', 'stale', 'all']);
+  assert.deepEqual(tabs.filter(([style]) => style.split(' ').includes('active')).map(([, tab]) => tab), ['active']);
+  const chats = [{ id: 'idle', archived: false }, { id: 'running', archived: false, isRunning: true }, { id: 'old', archived: true }];
+  const { run } = createPanel((path, body) => {
+    if (path === '/api/preferences') return { language: null };
+    assert.equal(body.tab, 'active');
+    assert.equal(body.page, 1);
+    return { items: chats.filter(chat => !chat.archived) };
+  });
+  await run('initializePanel()');
+  assert.equal(run("state.items.map(chat => chat.id).join(',')"), 'idle,running');
+  assert.match(run("t('activeTab')"), /活跃/);
+});
+
+test('the four panel dictionaries fully cover the same set of strings and functions', () => {
+  const { run } = createPanel(() => ({}));
+  assert.deepEqual(Array.from(run('Object.keys(messages)')), ['zh-CN', 'en', 'zh-TW', 'ja']);
+  for (const locale of ['en', 'zh-TW', 'ja']) {
+    assert.equal(run("Object.keys(messages['zh-CN']).sort().join()"), run("Object.keys(messages['" + locale + "']).sort().join()"));
+    assert.equal(run("Object.entries(messages['" + locale + "']).every(([key,value]) => typeof value === typeof messages['zh-CN'][key] && !!value)"), true);
+  }
+});
+
+test('switching to a new locale keeps the selected archive view on refresh', async () => {
+  const calls = [];
+  const { element, run } = createPanel((path, body) => {
+    calls.push([path, body]);
+    if (path === '/api/preferences') return { language: body.language };
+    return { items: [] };
+  });
+  run("state.tab = 'archived'");
+  for (const [locale, label] of [['zh-TW', '使用者'], ['ja', 'ユーザー']]) {
+    element('languageSelect').value = locale;
+    await element('languageSelect').handlers.change();
+    assert.equal(run('document.documentElement.lang'), locale);
+    assert.match(run("t('userRole')"), new RegExp(label));
+    assert.equal(calls.at(-1)[1].tab, 'archived');
+    assert.equal(calls.at(-1)[1].locale, locale);
+  }
 });

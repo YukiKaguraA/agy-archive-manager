@@ -274,12 +274,21 @@ test('mounts a concise locale-aware sidebar entry and updates it on language swi
   assert.equal(labelNode.textContent, '会话管理');
   assert.equal(button.children[1].title, '当前有 4 条已归档会话');
 
-  currentLang = 'en';
-  invalidateCount();
-  await setImmediate();
-  assert.equal(button.attributes['aria-label'], 'Session Manager');
-  assert.equal(labelNode.textContent, 'Session Manager');
-  assert.equal(button.children[1].title, '4 archived sessions');
+  for (const [language, title, badgeTitle] of [
+    ['en', 'Session Manager', '4 archived sessions'],
+    ['zh-TW', '會話管理', '目前有 4 個已封存會話'],
+    ['ja', '会話管理', 'アーカイブ済みの会話は 4 件です'],
+    ['unsupported', '会话管理', '当前有 4 条已归档会话'],
+  ]) {
+    currentLang = language;
+    invalidateCount();
+    await setImmediate();
+    assert.equal(button.attributes['aria-label'], title);
+    assert.equal(button.title, title);
+    assert.equal(labelNode.textContent, title);
+    assert.equal(button.children[1].title, badgeTitle);
+    assert.equal(button.children[1].textContent, '4');
+  }
 
   await button.handlers.click();
   assert.equal(tabClicks, 1);

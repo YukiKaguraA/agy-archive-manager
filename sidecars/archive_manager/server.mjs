@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SidecarApp } from 'sidecar_sdk';
-import { getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
+import { DEFAULT_LANGUAGE, getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
 import { filterSearch, beginSearch } from './search.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
@@ -511,7 +511,7 @@ function buildMarkdownExport(previewData) {
   const lines = [];
   lines.push(`# ${previewData.title}`);
   lines.push('');
-  lines.push(`- **Conversation ID**: \`${previewData.id}\``);
+  lines.push(`- **${t('exportConversationId')}**: \`${previewData.id}\``);
   lines.push(`- **${t('exportProject')}**: ${previewData.projectLabel}`);
   lines.push(`- **${t('exportArchiveStatus')}**: ${t(previewData.archived ? 'exportArchived' : 'exportUnarchived')}`);
   if (previewData.pinned) lines.push(`- **${t('exportPinStatus')}**: ${t('exportPinned')}`);
@@ -526,7 +526,7 @@ function buildMarkdownExport(previewData) {
   lines.push('');
 
   for (const m of previewData.messages) {
-    const label = m.role === 'user' ? '## 👤 User' : '## 🤖 Assistant';
+    const label = m.role === 'user' ? `## 👤 ${t('exportUser')}` : `## 🤖 ${t('exportAssistant')}`;
     const ts = m.timestamp ? ` _(${m.timestamp})_` : '';
     lines.push(`${label}${ts}`);
     lines.push('');
@@ -1035,9 +1035,9 @@ app.run();
 
 function getSidebarLanguage() {
   try {
-    return readLanguagePreference() || 'zh-CN';
+    return readLanguagePreference() || DEFAULT_LANGUAGE;
   } catch {
-    return 'zh-CN';
+    return DEFAULT_LANGUAGE;
   }
 }
 

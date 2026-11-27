@@ -6,6 +6,15 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-27
+
+- 将「活跃」移到首位并设为默认视图，显示所有未归档会话。
+- 新增繁體中文及日本語界面，覆盖操作提示、预览角色、左侧栏入口和 Markdown 导出字段。
+- 新增繁體中文与日文 README，四份文档可互相切换。
+- Move Active to the first position and open it by default.
+- Add Traditional Chinese and Japanese for the panel, prompts, preview roles, sidebar entry, and Markdown export labels.
+- Add Traditional Chinese and Japanese READMEs with links between all four editions.
+
 ## [2.3.0] - 2026-11-27
 
 ### 新增 / Added
@@ -80,7 +89,8 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 - 首个公开版本：五大视图浏览、全文检索、免恢复预览、原地归档与恢复、置顶 / 星标 / 重命名 / 删除、标签与备注、Markdown 导出，以及可选的左侧栏快捷入口。
 - First public release: five-tab browsing, full-text search, preview without restoring, in-place archive and restore, pin / star / rename / delete, tags and notes, Markdown export, and an optional left-sidebar quick entry.
 
-[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/YukiKaguraA/agy-archive-manager/commit/35361be
 [2.1.1]: https://github.com/YukiKaguraA/agy-archive-manager/commit/552f8cc

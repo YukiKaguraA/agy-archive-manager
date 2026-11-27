@@ -139,6 +139,11 @@ test('language preference persists in a separate file and rejects unsupported va
   assert.deepEqual(await call('preferences', {}), { language: 'en' });
   assert.deepEqual(await call('preferences', { locale: 'en', language: 'zh-CN' }), { language: 'zh-CN' });
   assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'zh-CN' });
+  for (const language of ['zh-TW', 'ja']) {
+    assert.deepEqual(await call('preferences', { language }), { language });
+    assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language });
+    assert.deepEqual(await call('preferences', { locale: 'en' }), { language });
+  }
   assert.equal(readFileSync(metaFile, 'utf8'), existingNotes);
   assert.deepEqual(readdirSync(dataDir).sort(), ['meta.json', 'preferences.json']);
 });
@@ -159,9 +164,13 @@ test('concurrent requests keep independent languages in archive and delete safet
   failures.add('UpdateConversation:upstream-error');
 
   const archive = { conversationIds: ['pinned', 'upstream-error'], archived: true, staleDays: 7 };
-  const [english, chinese] = await Promise.all([
+  const [english, chinese, traditional, japanese] = await Promise.all([
     call('set-archived', { ...archive, locale: 'en' }),
     call('set-archived', { ...archive, locale: 'zh-CN' }),
+    call('set-archived', { ...archive, locale: 'zh-TW' }),
+    call('set-archived', { ...archive, locale: 'ja' }),
+    assert.rejects(call('delete', { conversationId: 'running', locale: 'zh-TW' }), /停止後再刪除/),
+    assert.rejects(call('delete', { conversationId: 'running', locale: 'ja' }), /停止してから削除/),
     assert.rejects(call('delete', { conversationId: 'running', locale: 'en' }), /Stop it before deleting/),
     assert.rejects(call('delete', { conversationId: 'running' }), /请先停止后再删除/),
   ]);
@@ -172,6 +181,14 @@ test('concurrent requests keep independent languages in archive and delete safet
   assert.deepEqual(chinese.failed, [
     { id: 'pinned', error: '会话已置顶' },
     { id: 'upstream-error', error: 'ConversationService.UpdateConversation 失败: request rejected' },
+  ]);
+  assert.deepEqual(traditional.failed, [
+    { id: 'pinned', error: '這個會話已置頂' },
+    { id: 'upstream-error', error: 'ConversationService.UpdateConversation 失敗: request rejected' },
+  ]);
+  assert.deepEqual(japanese.failed, [
+    { id: 'pinned', error: '会話はピン留めされています' },
+    { id: 'upstream-error', error: 'ConversationService.UpdateConversation に失敗しました: request rejected' },
   ]);
   assert.deepEqual(mutationIds('DeleteConversation'), []);
 });
@@ -513,17 +530,35 @@ test('preview can report an unreadable index without claiming indexed content', 
   }
 });
 
-test('English export translates its labels and warnings while preserving saved Chinese snapshots', async () => {
+test('Markdown exports translate labels and warnings in four languages while preserving user content', async () => {
   const id = 'bilingual-export';
   addConversation(id, { archived: true, pinned: true, starred: true });
   conversations.get(id).annotations.title = '保留标题';
   writeFileSync(metaFile, JSON.stringify({ conversations: { [id]: { tags: ['测试标签'], note: '用户备注' } } }));
-  writeTranscript(id, 'transcript.jsonl', [user(0, '保留用户消息'), reply(1, '保留助手回答'), '{ broken']);
+  const prompt = '保留用户消息 / English / 日本語';
+  const replyText = '保留助手回答\n\n```js\nconst value = "中文";\n```';
+  writeTranscript(id, 'transcript.jsonl', [user(0, prompt), reply(1, replyText), '{ broken']);
 
   const chinese = await call('export', { conversationId: id, saveToDisk: true });
   const english = await call('export', { conversationId: id, locale: 'en', saveToDisk: true });
 
-  assert.match(chinese.markdown, /\*\*所属项目\*\*: 未归属项目/);
+  const [traditional, japanese] = await Promise.all(['zh-TW', 'ja'].map(locale =>
+    call('export', { conversationId: id, locale, saveToDisk: true })
+  ));
+  for (const [result, phrases] of [
+    [chinese, ['**会话 ID**:', '**所属项目**: 未归属项目', '## 👤 用户', '## 🤖 助手']],
+    [traditional, ['**會話 ID**:', '**所屬專案**: 未歸屬專案', '**封存狀態**: 已封存', '**標籤**: #测试标签',
+      '**備註**: 用户备注', '**提示**: 內容來自精簡記錄', '## 👤 使用者', '## 🤖 助理']],
+    [japanese, ['**会話 ID**:', '**プロジェクト**: プロジェクトなし', '**アーカイブ状態**: アーカイブ済み',
+      '**タグ**: #测试标签', '**メモ**: 用户备注', '**警告**: 内容は簡略ログ', '## 👤 ユーザー', '## 🤖 アシスタント']],
+    [english, ['**Conversation ID**:', '## 👤 User', '## 🤖 Assistant']],
+  ]) {
+    for (const phrase of ['# 保留标题', prompt, replyText, ...phrases]) {
+      assert.ok(result.markdown.includes(phrase), phrase);
+    }
+    assert.equal(readFileSync(result.savedPath, 'utf8'), result.markdown);
+  }
+  assert.equal(new Set([chinese, english, traditional, japanese].map(result => result.filename)).size, 4);
   for (const phrase of [
     '**Project**: No project', '**Archive status**: Archived', '**Pin status**: Pinned',
     '**Star status**: Starred', '**Last updated**:', '**Tags**: #测试标签', '**Note**: 用户备注',

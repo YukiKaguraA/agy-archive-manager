@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
+import { DEFAULT_LANGUAGE, translateForLocale } from './server-locale.mjs';
 
 const INSTANCE_TS = Date.now();
 const INTERVAL_MS = 2500;
@@ -128,8 +129,7 @@ function mountLeftSidebarButton(payload) {
   const navContainer = autoBtn?.parentElement;
   if (!navContainer) return 'no-nav';
 
-  const isEn = payload.language === 'en';
-  const buttonLabel = isEn ? 'Session Manager' : '会话管理';
+  const { buttonLabel, badgeTitle } = payload;
   let btn = document.getElementById('ag-archive-nav-btn');
   if (btn && btn.getAttribute('data-ver') !== '5') {
     btn.remove();
@@ -284,15 +284,13 @@ function mountLeftSidebarButton(payload) {
   if (badge) {
     const cnt = Number(payload.archivedCount || 0);
     badge.textContent = String(cnt);
-    badge.title = isEn
-      ? `${cnt} archived ${cnt === 1 ? 'session' : 'sessions'}`
-      : `当前有 ${cnt} 条已归档会话`;
+    badge.title = badgeTitle;
     badge.style.display = cnt > 0 ? 'inline-block' : 'none';
   }
   return 'ok';
 }
 
-export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 'zh-CN') {
+export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => DEFAULT_LANGUAGE) {
   let busy = false;
   let stopped = false;
   let refreshRequested = false;
@@ -309,7 +307,7 @@ export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 
       if (stopped || pages.length === 0) return;
 
       const language = (() => {
-        try { return getLanguage() === 'en' ? 'en' : 'zh-CN'; } catch { return 'zh-CN'; }
+        try { return getLanguage(); } catch { return DEFAULT_LANGUAGE; }
       })();
 
       if (Date.now() >= nextCountReadAt) {
@@ -326,7 +324,8 @@ export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 
         if (stopped || refreshRequested) break;
         const expr = `(${mountLeftSidebarButton.toString()})(${JSON.stringify({
           instanceTs: INSTANCE_TS,
-          language,
+          buttonLabel: translateForLocale(language, 'sidebarLabel'),
+          badgeTitle: translateForLocale(language, 'sidebarArchivedCount', archivedCount),
           archivedCount,
         })})`;
         pendingMount = evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});

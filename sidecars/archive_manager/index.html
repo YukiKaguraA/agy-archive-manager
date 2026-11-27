@@ -825,6 +825,8 @@
           <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
             <option value="zh-CN" lang="zh-CN">简体中文</option>
             <option value="en" lang="en">English</option>
+            <option value="zh-TW" lang="zh-TW">繁體中文</option>
+            <option value="ja" lang="ja">日本語</option>
           </select>
         </div>
         <div class="header-actions">
@@ -836,8 +838,8 @@
       <div id="languageStatus" role="status" hidden></div>
 
       <div class="tabs" id="tabs">
-        <button class="tab-btn active" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
-        <button class="tab-btn" data-tab="active"><span data-i18n="activeTab">💬 未归档</span><span class="tab-count" id="cnt-active">0</span></button>
+        <button class="tab-btn active" data-tab="active"><span data-i18n="activeTab">💬 活跃</span><span class="tab-count" id="cnt-active">0</span></button>
+        <button class="tab-btn" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
         <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
         <button class="tab-btn" data-tab="stale"><span data-i18n="staleTab">🧹 闲置</span><span class="tab-count" id="cnt-stale">0</span></button>
         <button class="tab-btn" data-tab="all"><span data-i18n="allTab">📚 全部</span><span class="tab-count" id="cnt-all">0</span></button>
@@ -986,7 +988,7 @@
         batch: '☑ 批量', batchHelp: '开启或关闭多选批量操作',
         exportDir: '📂 导出目录', exportDirHelp: '打开 Markdown 导出文件夹',
         refresh: '↻ 刷新', refreshHelp: '刷新会话列表',
-        archivedTab: '📦 已归档', activeTab: '💬 未归档', starredTab: '⭐ 收藏',
+        archivedTab: '📦 已归档', activeTab: '💬 活跃', starredTab: '⭐ 收藏',
         staleTab: '🧹 闲置', allTab: '📚 全部',
         search: '搜索会话', searchPlaceholder: '搜索标题、项目、正文或标签…', clearSearch: '清空搜索',
         allProjects: '全部项目', filterProject: '按项目筛选', allTags: '全部标签', filterTag: '按标签筛选',
@@ -1112,13 +1114,158 @@
         renamed: 'Chat renamed', deleted: 'Chat permanently deleted', deleteFailed: (error) => `Deletion failed · ${error}`,
         languageFailed: 'Could not save the display language. Please try again.',
       },
+      'zh-TW': {
+        brand: '會話管理', nativeApi: '原生 API', language: '介面語言',
+        nativeApiHelp: '透過 Antigravity 的 ConversationService 管理會話',
+        batch: '☑ 批次', batchHelp: '開啟或關閉批次選取',
+        exportDir: '📂 匯出資料夾', exportDirHelp: '開啟 Markdown 匯出資料夾',
+        refresh: '↻ 重新整理', refreshHelp: '重新整理會話清單',
+        archivedTab: '📦 已封存', activeTab: '💬 活躍', starredTab: '⭐ 收藏',
+        staleTab: '🧹 閒置', allTab: '📚 全部',
+        search: '搜尋會話', searchPlaceholder: '搜尋標題、專案、內文或標籤…', clearSearch: '清除搜尋',
+        allProjects: '所有專案', filterProject: '依專案篩選', allTags: '所有標籤', filterTag: '依標籤篩選',
+        sortBy: '排序方式', recent: '最近更新', mostSteps: '步驟最多', byTitle: '依標題',
+        idleFor: '閒置超過', idleThreshold: '閒置天數', idleHelp: '（略過執行中、置頂和收藏的會話）',
+        days: (n) => `${number(n)} 天`, archiveIdle: '📦 封存閒置會話',
+        searchMode: '搜尋模式', literal: '原文片段', keywords: '多關鍵字', filterGroup: '依原生群組篩選', allGroups: '所有群組',
+        pages: '會話分頁', prevPage: '上一頁', nextPage: '下一頁', pageOf: (p, pages, total) => `第 ${number(p)} / ${number(pages)} 頁 · ${number(total)} 個會話`,
+        deletedItem: title => `已刪除 · ${title}`, skippedItem: (title, reason) => `已略過 · ${title} · ${reason}`,
+        failedItem: (title, reason) => `失敗 · ${title} · ${reason}`,
+        deleteSelected: '永久刪除所選會話', batchConfirm: n => `確定要永久刪除以下 ${number(n)} 個已封存會話及其歷史訊息嗎？此操作無法復原。`,
+        deleteResult: (d, s, f) => `已刪除 ${number(d)} · 已略過 ${number(s)} · 失敗 ${number(f)}`,
+        useNative: '採用 Antigravity 標籤', useLocal: '將本機標籤同步至 Antigravity', emptyTags: '無',
+        conflictLabels: (local, native) => `原本的本機標籤為 ${local}。Antigravity 標籤為 ${native}。`,
+        selectAll: '選取本頁全部', selected: (n) => `已選取 ${number(n)} 個`,
+        restoreAll: '♻️ 批次還原', archiveAll: '📦 批次封存', done: '完成',
+        connecting: '正在連線至 ConversationService…',
+        previewHint: '選取會話即可預覽內文、重新命名、新增標籤或匯出 Markdown。',
+        back: '← 返回', conversationTitle: '會話標題', rename: '✏️ 重新命名', renameHelp: '重新命名這個會話', save: '✓ 儲存',
+        openChat: '↗ 開啟會話', restoreButton: '♻️ 還原', archiveButton: '📦 封存', exportMarkdown: '📥 匯出 .md',
+        raw: '原文', formatted: '排版', rawHelp: '切換 Markdown 排版與原文',
+        expandAll: '⊞ 全部展開', foldAll: '⊟ 全部收合',
+        expandLongHelp: '展開所有長訊息', foldLongHelp: '收合所有長訊息',
+        expandAllHelp: '展開所有訊息', foldAllHelp: '收合所有訊息內文',
+        top: '⬆ 頂端', topHelp: '移至會話頂端', bottom: '⬇ 底端', bottomHelp: '移至會話底端',
+        delete: '🗑️ 刪除', deleteHelp: '永久刪除這個會話',
+        addTag: '新增標籤', tagPlaceholder: '+ 輸入標籤後按 Enter', removeTag: tag => `移除標籤 #${tag}`,
+        note: '個人備註', notePlaceholder: '新增個人備註（自動儲存）…',
+        deleteHeading: '⚠️ 永久刪除會話（無法復原）', cancel: '取消', confirmDelete: '確認永久刪除',
+        deleteConfirm: title => `確定要永久刪除「${title}」及其歷史訊息嗎？若只想隱藏這個會話，可以封存。`,
+        justNow: '剛剛', unknownTime: '時間不明', loadFailed: error => `載入失敗 · ${error}`,
+        noMatches: query => `找不到符合「${query}」的會話`, noArchived: '目前沒有已封存的會話',
+        noStarred: '目前沒有收藏的會話，點選卡片上的 ☆ 即可收藏',
+        noStale: days => `沒有閒置超過 ${t('days', days)}的活躍會話`, noSessions: '沒有符合條件的會話',
+        running: '執行中', archived: '已封存', active: '活躍', steps: n => `${number(n)} 個步驟`,
+        restoreHelp: '在 Antigravity 取消封存並還原會話', archiveHelp: '在 Antigravity 封存會話',
+        runningHelp: '執行中的會話無法封存', selectChat: title => `選取會話「${title}」`,
+        pin: '置頂會話', unpin: '取消置頂', star: '收藏會話', unstar: '取消收藏',
+        pinned: '已置頂會話', unpinned: '已取消置頂', starred: '已收藏會話', unstarred: '已取消收藏',
+        hostOpened: '已在主視窗開啟會話', hostUnavailable: '請在 Antigravity 開啟會話',
+        updateFailed: error => `更新失敗 · ${error}`,
+        archive: '封存', restore: '還原', undo: '復原', working: verb => `正在${verb}…`,
+        archiveSuccess: (verb, n) => `已${verb} ${number(n)} 個`,
+        archiveUnchanged: n => `${number(n)} 個未變更`,
+        archiveFailures: (n, details) => `${number(n)} 個失敗${details ? `（${details}）` : ''}`,
+        archiveError: (verb, error) => `${verb}失敗 · ${error}`, moreReasons: '等', reasonSeparator: '、', summarySeparator: '，',
+        noticeSeparator: '。', loading: '載入中…', loadingMessages: '正在讀取歷史訊息…',
+        previewMismatch: '回傳的會話與目前選取的會話不符', previewFailed: '無法載入預覽',
+        source: label => `來源 · ${label}`, fullLog: '完整記錄', compactLog: '精簡記錄',
+        mergedLog: '完整記錄與精簡記錄', indexLog: '索引片段', noSource: '無可用文字', unknownSource: '不明',
+        noMessages: '這個會話沒有可預覽的文字訊息。可選擇「開啟會話」查看。',
+        userRole: '👤 使用者', assistantRole: '🤖 助理', expandMessage: '展開全文 ▾', foldMessage: '收合 ▴',
+        tagsFailed: error => `無法儲存標籤 · ${error}`, noteFailed: error => `無法儲存備註 · ${error}`,
+        exported: filename => `已匯出 · ${filename}`, revealFile: '顯示檔案',
+        revealFailed: error => `無法顯示匯出的檔案 · ${error}`, exportFailed: error => `匯出失敗 · ${error}`,
+        refreshed: '已重新整理會話清單', noExports: '先匯出一個會話以建立匯出資料夾。',
+        renamed: '已重新命名會話', deleted: '已永久刪除會話', deleteFailed: error => `刪除失敗 · ${error}`,
+        languageFailed: '無法儲存介面語言，請再試一次。',
+      },
+      ja: {
+        brand: '会話管理', nativeApi: 'ネイティブ API', language: '表示言語',
+        nativeApiHelp: 'Antigravity の ConversationService で会話を管理します',
+        batch: '☑ 一括操作', batchHelp: '複数選択のオンとオフを切り替える',
+        exportDir: '📂 保存先', exportDirHelp: 'Markdown のエクスポート先を開く',
+        refresh: '↻ 更新', refreshHelp: '会話一覧を更新する',
+        archivedTab: '📦 アーカイブ済み', activeTab: '💬 アクティブ', starredTab: '⭐ お気に入り',
+        staleTab: '🧹 長期未使用', allTab: '📚 すべて',
+        search: '会話を検索', searchPlaceholder: 'タイトル、プロジェクト、本文、タグを検索…', clearSearch: '検索をクリア',
+        allProjects: 'すべてのプロジェクト', filterProject: 'プロジェクトで絞り込む', allTags: 'すべてのタグ', filterTag: 'タグで絞り込む',
+        sortBy: '並び順', recent: '更新日時順', mostSteps: 'ステップ数の多い順', byTitle: 'タイトル順',
+        idleFor: '未使用期間', idleThreshold: '未使用とみなす日数', idleHelp: '（実行中、ピン留め済み、お気に入りの会話を除く）',
+        days: n => `${number(n)} 日`, archiveIdle: '📦 長期未使用の会話をアーカイブ',
+        searchMode: '検索モード', literal: '文字列検索', keywords: 'キーワード検索', filterGroup: '会話グループで絞り込む', allGroups: 'すべてのグループ',
+        pages: '会話一覧のページ', prevPage: '前へ', nextPage: '次へ', pageOf: (p, pages, total) => `${number(p)} / ${number(pages)} ページ · ${number(total)} 件`,
+        deletedItem: title => `削除済み · ${title}`, skippedItem: (title, reason) => `スキップ · ${title} · ${reason}`,
+        failedItem: (title, reason) => `失敗 · ${title} · ${reason}`,
+        deleteSelected: '選択した会話を完全に削除', batchConfirm: n => `以下のアーカイブ済みの会話 ${number(n)} 件を履歴ごと完全に削除しますか？この操作は取り消せません。`,
+        deleteResult: (d, s, f) => `削除 ${number(d)} 件 · スキップ ${number(s)} 件 · 失敗 ${number(f)} 件`,
+        useNative: 'Antigravity のタグを使用', useLocal: 'ローカルタグを Antigravity に同期', emptyTags: 'なし',
+        conflictLabels: (local, native) => `保存済みのローカルタグは「${local}」、Antigravity のタグは「${native}」です。`,
+        selectAll: 'このページをすべて選択', selected: n => `${number(n)} 件を選択中`,
+        restoreAll: '♻️ 選択した会話を復元', archiveAll: '📦 選択した会話をアーカイブ', done: '完了',
+        connecting: 'ConversationService に接続中…',
+        previewHint: '会話を選択すると、プレビュー、名前の変更、タグの追加、Markdown のエクスポートができます。',
+        back: '← 戻る', conversationTitle: '会話のタイトル', rename: '✏️ 名前を変更', renameHelp: 'この会話の名前を変更する', save: '✓ 保存',
+        openChat: '↗ 会話を開く', restoreButton: '♻️ 復元', archiveButton: '📦 アーカイブ', exportMarkdown: '📥 .md にエクスポート',
+        raw: '原文', formatted: 'Markdown', rawHelp: 'Markdown 表示と原文を切り替える',
+        expandAll: '⊞ すべて展開', foldAll: '⊟ すべて折りたたむ',
+        expandLongHelp: '長いメッセージをすべて展開する', foldLongHelp: '長いメッセージをすべて折りたたむ',
+        expandAllHelp: 'すべてのメッセージを展開する', foldAllHelp: 'すべてのメッセージ本文を折りたたむ',
+        top: '⬆ 先頭', topHelp: '会話の先頭へ移動する', bottom: '⬇ 末尾', bottomHelp: '会話の末尾へ移動する',
+        delete: '🗑️ 削除', deleteHelp: 'この会話を完全に削除する',
+        addTag: 'タグを追加', tagPlaceholder: '+ タグを入力して Enter', removeTag: tag => `タグ #${tag} を削除する`,
+        note: '個人メモ', notePlaceholder: '個人メモを追加（自動保存）…',
+        deleteHeading: '⚠️ 会話を完全に削除しますか？', cancel: 'キャンセル', confirmDelete: '完全に削除する',
+        deleteConfirm: title => `「${title}」とそのメッセージ履歴を完全に削除しますか？一覧から隠す場合はアーカイブできます。`,
+        justNow: 'たった今', unknownTime: '日時不明', loadFailed: error => `読み込みに失敗しました · ${error}`,
+        noMatches: query => `「${query}」に一致する会話がありません`, noArchived: 'アーカイブ済みの会話がありません',
+        noStarred: 'お気に入りの会話がありません。カードの ☆ を選択すると追加できます。',
+        noStale: days => `${t('days', days)}を超えて使われていないアクティブな会話がありません`, noSessions: '条件に一致する会話がありません',
+        running: '実行中', archived: 'アーカイブ済み', active: 'アクティブ', steps: n => `${number(n)} ステップ`,
+        restoreHelp: 'Antigravity で会話をアーカイブから復元する', archiveHelp: 'Antigravity で会話をアーカイブする',
+        runningHelp: '実行中の会話はアーカイブできません', selectChat: title => `会話「${title}」を選択する`,
+        pin: 'ピン留めする', unpin: 'ピン留めを解除する', star: 'お気に入りに追加する', unstar: 'お気に入りから外す',
+        pinned: '会話をピン留めしました', unpinned: 'ピン留めを解除しました', starred: 'お気に入りに追加しました', unstarred: 'お気に入りから外しました',
+        hostOpened: 'メインウィンドウで会話を開きました', hostUnavailable: '会話を開くには Antigravity が必要です',
+        updateFailed: error => `更新に失敗しました · ${error}`,
+        archive: 'アーカイブ', restore: '復元', undo: '元に戻す', working: verb => `${verb}中…`,
+        archiveSuccess: (verb, n) => `${number(n)} 件の${verb}に成功`,
+        archiveUnchanged: n => `${number(n)} 件は変更なし`,
+        archiveFailures: (n, details) => `${number(n)} 件が失敗${details ? `（${details}）` : ''}`,
+        archiveError: (verb, error) => `${verb}に失敗しました · ${error}`, moreReasons: 'など', reasonSeparator: '、', summarySeparator: ' · ',
+        noticeSeparator: ' · ', loading: '読み込み中…', loadingMessages: 'メッセージ履歴を読み込み中…',
+        previewMismatch: '選択した会話とは異なるデータが返されました', previewFailed: 'プレビューを読み込めませんでした',
+        source: label => `出典 · ${label}`, fullLog: '完全版のログ', compactLog: '簡易ログ',
+        mergedLog: '完全版と簡易版のログ', indexLog: 'インデックスの抜粋', noSource: '利用できる本文なし', unknownSource: '不明',
+        noMessages: 'プレビューできるテキストがありません。「会話を開く」から確認できます。',
+        userRole: '👤 ユーザー', assistantRole: '🤖 アシスタント', expandMessage: '全文を表示 ▾', foldMessage: '折りたたむ ▴',
+        tagsFailed: error => `タグを保存できませんでした · ${error}`, noteFailed: error => `メモを保存できませんでした · ${error}`,
+        exported: filename => `エクスポートしました · ${filename}`, revealFile: 'ファイルを表示',
+        revealFailed: error => `エクスポートしたファイルを表示できませんでした · ${error}`, exportFailed: error => `エクスポートに失敗しました · ${error}`,
+        refreshed: '会話一覧を更新しました', noExports: '会話をエクスポートすると保存先のフォルダーが作成されます。',
+        renamed: '会話の名前を変更しました', deleted: '会話を完全に削除しました', deleteFailed: error => `削除に失敗しました · ${error}`,
+        languageFailed: '表示言語を保存できませんでした。もう一度お試しください。',
+      },
     };
 
-    const browserLanguage = navigator.language;
-    const defaultLocale = !browserLanguage || /^zh\b/i.test(browserLanguage) ? 'zh-CN' : 'en';
+    function detectLocale(language) {
+      if (!language) return 'zh-CN';
+      let locale;
+      try {
+        locale = new Intl.Locale(language);
+      } catch {
+        return 'en';
+      }
+      if (locale.language === 'ja') return 'ja';
+      if (locale.language !== 'zh') return 'en';
+      if (locale.script) return locale.script === 'Hant' ? 'zh-TW' : 'zh-CN';
+      return ['TW', 'HK', 'MO'].includes(locale.region) ? 'zh-TW' : 'zh-CN';
+    }
+
+    const defaultLocale = detectLocale(navigator.language);
     const state = {
       locale: defaultLocale,
-      tab: 'archived',
+      tab: 'active',
       query: '',
       projectKey: '',
       groupKey: '',

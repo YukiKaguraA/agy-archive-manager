@@ -6,16 +6,16 @@
 
 **Archive, search, preview, and export your Google Antigravity conversations**
 
-Five views · Full-text search · Preview without restoring · Batch archive with undo · Tags & notes · Markdown export · English & 简体中文
+Five views · Full-text search · Preview without restoring · Batch archive with undo · Tags & notes · Markdown export · Four interface languages
 
-[**简体中文**](./README.md) · [**English**](./README.en.md) · [**Changelog**](./CHANGELOG.md) · [**Releases**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**Issues**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
+[**简体中文**](./README.md) · [**English**](./README.en.md) · [**繁體中文**](./README.zh-TW.md) · [**日本語**](./README.ja.md) · [**Changelog**](./CHANGELOG.md) · [**Releases**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**Issues**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
 
 <p>
   <a href="https://github.com/YukiKaguraA/agy-archive-manager/releases"><img src="https://img.shields.io/github/v/release/YukiKaguraA/agy-archive-manager?style=flat-square&color=3186ff&label=Release" alt="Latest Release" /></a>
   <img src="https://img.shields.io/badge/Antigravity-%E2%89%A5%202.35.0-0f172a?style=flat-square" alt="Antigravity 2.35.0+" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-1e293b?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/Node.js-22.13%2B%20%7C%2024%20LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 22.13+ or 24 LTS" />
-  <img src="https://img.shields.io/badge/i18n-English%20%7C%20%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-8b5cf6?style=flat-square" alt="English | 简体中文" />
+  <img src="https://img.shields.io/badge/i18n-4_languages-8b5cf6?style=flat-square" alt="简体中文 | English | 繁體中文 | 日本語" />
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563eb?style=flat-square" alt="License: MIT" /></a>
 </p>
 
@@ -37,13 +37,13 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 
 ## ✨ Highlights
 
-- **Five views at a glance**: Archived, Active, Starred, Idle, and All, each with a live count.
+- **Five views at a glance**: Active, Archived, Starred, Idle, and All, each with a count. The panel opens on Active.
 - **Find anything**: Search titles, projects, message bodies, tags, and notes at once, with highlighted matches.
 - **Read without restoring**: Preview past conversations directly. Long replies collapse automatically, and you can switch between formatted and raw views.
 - **Changed your mind? Undo**: Archive or restore in batches, archive idle conversations by days inactive, and undo the result.
 - **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
 - **One-click Markdown export**: Export conversations with their metadata, tags, and notes to `~/Documents/Antigravity-Exports`.
-- **Bilingual and theme-aware**: Switch the panel language at any time. Colors follow your host theme and UI packs.
+- **Four interface languages**. Choose Simplified Chinese, English, Traditional Chinese, or Japanese. The panel remembers your choice and follows the host theme.
 - **Safe by default**: Running conversations cannot be deleted, SQLite is opened read-only, and local notes are saved atomically.
 
 ---
@@ -109,7 +109,7 @@ Run the same script again to update to the latest version in your clone.
 Copy these files into `~/.gemini/config/plugins/archive-manager/` (`%USERPROFILE%\.gemini\config\plugins\archive-manager\` on Windows):
 
 - `plugin.json`, `logo.svg`, `LICENSE`
-- `README.md`, `README.en.md`, `CHANGELOG.md`
+- `README.md`, `README.en.md`, `README.zh-TW.md`, `README.ja.md`, `CHANGELOG.md`
 - `docs/screenshots/` (images used in the READMEs)
 - `skills/`, `sidecars/`
 
@@ -134,14 +134,13 @@ Then remind the user to enable the plugin under **Customizations → Plugins**.
 
 ---
 
-## 🆕 What's New in v2.3.0
+## 🆕 What's New in v2.3.1
 
-- The list displays 50 conversations per page. Opening one shows all available transcript messages for that conversation.
-- Choose **Exact text** for literal fragments or **Keywords** to combine terms across messages. Project, native group, and tag filters work together. Projects with the same name appear separately.
-- In **Archived → Batch**, select chats across pages and choose **Delete selected permanently**. Review the list before confirming. The results identify deleted, skipped, and failed chats. Permanent deletion cannot be undone.
-- If saved local tags differ from the host, the preview shows both sets. Use the host tags or sync the local set to the host. Notes stay local. Antigravity 2.35.2 can ignore a request to clear the last tag. The panel verifies the host response and retains the local record if the change did not take effect.
+- Active is the first tab. The panel opens with all unarchived conversations.
+- Traditional Chinese and Japanese are available for the interface, operation messages, and Markdown export labels.
+- The GitHub README is now available in Traditional Chinese and Japanese.
 
-👉 [Read the full changelog](./CHANGELOG.md)
+[See the full changelog](./CHANGELOG.md)
 
 ---
 
@@ -178,7 +177,7 @@ Archive operations use Antigravity's internal `ConversationService`, and search 
 <details>
 <summary><strong>Where are exports, tags, and notes stored?</strong></summary>
 
-Exports are saved to `~/Documents/Antigravity-Exports`, one file per export, and the panel can reveal them. The panel writes tags through the host service and reads them back to verify the update. Notes and legacy tag overrides are stored in the Sidecar data directory.
+Exports are saved to `~/Documents/Antigravity-Exports`, one file per export, and the panel can reveal them. The panel writes tags through the host service and reads them back to verify the update. Notes and legacy tag overrides are stored in the Sidecar data directory. Antigravity 2.35.2 can ignore a request to clear the last tag. The panel checks whether the change took effect and retains the local record if it did not.
 
 </details>
 
@@ -204,7 +203,7 @@ agy-archive-manager/
 ├── plugin.json                         # Plugin manifest and metadata
 ├── agy-market.json                     # AGY Market companion metadata
 ├── logo.svg                            # Plugin icon
-├── README.md / README.en.md            # Chinese / English docs
+├── README*.md                          # Documentation in four languages
 ├── CHANGELOG.md                        # Release notes
 ├── LICENSE                             # MIT License
 ├── docs/
