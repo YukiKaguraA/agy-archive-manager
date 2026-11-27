@@ -905,7 +905,7 @@ test('card tags move below actions, search input drops inner double outline, and
     }
     if (path === '/api/update-status' || path === '/api/check-update') {
       return {
-        currentVersion: '2.4.1', latestVersion: '2.5.0', updateAvailable: true,
+        currentVersion: '2.3.3', latestVersion: '2.5.0', updateAvailable: true,
         installMode: 'archive', updateMode: 'manual',
         releaseUrl: 'https://github.com/YukiKaguraA/agy-archive-manager/releases/tag/v2.5.0',
         checkedAtMs: 1700000000000,

@@ -115,8 +115,8 @@ function mockScript() {
           trashSummary: { totalCount: 0, expiredCount: 0 },
         }),
         '/api/update-status': () => ({
-          currentVersion: '2.4.1',
-          latestVersion: '2.4.1',
+          currentVersion: '2.3.3',
+          latestVersion: '2.3.3',
           updateAvailable: false,
           installMode: 'archive',
           updateMode: 'manual',
@@ -127,8 +127,8 @@ function mockScript() {
           lastError: null,
         }),
         '/api/check-update': () => ({
-          currentVersion: '2.4.1',
-          latestVersion: '2.4.1',
+          currentVersion: '2.3.3',
+          latestVersion: '2.3.3',
           updateAvailable: false,
           installMode: 'archive',
           updateMode: 'manual',

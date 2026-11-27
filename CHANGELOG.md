@@ -6,16 +6,22 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
-## 2.4.1 - 2026-11-28（内部版 / Internal build）
+## 2.3.3 - 2026-11-28（内部版 / Internal build）
 
 - 工作区优先沿用宿主项目顺序，未归属置底。首次进入视图时展开并定位最近更新的工作区。
-- 设置集中管理界面语言、Markdown 导出目录和回收站保留天数。缩短保留期时先显示到期数量。
-- 预览支持在搜索命中之间循环跳转，自动展开命中的折叠消息，并可打开原始日志目录。
+- 工作区采用原生开合文件夹图标与扁平通栏列表，卡片状态简化为小圆点，标签下移至卡片底部。
+- 顶部移除冗余品牌名，改为平滑滑动滑块导航；右上角刷新变更为独立图标按钮，与批量按钮对齐。
+- 设置页采用宽卡片布局，集中管理界面语言、主题色（宿主及6种色调）、字体缩放（4档）、Markdown 导出目录与回收站保留天数。
+- 集成全功能零依赖插件更新器，支持手动检测、更新模式切换与原地平滑重启。
+- 预览支持在搜索命中之间循环跳转（F3/Shift+F3），自动展开折叠命中项，并可一键打开原始日志目录。
 - Workspace order follows the host when available, with unassigned sessions last. Each view initially expands and scrolls to the most recently updated workspace.
-- Settings groups language, Markdown export directory, and Trash retention. A shorter retention period shows the eligible count before cleanup.
-- Preview supports wrapping search match navigation, expansion of folded matches, and opening raw logs.
+- Workspaces feature native outline folder icons and a flat full-bleed list; status pills are streamlined into colored dots and tags are placed at the card bottom.
+- Header replaces the redundant brand with smooth gliding tab controls; the refresh button becomes an icon button aligned with the batch button.
+- Settings uses a wide-card layout for language, theme accent (host and 6 colors), font scale (4 sizes), export directory, and trash retention.
+- Integrates a self-contained zero-dependency plugin updater with manual check, configurable modes, and seamless sidecar restart.
+- Preview supports wrapping search match navigation (F3/Shift+F3), automatic unfolding of matched messages, and opening raw log directories.
 
-## 2.4.0 - 2026-11-28（内部版 / Internal build）
+## 2.3.2 - 2026-11-28（内部版 / Internal build）
 
 - 会话库按工作区折叠浏览，每组单独分页。新增设置页入口，合并搜索输入与模式选择。
 - 会话卡片显示用户轮次、步数、会话文件数和存储占用。
