@@ -329,14 +329,17 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
     .find(id => typeof id === 'string' && id.trim())?.trim() || '';
   const nativeTags = nativeTagsOf(c);
   const localTags = Array.isArray(localMeta.tags) ? normalizeTags(localMeta.tags) : null;
-  const trashedAt = inTrash(localMeta) ? localMeta.trash.trashedAt : null;
+  const status = getConversationStatus(c, nowMs);
+  const trashedAt = inTrash(localMeta) && (status.archived || localMeta.trash.phase === 'restoring')
+    ? localMeta.trash.trashedAt
+    : null;
   return {
     id: c.id,
     title: (ann.title || st.summary || dbInfo.preview || t('untitled')).trim(),
     summary: (st.summary || dbInfo.preview || '').trim(),
     stepCount: dbInfo.stepCount || 0,
     createTime: md.createTime || '',
-    ...getConversationStatus(c, nowMs),
+    ...status,
     project: projectName || UNASSIGNED_PROJECT,
     projectLabel: projectName || t('unassignedProject'),
     projectId, projectKey,
@@ -851,14 +854,19 @@ function requireIdle(status, operation) {
 registerApi('/api/set-archived', serializeMutation(async (data) => {
   const { ops, archived, staleDays } = parseArchiveRequest(data);
   const result = { ok: true, archived, succeeded: [], unchanged: [], failed: [], changes: [] };
-  const { conversations } = readMetaStore();
+  const store = readMetaStore();
+  const { conversations } = store;
   for (const op of ops) {
     const { id, expectedArchived } = op;
     try {
-      if (conversations[id]?.trash) throw new Error(t('restoreFromTrash'));
+      if (conversations[id]?.trash?.phase) throw new Error(t('restoreFromTrash'));
       // Earlier operations in a batch may take time. Read each candidate just before its update.
       const current = await getNativeConversation(id);
       const previousArchived = getKnownArchiveState(current);
+      if (conversations[id]?.trash) {
+        if (previousArchived) throw new Error(t('restoreFromTrash'));
+        saveTrash(store, id, null);
+      }
       const status = getConversationStatus(current);
       if (staleDays !== undefined) {
         const exclusion = getStaleExclusion(status, staleDays);
@@ -936,8 +944,11 @@ registerApi('/api/meta/update', serializeMutation(async (data) => {
     nativeAnn.tags = normalizeTags(data.tags).slice(0, 20);
   }
   if (typeof data.archived === 'boolean') {
-    if (prev.trash) throw new Error(t('restoreFromTrash'));
     const current = await getNativeConversation(id);
+    if (prev.trash) {
+      if (prev.trash.phase || getKnownArchiveState(current)) throw new Error(t('restoreFromTrash'));
+      delete next.trash;
+    }
     if (getKnownArchiveState(current) !== data.archived) {
       if (data.archived) requireIdle(getConversationStatus(current), 'archive');
       nativeAnn.archived = data.archived;
@@ -1036,6 +1047,12 @@ async function moveToTrash(id, archivedOnly) {
   const entry = store.conversations[id];
   if (inTrash(entry)) {
     if (entry.trash.phase === 'restoring') throw trashFailure('restore_pending', 'restoreFromTrash');
+    const stillArchived = await checkedTrashConversation(id);
+    if (stillArchived) return;
+    if (archivedOnly) throw trashFailure('not_archived', 'deleteArchivedOnly');
+    saveTrash(store, id, { previousArchived: false, trashedAt: Date.now(), phase: 'moving' });
+    await updateNativeAnnotations(id, { archived: true });
+    saveTrash(store, id, { previousArchived: false, trashedAt: Date.now() });
     return;
   }
   const archived = await checkedTrashConversation(id);
@@ -1139,9 +1156,20 @@ const enqueueTrashSweep = serializeMutation(async now => {
       saveTrash(readMetaStore(), id, null);
     }
   });
-  const expired = Object.entries(conversations).filter(([, { trash }]) =>
+  const latestStore = readMetaStore();
+  const expired = Object.entries(latestStore.conversations).filter(([, { trash }]) =>
     trash && !trash.phase && trash.trashedAt + TRASH_RETENTION_MS <= now);
-  const purged = await applyTrashOperations(expired.map(([id]) => id), purgeTrashed);
+  const purged = await applyTrashOperations(expired.map(([id]) => id), async (id, warnings) => {
+    try {
+      await purgeTrashed(id, warnings);
+    } catch (err) {
+      if (err.code === 'not_archived') {
+        saveTrash(readMetaStore(), id, null);
+        return;
+      }
+      throw err;
+    }
+  });
   return { settled, purged };
 });
 

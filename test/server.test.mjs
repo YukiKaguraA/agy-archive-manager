@@ -165,7 +165,26 @@ test('automatic cleanup waits 168 hours, skips changed state, and shares the res
   await server.sweepTrash(expiry + 3600000);
   assert.deepEqual(mutationIds('DeleteConversation'), ['expired']);
   assert.equal(conversations.has('restored'), true);
-  assert.ok(JSON.parse(readFileSync(metaFile)).conversations.active.trash);
+  assert.equal(conversations.has('active'), true);
+  assert.equal(JSON.parse(readFileSync(metaFile)).conversations.active?.trash, undefined);
+});
+
+test('a trashed conversation reactivated in host returns to active and can be archived or trashed again', async () => {
+  addConversation('reactivated');
+  await call('trash', { conversationIds: ['reactivated'] });
+  assert.equal((await call('conversations', { tab: 'trash' })).total, 1);
+
+  conversations.get('reactivated').annotations.archived = false;
+  assert.deepEqual((await call('conversations', { tab: 'active' })).items.map(x => x.id), ['reactivated']);
+  assert.equal((await call('conversations', { tab: 'trash' })).total, 0);
+
+  const archived = await call('set-archived', { conversationIds: ['reactivated'], archived: true });
+  assert.deepEqual(archived.succeeded, ['reactivated']);
+  assert.equal(conversations.get('reactivated').annotations.archived, true);
+  assert.equal(JSON.parse(readFileSync(metaFile)).conversations.reactivated?.trash, undefined);
+
+  assert.deepEqual((await call('trash', { conversationIds: ['reactivated'] })).succeeded, ['reactivated']);
+  assert.equal((await call('conversations', { tab: 'trash' })).total, 1);
 });
 
 test('a lost archive confirmation can be reconciled without prematurely purging the conversation', async () => {

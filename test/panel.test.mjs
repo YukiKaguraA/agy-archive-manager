@@ -671,3 +671,56 @@ test('a page from a different snapshot refreshes workspace headers before showin
   assert.equal(run('state.items[0].id'), 'current');
   assert.equal(calls[2].snapshotId, null);
 });
+
+test('clearSearchBtn precedes searchModeSelect, stale button shows total count, and settings skips focus refresh', async () => {
+  assert.ok(html.indexOf('id="clearSearchBtn"') < html.indexOf('id="searchModeSelect"'));
+  let convCalls = 0;
+  let focusHandler = null;
+  const elements = new Map();
+  function makeEl() {
+    return {
+      style: {}, dataset: {}, handlers: {}, children: [], textContent: '',
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+      setAttribute(n, v) { this[n] = v; },
+      removeAttribute(n) { delete this[n]; },
+      addEventListener(ev, fn) { this.handlers[ev] = fn; },
+      querySelectorAll() { return []; },
+      appendChild(c) { this.children.push(c); },
+      focus() {},
+    };
+  }
+  const el = id => {
+    if (!elements.has(id)) elements.set(id, makeEl());
+    return elements.get(id);
+  };
+  const { createContext, runInContext } = await import('node:vm');
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const ctx = createContext({
+    navigator: { language: 'en' },
+    setTimeout() {}, clearTimeout() {},
+    document: {
+      body: { contains: () => true }, documentElement: {}, getElementById: el,
+      createElement: makeEl, querySelectorAll: () => [],
+    },
+    window: {
+      addEventListener(ev, fn) { if (ev === 'focus') focusHandler = fn; },
+      sidecar: { fetch: async (path) => {
+        if (path === '/api/conversations') {
+          convCalls++;
+          return { ok: true, json: async () => ({ groups: [], items: [{ id: 's1' }], matchingIds: ['s1', 's2', 's3'] }) };
+        }
+        return { ok: true, json: async () => ({ language: 'en' }) };
+      } },
+    },
+  });
+  runInContext(script.replace(/    initializePanel\(\);\r?\n    window\.addEventListener/, '    window.addEventListener'), ctx);
+  runInContext("state.tab = 'stale'; state.locale = 'en';", ctx);
+  await runInContext('loadList()', ctx);
+  assert.match(el('archiveAllStaleBtn').textContent, /\(3\)$/);
+
+  const beforeFocus = convCalls;
+  el('languageSelect').disabled = false;
+  el('settingsBtn').handlers.click();
+  focusHandler();
+  assert.equal(convCalls, beforeFocus);
+});

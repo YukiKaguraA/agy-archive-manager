@@ -811,7 +811,7 @@
     .search-box { min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg); }
     .search-box:focus-within { border-color: var(--am-accent); }
     .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; }
-    .search-box .search-clear { position: static; order: 1; flex-shrink: 0; }
+    .search-box .search-clear { position: static; flex-shrink: 0; margin-inline-end: 2px; }
     .search-box select { flex-shrink: 0; max-width: 49%; border: 0; border-radius: 0; border-inline-start: 1px solid var(--am-border); background-color: transparent; }
     .search-box input:focus-visible, .search-box select:focus-visible, .workspace-toggle:focus-visible {
       outline: 2px solid var(--am-accent); outline-offset: -2px;
@@ -825,11 +825,13 @@
     .workspace-toggle:hover { background: var(--am-tag-bg); }
     .workspace-toggle .workspace-label { flex: 1; overflow-wrap: anywhere; min-width: 0; }
     .workspace-count, .card-storage { color: var(--am-muted); font-size: 11px; }
+    .card-trash-info { margin-top: 3px; color: var(--am-muted); font-size: 11px; line-height: 1.45; }
     .workspace-content { padding: 6px; }
     .workspace-content .conv-card:last-child { margin-bottom: 0; }
     .card-storage { margin-top: 3px; }
     .card-title-button { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
     #libraryTools { display: flex; flex-direction: column; gap: 8px; }
+    @media (max-width: 560px) { .tab-btn { padding: 4px 7px; gap: 4px; font-size: 11.5px; } }
     @media (max-width: 480px) { .search-box { flex-basis: 100%; } }
   </style>
 </head>
@@ -871,7 +873,7 @@
           <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
           <button class="tab-btn" data-tab="all"><span data-i18n="allTab">📚 全部</span><span class="tab-count" id="cnt-all">0</span></button>
           <button class="tab-btn" data-tab="stale"><span data-i18n="staleTab">🧹 闲置</span><span class="tab-count" id="cnt-stale">0</span></button>
-          <button class="tab-btn" data-tab="trash"><span data-i18n="trashTab">回收站</span><span class="tab-count" id="cnt-trash">0</span></button>
+          <button class="tab-btn" data-tab="trash"><span aria-hidden="true">🗑️</span><span data-i18n="trashTab">回收站</span><span class="tab-count" id="cnt-trash">0</span></button>
         </nav>
 
         <div class="filters-bar">
@@ -880,11 +882,11 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
             <input id="searchInput" type="text" data-i18n-placeholder="searchPlaceholder" data-i18n-label="search" placeholder="全文搜索标题、项目、消息正文或标签..." />
+            <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
             <select id="searchModeSelect" class="ctrl-select" data-i18n-label="searchMode" data-i18n-title="searchMode">
               <option value="literal" data-i18n="literal">原文片段</option>
               <option value="keywords" data-i18n="keywords">关键词</option>
             </select>
-            <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
           </div>
           <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup" hidden>
             <option value="" data-i18n="allGroups">全部分组</option>
@@ -1587,7 +1589,11 @@
       $('selectAllBtn').disabled = !canApply || state.items.length === 0;
       $('batchRestoreBtn').disabled = !canApply || count === 0;
       $('batchArchiveBtn').disabled = !canApply || count === 0;
-      $('archiveAllStaleBtn').disabled = !canApply || state.tab !== 'stale' || state.staleIds.length === 0;
+      const staleBtn = $('archiveAllStaleBtn');
+      staleBtn.disabled = !canApply || state.tab !== 'stale' || state.staleIds.length === 0;
+      if (!staleBtn.dataset.pendingAction) {
+        staleBtn.textContent = state.staleIds.length > 0 ? `${t('archiveIdle')} (${number(state.staleIds.length)})` : t('archiveIdle');
+      }
     }
 
     function invalidateList() {
@@ -1887,7 +1893,8 @@
           const next = !groupIsOpen(group.key);
           if (state.query) state.searchOpened.set(group.key, next);
           else {
-            const open = state.openedByTab.get(state.tab);
+            let open = state.openedByTab.get(state.tab);
+            if (!open) { open = new Set(); state.openedByTab.set(state.tab, open); }
             if (next) open.add(group.key);
             else open.delete(group.key);
           }
@@ -1932,7 +1939,7 @@
 
       const stepText = Number.isFinite(item.stepCount) ? `<span>·</span><span>${escapeHtml(t('steps', item.stepCount))}</span>` : '';
       const archiveAction = trash || item.archived ? 'restore' : 'archive';
-      const archiveHelp = item.archived ? 'restoreHelp' : item.isRunning ? 'runningHelp' : 'archiveHelp';
+      const archiveHelp = trash ? 'trashRestore' : item.archived ? 'restoreHelp' : item.isRunning ? 'runningHelp' : 'archiveHelp';
       const pinLabel = escapeHtml(t(item.pinned ? 'unpin' : 'pin'));
       const starLabel = escapeHtml(t(item.starred ? 'unstar' : 'star'));
 
@@ -1956,7 +1963,7 @@
           ${tagsHtml}
         </div>
         <div class="card-storage"></div>
-        ${trash ? `<div class="card-storage">${escapeHtml(formatTrashInfo(item))}</div>` : ''}
+        ${trash ? `<div class="card-trash-info">${escapeHtml(formatTrashInfo(item))}</div>` : ''}
         ${noteHtml}
         ${snippetHtml}
         <div class="card-actions">
@@ -2239,8 +2246,8 @@
       archBtn.disabled = Boolean(!d || pending || (d.isRunning && !d.archived));
       archBtn.textContent = pending ? t('working', t(pending)) : t(trash ? 'trashRestore' : `${action}Button`);
       archBtn.title = t(trash ? 'trashRestore' : d?.isRunning && !d.archived ? 'runningHelp' : `${action}Help`);
-      archBtn.classList.toggle('btn-restore', Boolean(d?.archived));
-      archBtn.classList.toggle('btn-archive', !d?.archived);
+      archBtn.classList.toggle('btn-restore', Boolean(trash || d?.archived));
+      archBtn.classList.toggle('btn-archive', !trash && !d?.archived);
     }
 
     function updatePreviewHeaderState() {
@@ -2805,7 +2812,7 @@
     // Initial load & auto-refresh on focus
     initializePanel();
     window.addEventListener('focus', () => {
-      if (!$('languageSelect').disabled) loadList({ refresh: true });
+      if (!$('languageSelect').disabled && state.surface === 'library') loadList({ refresh: true });
     });
   </script>
 </body>

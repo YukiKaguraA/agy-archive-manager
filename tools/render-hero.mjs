@@ -109,10 +109,22 @@ function mockScript() {
           const filtered = items.filter(item => item.archived === (tab === 'archived') &&
             (!query || item.title.toLowerCase().includes(query.toLowerCase())));
           const scoped = projectKey ? filtered.filter(item => item.projectKey === projectKey) : filtered;
-          const workspaces = [...new Map(filtered.map(item => [item.projectKey, item])).values()];
-          const groups = workspaces.map(item => ({ key: item.projectKey, label: item.projectLabel,
-            total: filtered.filter(candidate => candidate.projectKey === item.projectKey).length,
-            lastModified: item.lastModified }));
+          const groupMap = new Map();
+          for (const it of filtered) {
+            const existing = groupMap.get(it.projectKey);
+            if (!existing) {
+              groupMap.set(it.projectKey, { key: it.projectKey, label: it.projectLabel, total: 1, lastModified: it.lastModified, lastModifiedMs: it.lastModifiedMs });
+            } else {
+              existing.total++;
+              if (it.lastModifiedMs > existing.lastModifiedMs) {
+                existing.lastModified = it.lastModified;
+                existing.lastModifiedMs = it.lastModifiedMs;
+              }
+            }
+          }
+          const groups = [...groupMap.values()]
+            .sort((a, b) => b.lastModifiedMs - a.lastModifiedMs)
+            .map(({ key, label, total, lastModified }) => ({ key, label, total, lastModified }));
           return { items: projectKey ? scoped : [], groups, counts, warnings: [], snapshotId: tab + ':' + (query || ''),
             groupOptions: [], page: 1, pageSize: 50, total: scoped.length,
             allTags: [...new Set(items.flatMap(item => item.tags))] };
