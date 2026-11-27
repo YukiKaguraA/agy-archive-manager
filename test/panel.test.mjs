@@ -11,7 +11,7 @@ function createPanel(fetch, language, { renderCards = false, IntersectionObserve
   const windowHandlers = {};
   function makeElement() {
     return {
-      style: {}, dataset: {}, handlers: {}, children: [], textContent: '',
+      style: { setProperty() {} }, dataset: {}, handlers: {}, children: [], textContent: '',
       set innerHTML(value) { this.children = []; this.markup = value; },
       get innerHTML() { return this.markup; },
       focus() { context.document.activeElement = this; },
@@ -852,4 +852,33 @@ test('manual sweep reads a fresh count, requires confirmation, and bounds the re
   assert.deepEqual(requests[2], ['/api/sweep-trash', { maxExpiredCount: 2, expectedRetentionDays: 7, locale: 'en' }]);
   assert.match(element('trashSummary').textContent, /4.*1/);
   assert.match(element('trashSettingsStatus').textContent, /Removed 1 .* Skipped 1/);
+});
+
+test('gliders, icon-only refresh button, flat dot status badges, and reveal-logs error toast work cleanly', async () => {
+  assert.equal(html.includes('class="brand"'), false);
+  assert.ok(html.includes('id="primaryGlider"'));
+  assert.ok(html.includes('id="tabsGlider"'));
+  assert.equal(/id="refreshBtn"[^>]*data-i18n="refresh"/.test(html), false);
+
+  const { element, run } = createPanel(async (path, body) => {
+    if (path === '/api/preview') return { id: body.conversationId, title: 'Chat' };
+    if (path === '/api/reveal-logs') throw new Error('Raw log directory not found');
+    return {};
+  }, 'en', { renderCards: true });
+
+  await run("openPreview('c1')");
+  await element('pvRevealLogsBtn').handlers.click();
+  assert.equal(run('globalThis.toast?.message'), 'Raw log directory not found');
+
+  const pane = element('listPane');
+  for (const [tab, item, cls] of [
+    ['active', { id: 'a1', title: 'Active', archived: false }, 'pill-active'],
+    ['active', { id: 'r1', title: 'Run', archived: false, isRunning: true }, 'pill-run'],
+    ['archived', { id: 'z1', title: 'Done', archived: true }, 'pill-archived'],
+    ['trash', { id: 't1', title: 'Trash', archived: true, trashedAt: 1000, purgeAt: 2000 }, 'pill-trash'],
+  ]) {
+    run(`state.tab = '${tab}'; renderCard($('listPane'), ${JSON.stringify(item)});`);
+    const card = pane.children.at(-1);
+    assert.match(card.innerHTML, new RegExp(`class="pill pill-status ${cls}"`));
+  }
 });

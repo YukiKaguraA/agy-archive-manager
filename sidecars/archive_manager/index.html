@@ -35,12 +35,14 @@
       --am-danger-fg: #ef4444;
       --am-danger-border: rgba(239, 68, 68, 0.40);
       --am-badge-archived-bg: color-mix(in srgb, var(--am-accent) 16%, transparent);
-      --am-badge-archived-fg: var(--am-accent);
+      --am-badge-archived-fg: #d97706;
       --am-badge-active-bg: rgba(16, 185, 129, 0.16);
       --am-badge-active-fg: #10b981;
-      --am-badge-run-bg: rgba(34, 197, 94, 0.20);
-      --am-badge-run-fg: #22c55e;
+      --am-badge-run-bg: rgba(59, 130, 246, 0.16);
+      --am-badge-run-fg: #3b82f6;
+      --am-badge-trash-fg: var(--am-danger-fg);
       --am-mark-bg: rgba(250, 204, 21, 0.35);
+      --am-ease-modern: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     * { box-sizing: border-box; }
@@ -86,26 +88,9 @@
       display: flex;
       flex: 1 1 auto;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 8px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .api-pill {
-      font-size: 10.5px;
-      font-weight: 500;
-      padding: 1px 6px;
-      border-radius: 999px;
-      background: rgba(16, 185, 129, 0.15);
-      color: #10b981;
-      white-space: nowrap;
+      min-width: 0;
     }
 
     .header-actions {
@@ -115,42 +100,58 @@
       gap: 6px;
     }
 
-    @media (max-width: 315px) {
-      .brand .api-pill { display: none; }
-    }
-
     /* Tabs */
     .tabs {
-      display: flex;
+      position: relative;
+      display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
+      max-width: 100%;
+      padding: 3px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--am-fg) 5%, transparent);
+      border: 1px solid color-mix(in srgb, var(--am-border) 68%, transparent);
       overflow-x: auto;
       scrollbar-width: none;
+      user-select: none;
     }
     .tabs::-webkit-scrollbar { display: none; }
 
     .tab-btn {
+      position: relative;
+      z-index: 1;
       flex: 0 0 auto;
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 5px 10px;
+      padding: 4px 10px;
       border-radius: 7px;
-      border: 1px solid transparent;
+      border: 0;
       background: transparent;
       color: var(--am-muted);
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.14s ease;
+      white-space: nowrap;
+      transition: color 160ms var(--am-ease-modern), transform 140ms var(--am-ease-modern);
     }
     .tab-btn:hover {
       background: var(--am-hover);
       color: var(--am-fg);
     }
+    .tab-btn:active { transform: scale(0.97); }
+    .tabs.has-glider .tab-btn:hover {
+      background: transparent;
+      color: var(--am-fg);
+    }
     .tab-btn.active {
       background: var(--am-accent);
       color: var(--am-accent-fg);
+      font-weight: 600;
+    }
+    .tabs.has-glider .tab-btn.active {
+      background: transparent;
+      color: var(--am-accent);
     }
     .tab-count {
       font-size: 11px;
@@ -158,10 +159,15 @@
       border-radius: 999px;
       background: rgba(128, 128, 128, 0.16);
       font-variant-numeric: tabular-nums;
+      transition: background-color 160ms var(--am-ease-modern), color 160ms var(--am-ease-modern);
     }
     .tab-btn.active .tab-count {
       background: rgba(255, 255, 255, 0.24);
       color: inherit;
+    }
+    .tabs.has-glider .tab-btn.active .tab-count {
+      background: color-mix(in srgb, var(--am-accent) 14%, transparent);
+      color: var(--am-accent);
     }
 
     /* Search & Filters */
@@ -329,10 +335,10 @@
       flex: 1;
       min-width: 0;
       overflow-y: auto;
-      padding: 10px 12px 16px;
+      padding: 0 0 14px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0;
     }
 
     .preview-pane {
@@ -365,23 +371,31 @@
       }
     }
 
-    /* Conversation Card */
+    /* Conversation Row (flat full-bleed list item) */
     .conv-card {
-      padding: 10px 11px;
-      border-radius: 10px;
-      border: 1px solid var(--am-border);
-      background: var(--am-surface);
+      padding: 9px 11px 9px 20px;
+      border: 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--am-border) 62%, transparent);
+      border-radius: 0;
+      background: transparent;
       cursor: pointer;
-      transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+      transition: background 0.14s ease, box-shadow 0.14s ease;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
-    .conv-card:hover { border-color: var(--am-accent); }
+    .conv-card:hover {
+      background: color-mix(in srgb, var(--am-accent) 6%, transparent);
+    }
     .conv-card.selected {
-      border-color: var(--am-accent);
-      box-shadow: 0 0 0 1px var(--am-accent);
-      background: var(--am-selected-bg);
+      background: color-mix(in srgb, var(--am-accent) 14%, var(--am-card));
+      box-shadow:
+        inset 3.5px 0 0 var(--am-accent),
+        inset 0 1px 0 color-mix(in srgb, var(--am-accent) 28%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--am-accent) 28%, transparent);
+    }
+    .conv-card.selected .card-title {
+      color: var(--am-accent);
     }
 
     .card-top {
@@ -461,9 +475,25 @@
       font-size: 11px;
       font-weight: 500;
     }
-    .pill-archived { background: var(--am-badge-archived-bg); color: var(--am-badge-archived-fg); }
-    .pill-active { background: var(--am-badge-active-bg); color: var(--am-badge-active-fg); }
-    .pill-run { background: var(--am-badge-run-bg); color: var(--am-badge-run-fg); }
+    .pill-status {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+      gap: 5px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .pill-archived { color: var(--am-badge-archived-fg); }
+    .pill-active { color: var(--am-badge-active-fg); }
+    .pill-run { color: var(--am-badge-run-fg); }
+    .pill-trash { color: var(--am-badge-trash-fg); }
     .pill-proj { background: var(--am-subtle-bg); color: var(--am-fg); }
     .pill-tag { background: var(--am-tag-bg); color: var(--am-accent); }
 
@@ -471,8 +501,9 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #22c55e;
+      background: currentColor;
       display: inline-block;
+      flex-shrink: 0;
       animation: pulseDot 1.3s infinite ease-in-out;
     }
     @keyframes pulseDot {
@@ -808,18 +839,127 @@
     }
     .header-identity { flex-wrap: wrap; }
     .primary-nav {
-      display: flex; flex-shrink: 0; gap: 3px; padding: 3px;
-      background: var(--am-subtle-bg); border: 1px solid var(--am-border); border-radius: 9px;
+      position: relative;
+      display: inline-flex;
+      flex-shrink: 0;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      background: color-mix(in srgb, var(--am-fg) 6%, transparent);
+      border: 1px solid color-mix(in srgb, var(--am-border) 75%, transparent);
+      border-radius: 999px;
+      user-select: none;
     }
-    .primary-nav .btn {
-      background: transparent; border-color: transparent; padding: 5px 14px;
-      border-radius: 6px; font-size: 13px; font-weight: 600;
+    .primary-nav .nav-btn {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 0;
+      padding: 5px 15px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--am-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 160ms var(--am-ease-modern), transform 140ms var(--am-ease-modern);
     }
-    .primary-nav .btn:hover { background: var(--am-tag-bg); }
-    .primary-nav button[aria-pressed="true"] { color: var(--am-accent-fg); background: var(--am-accent); }
+    .primary-nav .nav-btn:hover { color: var(--am-fg); }
+    .primary-nav .nav-btn:active { transform: scale(0.97); }
+    .primary-nav .nav-btn:focus-visible,
+    .tabs .tab-btn:focus-visible,
+    .refresh-icon-btn:focus-visible {
+      outline: 2px solid var(--am-accent);
+      outline-offset: -2px;
+    }
+    .primary-nav .nav-btn[aria-pressed="true"] { color: var(--am-accent); }
+    .primary-nav:not(.has-glider) .nav-btn[aria-pressed="true"] {
+      background: var(--am-card);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10), 0 0 0 1px color-mix(in srgb, var(--am-accent) 26%, var(--am-border));
+    }
+    .nav-glider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--glider-w, 0px);
+      height: var(--glider-h, 0px);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--am-accent) 10%, var(--am-card));
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 0 0 1px color-mix(in srgb, var(--am-accent) 28%, var(--am-border));
+      transform: translate3d(var(--glider-x, 0px), var(--glider-y, 0px), 0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .tabs-glider { border-radius: 7px; }
+    .has-glider > .nav-glider { opacity: 1; }
+    .nav-glider.is-ready {
+      transition:
+        transform 220ms var(--am-ease-modern),
+        width 220ms var(--am-ease-modern),
+        height 180ms var(--am-ease-modern);
+    }
+    .refresh-icon-btn {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 9px;
+      color: var(--am-muted);
+    }
+    .refresh-icon-btn svg {
+      display: block;
+      transition: transform 240ms var(--am-ease-modern);
+    }
+    .refresh-icon-btn:hover:not(:disabled) { color: var(--am-accent); }
+    .refresh-icon-btn.is-spinning svg {
+      animation: amSpin 0.75s linear infinite;
+    }
+    @keyframes amSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes amViewIn {
+      from { opacity: 0; transform: translate3d(0, 4px, 0); }
+      to { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    #mainSplit:not([hidden]), #settingsPane:not([hidden]) {
+      animation: amViewIn 180ms var(--am-ease-modern);
+    }
+    .filters-bar .search-box,
+    .filters-bar select.ctrl-select,
+    .filters-bar .batch-toggle-btn {
+      height: 30px;
+    }
+    .filters-bar .search-box input {
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    .filters-bar .batch-toggle-btn {
+      padding: 0 11px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 7px;
+    }
     #settingsPane { flex: 1; min-height: 0; overflow: auto; }
-    .settings-content { max-width: 720px; margin: 0 auto; padding: 14px; }
-    .settings-card { padding: 14px; cursor: default; }
+    .settings-content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .settings-card {
+      padding: 15px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--am-border);
+      background: var(--am-card);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      cursor: default;
+    }
     .settings-card h2 { margin: 0 0 6px; font-size: 14px; }
     .settings-card p { margin: 5px 0 9px; color: var(--am-muted); overflow-wrap: anywhere; }
     .settings-card label { display: block; margin: 0 0 4px; }
@@ -833,7 +973,7 @@
     .match-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 10px; border-bottom: 1px solid var(--am-border); }
     #pvMatchCount { margin-inline-end: auto; color: var(--am-muted); }
     mark.is-current-match { outline: 2px solid #e4881c; outline-offset: 1px; }
-    @media (max-width: 360px) { .primary-nav .btn { padding-inline: 9px; } }
+    @media (max-width: 360px) { .primary-nav .nav-btn { padding-inline: 10px; } }
     .search-box { min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg); }
     .search-box:focus-within { border-color: var(--am-accent); }
     .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; }
@@ -842,11 +982,23 @@
     .search-box input:focus-visible, .search-box select:focus-visible, .workspace-toggle:focus-visible {
       outline: 2px solid var(--am-accent); outline-offset: -2px;
     }
-    .workspace { flex-shrink: 0; border: 1px solid var(--am-border); border-radius: 8px; }
+    .workspace {
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 0;
+      border-bottom: 1px solid var(--am-border);
+    }
     .workspace-toggle {
-      width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0;
-      border-radius: 7px; text-align: start; font: inherit; font-weight: 600; color: var(--am-fg);
-      background: var(--am-card); cursor: pointer;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0;
+      border-bottom: 1px solid transparent;
+      border-radius: 0; text-align: start; font: inherit; font-weight: 600; color: var(--am-fg);
+      background: color-mix(in srgb, var(--am-fg) 3.5%, var(--am-bg)); cursor: pointer;
+    }
+    .workspace-toggle[aria-expanded="true"] {
+      border-bottom-color: color-mix(in srgb, var(--am-border) 68%, transparent);
     }
     .workspace-folder { display: block; color: var(--am-muted); }
     .workspace-toggle[aria-expanded="true"] .workspace-folder { color: var(--am-accent); }
@@ -854,8 +1006,8 @@
     .workspace-toggle .workspace-label { flex: 1; overflow-wrap: anywhere; min-width: 0; }
     .workspace-count, .card-storage { color: var(--am-muted); font-size: 11px; }
     .card-trash-info { margin-top: 3px; color: var(--am-muted); font-size: 11px; line-height: 1.45; }
-    .workspace-content { padding: 6px; }
-    .workspace-content .conv-card:last-child { margin-bottom: 0; }
+    .workspace-content { padding: 0; }
+    .workspace-content .conv-card:last-child { border-bottom: 0; }
     .card-storage { margin-top: 3px; }
     .card-title-button { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
     #libraryTools { display: flex; flex-direction: column; gap: 8px; }
@@ -868,27 +1020,38 @@
     <div class="header">
       <div class="header-top">
         <div class="header-identity">
-          <div class="brand">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2" y="3" width="20" height="5" rx="1.5"/>
-              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
-              <line x1="10" y1="13" x2="14" y2="13"/>
-            </svg>
-            <span data-i18n="brand">会话管理</span>
-            <span class="api-pill" data-i18n="nativeApi" data-i18n-title="nativeApiHelp">原生 API</span>
-          </div>
-          <nav class="primary-nav" data-i18n-label="brand">
-            <button type="button" id="libraryBtn" class="btn btn-sm" data-i18n="library" aria-pressed="true" aria-controls="mainSplit">会话库</button>
-            <button type="button" id="settingsBtn" class="btn btn-sm" data-i18n="settings" aria-pressed="false" aria-controls="settingsPane">设置</button>
+          <nav id="primaryNav" class="primary-nav" data-i18n-label="brand">
+            <div id="primaryGlider" class="nav-glider" aria-hidden="true"></div>
+            <button type="button" id="libraryBtn" class="nav-btn" aria-pressed="true" aria-controls="mainSplit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="3" width="20" height="5" rx="1.5"/>
+                <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+                <line x1="10" y1="13" x2="14" y2="13"/>
+              </svg>
+              <span data-i18n="library">会话库</span>
+            </button>
+            <button type="button" id="settingsBtn" class="nav-btn" aria-pressed="false" aria-controls="settingsPane">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span data-i18n="settings">设置</span>
+            </button>
           </nav>
         </div>
         <div class="header-actions">
-          <button id="refreshBtn" class="btn btn-sm" data-i18n="refresh" data-i18n-title="refreshHelp">↻ 刷新</button>
+          <button id="refreshBtn" type="button" class="btn refresh-icon-btn" data-i18n-title="refreshHelp" data-i18n-label="refreshHelp">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+              <polyline points="21 3 21 9 15 9"/>
+            </svg>
+          </button>
         </div>
       </div>
 
       <div id="libraryTools">
         <nav class="tabs" id="tabs" data-i18n-label="library">
+          <div id="tabsGlider" class="nav-glider tabs-glider" aria-hidden="true"></div>
           <button class="tab-btn active" data-tab="active" aria-current="true"><span data-i18n="activeTab">💬 活跃</span><span class="tab-count" id="cnt-active">0</span></button>
           <button class="tab-btn" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
           <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
@@ -920,7 +1083,7 @@
             <option value="steps" data-i18n="mostSteps">步数最多</option>
             <option value="title" data-i18n="byTitle">按标题</option>
           </select>
-          <button id="batchToggleBtn" class="btn btn-sm" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
+          <button id="batchToggleBtn" class="btn batch-toggle-btn" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
         </div>
 
         <!-- Stale quick cleanup bar -->
@@ -959,7 +1122,7 @@
     <section id="settingsPane" aria-labelledby="settingsBtn" hidden>
       <div class="settings-content">
         <div id="settingsLoadStatus" class="data-status" role="status" hidden></div>
-        <section class="conv-card settings-card" aria-labelledby="languageHeading">
+        <section class="settings-card" aria-labelledby="languageHeading">
           <h2 id="languageHeading" data-i18n="language">界面语言</h2>
           <p data-i18n="settingsLanguageHelp">选择面板的显示语言。</p>
           <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
@@ -970,7 +1133,7 @@
           </select>
           <div id="languageStatus" class="settings-status" role="status" hidden></div>
         </section>
-        <section class="conv-card settings-card" aria-labelledby="exportDirHeading">
+        <section class="settings-card" aria-labelledby="exportDirHeading">
           <h2 id="exportDirHeading" data-i18n="exportDirHeading">Markdown 导出目录</h2>
           <p data-i18n="exportDirHint">输入绝对路径，或选择文件夹后保存。</p>
           <p id="exportDirEffective"></p>
@@ -986,7 +1149,7 @@
           </form>
           <div id="exportDirStatus" class="settings-status" role="status" hidden></div>
         </section>
-        <section class="conv-card settings-card" aria-labelledby="trashSettingsHeading">
+        <section class="settings-card" aria-labelledby="trashSettingsHeading">
           <h2 id="trashSettingsHeading" data-i18n="trashSettingsHeading">回收站与自动清理</h2>
           <p data-i18n="trashSettingsHint">到期会话将在例行检查时清理，也可以手动清理。</p>
           <form id="trashRetentionForm" novalidate>
@@ -1582,6 +1745,46 @@
       return `${number(value)} ${value === 1 ? noun : `${noun}s`}`;
     }
 
+    function syncGlider(track, glider, activeEl) {
+      if (!track || !glider || !track.classList) return;
+      const w = Number(activeEl?.offsetWidth || 0);
+      const h = Number(activeEl?.offsetHeight || 0);
+      if (!(w > 0 && h > 0)) {
+        track.classList.remove('has-glider');
+        glider.classList.remove('is-ready');
+        return;
+      }
+      const x = Number(activeEl.offsetLeft || 0);
+      const y = Number(activeEl.offsetTop || 0);
+      glider.style?.setProperty?.('--glider-x', `${x}px`);
+      glider.style?.setProperty?.('--glider-y', `${y}px`);
+      glider.style?.setProperty?.('--glider-w', `${w}px`);
+      glider.style?.setProperty?.('--glider-h', `${h}px`);
+      track.classList.add('has-glider');
+      if (!glider.classList.contains('is-ready')) {
+        void glider.offsetWidth;
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => glider.classList.add('is-ready'));
+        } else {
+          glider.classList.add('is-ready');
+        }
+      }
+    }
+
+    function syncAllGliders() {
+      syncGlider($('primaryNav'), $('primaryGlider'), state.surface === 'settings' ? $('settingsBtn') : $('libraryBtn'));
+      const tabsEl = $('tabs');
+      syncGlider(tabsEl, $('tabsGlider'), tabsEl?.querySelector?.('.tab-btn.active'));
+    }
+
+    const navGliderObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => syncAllGliders())
+      : null;
+    if (navGliderObserver) {
+      navGliderObserver.observe($('primaryNav'));
+      navGliderObserver.observe($('tabs'));
+    }
+
     function applyLocale(locale) {
       state.locale = locale;
       document.documentElement.lang = locale;
@@ -1602,6 +1805,7 @@
       updatePreviewArchiveButton();
       updateToastText();
       renderSettings();
+      syncAllGliders();
     }
 
     function escapeHtml(s) {
@@ -1848,6 +2052,7 @@
           const el = $(`cnt-${key}`);
           if (el) el.textContent = number(data.counts?.[key] ?? 0);
         }
+        syncAllGliders();
 
         const groupOptions = data.groupOptions || [];
         const hasNativeGroups = groupOptions.some((opt) => typeof opt.key === 'string' && opt.key.startsWith('group:'));
@@ -2133,12 +2338,12 @@
       const trash = state.tab === 'trash';
 
       const statusBadge = trash
-        ? `<span class="pill pill-archived">${escapeHtml(t('trashTab'))}</span>`
+        ? `<span class="pill pill-status pill-trash"><span class="status-dot"></span>${escapeHtml(t('trashTab'))}</span>`
         : item.isRunning
-        ? `<span class="pill pill-run"><span class="run-dot"></span>${escapeHtml(t('running'))}</span>`
+        ? `<span class="pill pill-status pill-run"><span class="run-dot"></span>${escapeHtml(t('running'))}</span>`
         : item.archived
-          ? `<span class="pill pill-archived">${escapeHtml(t('archived'))}</span>`
-          : `<span class="pill pill-active">${escapeHtml(t('active'))}</span>`;
+          ? `<span class="pill pill-status pill-archived"><span class="status-dot"></span>${escapeHtml(t('archived'))}</span>`
+          : `<span class="pill pill-status pill-active"><span class="status-dot"></span>${escapeHtml(t('active'))}</span>`;
 
       const tagsHtml = (item.tags || [])
         .map((t) => `<span class="pill pill-tag">#${escapeHtml(t)}</span>`)
@@ -2862,6 +3067,7 @@
         renderSettings();
       }
       await loadList();
+      syncAllGliders();
     }
 
     $('languageSelect').addEventListener('change', async () => {
@@ -2909,10 +3115,12 @@
         pendingStats.clear();
         visibleStats.clear();
         statsObserver?.disconnect?.();
+        syncAllGliders();
         return loadSettings();
       } else {
         if (state.listReady) renderList();
         if (state.previewMatchIndex < 0) stepPreviewMatch(1);
+        syncAllGliders();
       }
     }
 
@@ -2932,6 +3140,7 @@
         else b.removeAttribute('aria-current');
       });
       $('staleBar').classList.toggle('show', state.tab === 'stale');
+      syncAllGliders();
       return loadList();
     }
 
@@ -2982,9 +3191,15 @@
     }
 
     $('refreshBtn').addEventListener('click', async () => {
-      if (state.surface === 'settings') return loadSettings();
-      if (state.selectedId) openPreview(state.selectedId);
-      if (await loadList({ refresh: true })) showToast('refreshed');
+      const btn = $('refreshBtn');
+      btn.classList.add('is-spinning');
+      try {
+        if (state.surface === 'settings') return await loadSettings();
+        if (state.selectedId) openPreview(state.selectedId);
+        if (await loadList({ refresh: true })) showToast('refreshed');
+      } finally {
+        btn.classList.remove('is-spinning');
+      }
     });
 
     $('openExportDirBtn').addEventListener('click', async () => {
@@ -3053,7 +3268,7 @@
       try {
         await apiPost('/api/reveal-logs', { conversationId: id });
       } catch (err) {
-        showToast(err.message);
+        showToast(() => err.message);
       }
     });
     $('pvRawBtn').addEventListener('click', () => {
@@ -3257,6 +3472,7 @@
 
     // Initial load & auto-refresh on focus
     initializePanel();
+    window.addEventListener('resize', syncAllGliders);
     window.addEventListener('focus', () => {
       if (!$('languageSelect').disabled && state.surface === 'library') loadList({ refresh: true });
     });
