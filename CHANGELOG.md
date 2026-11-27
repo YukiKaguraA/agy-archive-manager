@@ -8,10 +8,15 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [2.3.1] - 2026-11-27
 
+### 变更 / Changed
+
 - 将「活跃」移到首位并设为默认视图，显示所有未归档会话。
+- Move Active to the first position and open it by default.
+
+### 新增 / Added
+
 - 新增繁體中文及日本語界面，覆盖操作提示、预览角色、左侧栏入口和 Markdown 导出字段。
 - 新增繁體中文与日文 README，四份文档可互相切换。
-- Move Active to the first position and open it by default.
 - Add Traditional Chinese and Japanese for the panel, prompts, preview roles, sidebar entry, and Markdown export labels.
 - Add Traditional Chinese and Japanese READMEs with links between all four editions.
 
