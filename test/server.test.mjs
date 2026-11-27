@@ -21,6 +21,8 @@ let failures;
 let afterUpdate;
 let ignoredUpdates;
 let sparseUpdates;
+let deleteReply;
+let getReply;
 
 const testBindings = Symbol.for('archive-manager-test');
 globalThis[testBindings] = {
@@ -61,7 +63,8 @@ globalThis.fetch = async (url, request) => {
   }
   const conv = conversations.get(input.conversationId);
   if (method === 'ListConversations') return Response.json({ conversations: [...conversations.values()] });
-  if (method === 'GetConversation') return Response.json(conv?.topLevel ? conv : { conversation: conv });
+  if (method === 'GetConversation' && getReply) return getReply(input.conversationId);
+  if (method === 'GetConversation') return conv ? Response.json(conv.topLevel ? conv : { conversation: conv }) : Response.json({ code: 'not_found' }, { status: 404 });
   if (method === 'UpdateConversation') {
     if (!ignoredUpdates.has(input.conversationId)) Object.assign(conv.annotations, input.annotations);
     afterUpdate?.(input.conversationId);
@@ -70,7 +73,10 @@ globalThis.fetch = async (url, request) => {
     }
     return Response.json(conv);
   }
-  if (method === 'DeleteConversation') conversations.delete(input.conversationId);
+  if (method === 'DeleteConversation') {
+    if (deleteReply) return deleteReply(input.conversationId);
+    conversations.delete(input.conversationId);
+  }
   return Response.json({});
 };
 
@@ -87,6 +93,8 @@ beforeEach(() => {
   ignoredUpdates = new Set();
   sparseUpdates = new Set();
   afterUpdate = null;
+  deleteReply = null;
+  getReply = null;
   invalidations = 0;
   for (const file of [metaFile, preferencesFile, dbFile, join(dataDir, 'meta.json.tmp')]) {
     rmSync(file, { force: true });
@@ -546,4 +554,273 @@ test('same-day exports use exclusive filenames and preserve successive snapshots
   assert.equal(readFileSync(second.savedPath, 'utf8'), second.markdown);
   assert.ok(first.markdown.includes('Earlier content'));
   assert.ok(second.markdown.includes('Later content'));
+});
+
+test('snapshot pages reuse native listing, deterministic ties and full filtered stale IDs', async () => {
+  for (let n = 66; n >= 0; n--) {
+    const id = String(n).padStart(3, '0');
+    addConversation(id);
+    conversations.get(id).state.updateTime = '2020-03-01T00:00:00Z';
+    conversations.get(id).annotations.tags = n < 61 ? ['filter'] : ['excluded'];
+  }
+  const input = { tab: 'stale', locale: 'en', tag: 'filter', page: 1 };
+  const first = await call('conversations', input);
+  assert.equal(first.items.length, 50);
+  assert.equal(first.pageSize, 50);
+  assert.equal(first.total, 61);
+  assert.equal(first.items[0].id, '000');
+  assert.equal(first.matchingIds, undefined);
+  assert.deepEqual(first.allTags, ['excluded', 'filter']);
+  const second = await call('conversations', { ...input, page: 2, snapshotId: first.snapshotId, includeMatchingIds: true });
+  assert.equal(second.items[0].id, '050');
+  assert.equal(second.snapshotId, first.snapshotId);
+  assert.equal(second.matchingIds.length, 61);
+  assert.equal(second.counts.all, 67);
+  assert.equal(mutationIds('ListConversations').length, 1);
+  const chinese = await call('conversations', { ...input, snapshotId: first.snapshotId, locale: 'zh-CN' });
+  assert.notEqual(chinese.snapshotId, first.snapshotId);
+  await call('meta/update', { conversationId: '010', note: 'changed' });
+  const changed = await call('conversations', { ...input, snapshotId: first.snapshotId });
+  assert.notEqual(changed.snapshotId, first.snapshotId);
+  const refreshed = await call('conversations', { ...input, refresh: true, snapshotId: changed.snapshotId });
+  assert.notEqual(refreshed.snapshotId, changed.snapshotId);
+  assert.equal((await call('conversations', { tab: 'all' })).items.length, 67);
+});
+
+test('stable project keys distinguish duplicate names and raw group IDs filter independently', async () => {
+  const dir = join(home, '.gemini', 'config', 'projects');
+  mkdirSync(dir, { recursive: true });
+  for (const id of ['p1', 'p2']) {
+    writeFileSync(join(dir, id + '.json'), JSON.stringify({ id, name: 'shared' }));
+    addConversation(id);
+    conversations.get(id).metadata.projectId = id;
+    conversations.get(id).annotations.groupId = 'engineering';
+  }
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE TABLE conversation_summaries (conversation_id, step_count, workspace_uris, preview)');
+  const put = db.prepare('INSERT INTO conversation_summaries VALUES (?,0,?,?)');
+  for (const path of ['file:///a/shared', 'file:///b/shared']) {
+    addConversation(path);
+    put.run(path, JSON.stringify([path]), '');
+  }
+  db.close();
+  addConversation('outside');
+  const data = { tab: 'all', page: 1, locale: 'en' };
+  const result = await call('conversations', data);
+  assert.deepEqual(new Set(result.projectOptions.map(x => x.key)), new Set(['project:p1','project:p2','workspace:file:///a/shared','workspace:file:///b/shared','unassigned']));
+  assert.equal(new Set(result.projectOptions.map(x => x.label)).size, 5);
+  assert.deepEqual(new Set(result.groupOptions.map(x => x.key)), new Set(['group:engineering','ungrouped']));
+  const filtered = await call('conversations', { ...data, snapshotId: result.snapshotId, groupKey: 'group:engineering', projectKey: 'project:p1' });
+  assert.deepEqual(filtered.items.map(x => x.groupId), ['engineering']);
+  assert.deepEqual(filtered.items.map(x => x.id), ['p1']);
+  assert.equal((await call('conversations', { ...data, project: 'shared' })).items.length, 4);
+});
+
+test('preview and export target one native conversation even if enumeration fails', async () => {
+  addConversation('single');
+  failures.add('ListConversations:');
+  assert.equal((await call('preview', { conversationId: 'single' })).id, 'single');
+  assert.match((await call('export', { conversationId: 'single' })).markdown, /single/);
+  assert.equal(mutationIds('ListConversations').length, 0);
+  assert.deepEqual(mutationIds('GetConversation'), ['single', 'single']);
+});
+
+test('literal and keyword body searches combine metadata and chunks with fixed candidates', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE VIRTUAL TABLE conversations_fts USING fts5(conversation_id UNINDEXED, chunk_index UNINDEXED, title, user_body, agent_body)');
+  const add = db.prepare('INSERT INTO conversations_fts VALUES (?, ?, ?, ?, ?)');
+  for (const id of ['hit','decoy','outside']) {
+    addConversation(id, { archived: id !== 'outside' });
+    conversations.get(id).annotations.groupId = 'blueprint';
+  }
+  add.run('hit', 0, '', '结构计算std::vector<T> apple', '');
+  add.run('hit', 1, '', '', 'orange');
+  add.run('decoy', 0, '', 'apple', '');
+  add.run('outside', 0, '', 'apple orange', '');
+  db.close();
+  const search = async (query, searchMode) => (await call('conversations', { tab: 'archived', query, searchMode })).items.map(x => x.id);
+  assert.deepEqual(await search('构计', 'literal'), ['hit']);
+  assert.deepEqual(await search('d::vector<', 'literal'), ['hit']);
+  assert.deepEqual(await search('blueprint apple orange', 'keywords'), ['hit']);
+  assert.deepEqual(await search('orange apple', 'literal'), []);
+  assert.deepEqual(await search('" OR *', 'keywords'), []);
+  assert.deepEqual(await search('blueprint', 'literal'), ['decoy','hit'].sort((a,b) => {
+    const time = id => Date.parse(conversations.get(id).state.updateTime);
+    return time(b)-time(a) || a.localeCompare(b);
+  }));
+  rmSync(dbFile);
+  assert.deepEqual(new Set(await search('blueprint', 'keywords')), new Set(['decoy','hit']));
+});
+
+test('tag reconciliation preserves notes and local override until a native read verifies changes', async () => {
+  addConversation('tagged');
+  conversations.get('tagged').annotations.tags = ['host'];
+  writeFileSync(metaFile, JSON.stringify({ conversations: { tagged: { tags: ['local'], note: 'preserved', extra: 3 } } }));
+  const list = async () => (await call('conversations', { tab: 'all' })).items[0];
+  assert.equal((await list()).tagConflict, true);
+  assert.deepEqual((await list()).nativeTags, ['host']);
+  ignoredUpdates.add('tagged');
+  await assert.rejects(call('meta/update', { conversationId: 'tagged', tagResolution: 'local' }));
+  assert.equal((await list()).tagConflict, true);
+  ignoredUpdates.clear();
+  await call('meta/update', { conversationId: 'tagged', tagResolution: 'local' });
+  assert.deepEqual(conversations.get('tagged').annotations.tags, ['local']);
+  assert.deepEqual(JSON.parse(readFileSync(metaFile)).conversations.tagged, { note: 'preserved', extra: 3 });
+  await call('meta/update', { conversationId: 'tagged', tags: [] });
+  assert.deepEqual(conversations.get('tagged').annotations.tags, []);
+  writeFileSync(metaFile, JSON.stringify({ conversations: { tagged: { tags: ['old'], note: 'keep' } } }));
+  const writes = mutationIds('UpdateConversation').length;
+  const resolved = await call('meta/update', { conversationId: 'tagged', tagResolution: 'native' });
+  assert.equal(mutationIds('UpdateConversation').length, writes);
+  assert.deepEqual(resolved.meta, { tags: [], nativeTags: [], tagConflict: false, note: 'keep' });
+  assert.equal((await list()).tagConflict, false);
+});
+
+test('batch deletion rechecks each archived ordinary idle ID and distinguishes uncertain replies', async () => {
+  for (const id of ['a','changed','remains','ambiguous','lost-reply','child']) addConversation(id, { archived: true });
+  conversations.get('child').metadata.parentConversationId = 'a';
+  addConversation('active');
+  deleteReply = id => {
+    if (id === 'a') conversations.get('changed').state.runState = 'RUN_STATE_RUNNING';
+    if (id !== 'remains') conversations.delete(id);
+    if (id === 'ambiguous') failures.add('GetConversation:ambiguous');
+    return id === 'lost-reply' || id === 'remains' ? Response.json({message:'lost'}, {status:500}) : Response.json({});
+  };
+  const result = await call('delete-batch', {conversationIds:['a','missing','changed','active','child','remains','ambiguous','lost-reply','a']});
+  assert.deepEqual(result.deleted, ['a','lost-reply']);
+  assert.deepEqual(result.skipped.map(x => x.code), ['already_gone','running','not_archived','subagent']);
+  assert.deepEqual(result.failed.map(x => [x.id,x.code,x.retryable]), [['remains','delete_failed',true],['ambiguous','unknown_outcome',false]]);
+  assert.ok(result.warnings.length);
+  assert.deepEqual(mutationIds('DeleteConversation'), ['a','remains','ambiguous','lost-reply']);
+  await assert.rejects(call('delete-batch', { tab: 'archived' }));
+});
+
+test('a newer request can interrupt a running literal scan for just its panel', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE TABLE conversations_fts(conversation_id, title, user_body, agent_body)');
+  const insert = db.prepare('INSERT INTO conversations_fts VALUES (?,?,?,?)');
+  addConversation('scan');
+  db.exec('BEGIN');
+  for (let i=0; i<2000; i++) insert.run('scan', '', 'a'.repeat(100), '');
+  db.exec('COMMIT');
+  db.close();
+  const data = { tab:'all', page:1 };
+  const initial = await call('conversations', data);
+  const current = { ...data, snapshotId: initial.snapshotId, searchClientId:'first' };
+  const old = call('conversations', {...current, query:'absent', searchSequence:1});
+  await new Promise(resolve => setImmediate(resolve));
+  const fresh = call('conversations', {...current, query:'scan', searchSequence:2});
+  assert.equal((await old).cancelled,true);
+  assert.deepEqual((await fresh).items.map(x=>x.id), ['scan']);
+  const late = await call('conversations', {...current, query:'late', searchSequence:1});
+  assert.equal(late.cancelled,true);
+});
+
+test('host group annotation and optional group_id index fallback survive legacy summary schemas', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE TABLE conversation_summaries (conversation_id, step_count, workspace_uris, preview, group_id)');
+  for (const id of ['annotated','indexed']) {
+    addConversation(id);
+    db.prepare('INSERT INTO conversation_summaries VALUES (?, 7, NULL, NULL, ?)').run(id, 'old-group');
+  }
+  db.close();
+  conversations.get('annotated').annotations.conversationGroupId = 'new-group';
+  const result = await call('conversations', { tab:'all', groupKey:'group:old-group' });
+  assert.deepEqual(result.items.map(item => item.id), ['indexed']);
+  const preview = await call('preview', { conversationId:'annotated' });
+  assert.equal(preview.groupId,'new-group');
+  assert.equal(preview.stepCount,7);
+});
+
+test('literal search preserves body snippets on metadata hits, without matching reserved filter keys', async () => {
+  addConversation('searchable');
+  conversations.get('searchable').annotations.title = 'A label';
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE TABLE conversations_fts(conversation_id, title, user_body, agent_body)');
+  db.prepare('INSERT INTO conversations_fts VALUES(?,?,?,?)').run('searchable','','the label in the body','');
+  db.close();
+  const result = await call('conversations', { tab:'all', query:'label' });
+  assert.match(result.items[0].matchSnippet,/in the body/);
+  assert.deepEqual((await call('conversations', { tab:'all', query:'unassigned' })).items, []);
+});
+
+test('native tag display preserves both annotation and legacy metadata tags', async () => {
+  addConversation('two-sources');
+  conversations.get('two-sources').annotations.tags = ['annotation'];
+  conversations.get('two-sources').metadata.tags = ['metadata','annotation'];
+  assert.deepEqual((await call('conversations', { tab:'all' })).items[0].nativeTags, ['annotation','metadata']);
+});
+
+test('generic HTTP 404 and a malformed success response do not confirm a deletion', async () => {
+  for (const id of ['route-404','malformed-reply']) addConversation(id,{archived:true});
+  const seen = new Set();
+  getReply = id => {
+    if (seen.has(id)) {
+      return id === 'route-404' ? Response.json({}, { status:404 }) : Response.json({ id });
+    }
+    seen.add(id);
+    return Response.json(conversations.get(id));
+  };
+  writeFileSync(metaFile,JSON.stringify({ conversations:{ 'route-404':{note:'keep'}, 'malformed-reply':{note:'keep'} } }));
+  const result = await call('delete-batch',{conversationIds:[...conversations.keys()]});
+  assert.deepEqual(result.deleted,[]);
+  assert.deepEqual(result.failed.map(entry=>entry.code),['unknown_outcome','unknown_outcome']);
+  assert.equal(Object.keys(JSON.parse(readFileSync(metaFile)).conversations).length,2);
+});
+
+test('accept host tags rejects sparse and malformed readbacks without dropping a local override', async () => {
+  addConversation('unsafe-tag');
+  const store = JSON.stringify({ conversations:{ 'unsafe-tag': { tags:[], note:'keep' } } });
+  for (const reply of [
+    {id:'unsafe-tag',annotations:{}},
+    {id:'unsafe-tag',state:{},annotations:{}},
+    {id:'unsafe-tag',state:{runState:'RUN_STATE_IDLE'},metadata:{tags:[42]}},
+    {id:'unsafe-tag',state:{runState:'RUN_STATE_IDLE'},annotations:[],metadata:{tags:[]}},
+  ]) {
+    writeFileSync(metaFile,store);
+    getReply = () => Response.json(reply);
+    await assert.rejects(call('meta/update',{conversationId:'unsafe-tag',tagResolution:'native'}));
+    assert.equal(readFileSync(metaFile,'utf8'),store);
+  }
+});
+
+test('top-level ID-less targeted replies still support legacy preview, export and single delete', async () => {
+  addConversation('legacy-shape');
+  const native = {annotations:{title:'Legacy title'}, metadata:{}, state:{runState:'RUN_STATE_IDLE'}};
+  getReply = id => conversations.has(id) ? Response.json(native) : Response.json({code:'not_found'},{status:404});
+  const preview = await call('preview',{conversationId:'legacy-shape'});
+  assert.equal(preview.id,'legacy-shape');
+  assert.equal(preview.title,'Legacy title');
+  assert.match((await call('export',{conversationId:'legacy-shape'})).markdown,/legacy-shape/);
+  assert.equal((await call('delete',{conversationId:'legacy-shape'})).deletedId,'legacy-shape');
+  assert.deepEqual(mutationIds('DeleteConversation'),['legacy-shape']);
+});
+
+test('keyword search falls back to streamed chunks when the FTS5 index lacks column query support', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  addConversation('reduced-index');
+  const db = new DatabaseSync(dbFile);
+  db.exec("CREATE VIRTUAL TABLE conversations_fts USING fts5(conversation_id UNINDEXED, title, user_body, agent_body, detail=none)");
+  const add = db.prepare('INSERT INTO conversations_fts VALUES(?,?,?,?)');
+  add.run('reduced-index','','apple','');
+  add.run('reduced-index','','','orange');
+  db.close();
+  const result = await call('conversations',{tab:'all',query:'apple orange',searchMode:'keywords',locale:'en'});
+  assert.deepEqual(result.items.map(item=>item.id),['reduced-index']);
+  assert.ok(result.warnings.some(warning=>warning.includes('Keyword indexing')));
+});
+
+test('a malformed edit cannot silently clear native tags', async () => {
+  addConversation('typed');
+  conversations.get('typed').annotations.tags = ['keep'];
+  for (const tags of [[123], 'tag']) {
+    await assert.rejects(call('meta/update',{conversationId:'typed',tags}));
+  }
+  assert.deepEqual(mutationIds('UpdateConversation'),[]);
+  assert.deepEqual(conversations.get('typed').annotations.tags,['keep']);
 });

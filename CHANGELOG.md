@@ -13,6 +13,13 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 - Rewrote both READMEs with a centered hero, badges, light/dark hero screenshots, a feature cheat sheet, and an FAQ. Release notes moved to this file.
 - Added `tools/render-hero.mjs`, which renders the light/dark hero images from the real panel source with fictional demo data.
 
+## 2.3.0 - 2026-11-27
+
+- 会话分页以 50 个会话为一页。预览及 Markdown 导出按 ID 读取。增加多关键词检索、稳定项目标识和原生分组筛选。
+- 面板显示旧本地标签与原生标签的差异，更新后核对宿主结果。在归档箱批量永久删除时逐条复查归档及运行状态，并展示各项结果。
+- Page through 50 conversations at a time, preview or export a single chat by ID, search across messages with keywords, and filter by project identity or native group.
+- Reconcile legacy local tags with verified host tags. Review selected archived chats before permanent deletion and inspect each outcome afterward.
+
 ## [2.2.0] - 2026-11-27
 
 ### 新增 / Added

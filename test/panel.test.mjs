@@ -258,13 +258,13 @@ test('switching language reloads the current filters and preview without accepti
     requests.push([path, body]);
     if (path === '/api/preferences') return { language: body.language };
     if (path === '/api/conversations') return body.locale === 'en'
-      ? { items: [{ id: 'A' }], warnings: ['List warning.'], projects: ['原项目'], projectLabels: { 原项目: 'No project' } }
+      ? { items: [{ id: 'A' }], warnings: ['List warning.'], projectOptions: [{ key: 'project:old', label: 'No project' }] }
       : oldList.promise;
     return body.locale === 'en'
       ? { id: 'A', title: '项目原名', source: 'fts', warnings: ['Index fallback.'] }
       : oldPreview.promise;
   });
-  run("state.tab = 'all'; state.query = '术语'; state.project = '原项目'; state.tag = '标签';");
+  run("state.tab = 'all'; state.query = '术语'; state.projectKey = 'project:old'; state.tag = '标签';");
   const listRequest = run('loadList()');
   const previewRequest = run("openPreview('A')");
   element('languageSelect').value = 'en';
@@ -276,11 +276,15 @@ test('switching language reloads the current filters and preview without accepti
   const preview = requests.find(([path, body]) => path === '/api/preview' && body.locale === 'en');
   assert.deepEqual(preview?.[1], { conversationId: 'A', locale: 'en' });
   const list = requests.find(([path, body]) => path === '/api/conversations' && body.locale === 'en');
-  assert.deepEqual(list?.[1], { tab: 'all', query: '术语', project: '原项目', tag: '标签', sort: 'updated', staleDays: 7, locale: 'en' });
+  assert.deepEqual(list?.[1], {
+    tab: 'all', query: '术语', projectKey: 'project:old', groupKey: '', tag: '标签',
+    sort: 'updated', staleDays: 7, searchMode: 'literal', page: 1, pageSize: 50,
+    includeMatchingIds: false, snapshotId: null, searchClientId: run('searchClientId'), searchSequence: 2, locale: 'en',
+  });
   const option = element('projectSelect').children[0];
-  assert.equal(option.value, '原项目');
+  assert.equal(option.value, 'project:old');
   assert.equal(option.textContent, 'No project');
-  assert.equal(option.selected, true);
+  assert.equal(element('projectSelect').value, 'project:old');
   assert.equal(element('listWarning').textContent, 'List warning.');
   assert.equal(element('pvTitle').textContent, '项目原名');
   assert.match(element('pvSource').textContent, /Index.*Index fallback\./);
@@ -384,4 +388,54 @@ test('English brand uses Session Manager and timestamps format in local timezone
   const formatted = run("formatTimestamp('2026-11-26T10:30:00Z')");
   assert.ok(formatted.length > 0);
   assert.equal(formatted.includes('UTC'), false);
+});
+
+test('paging counts conversations and retains cross-page checked chats until filters change', async () => {
+  const calls = [];
+  const { element, run } = createPanel((path, body) => {
+    calls.push(body);
+    return { page: body.page, total: 51, snapshotId: 'first', items: [{ id: body.page === 2 ? 'B' : 'A', title: 'sample', archived: true }] };
+  });
+  await run('loadList()');
+  assert.equal(calls[0].pageSize, 50);
+  run('state.batchMode = true');
+  element('selectAllBtn').handlers.click();
+  await element('nextPageBtn').handlers.click();
+  assert.equal(calls[1].snapshotId, 'first');
+  element('selectAllBtn').handlers.click();
+  assert.deepEqual(Array.from(run('state.checkedIds')), ['A','B']);
+  await element('groupSelect').handlers.change({target:{value:'ungrouped'}});
+  assert.equal(calls.at(-1).page, 1);
+  assert.equal(calls.at(-1).groupKey, 'ungrouped');
+  assert.equal(run('state.checkedIds.size'), 0);
+});
+
+test('bulk deletion freezes confirmed IDs and cancellation sends no mutation', async () => {
+  const submitted = [];
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/delete-batch') { submitted.push(body.conversationIds); return {deleted:['A'], skipped:[], failed:[], warnings:[]}; }
+    return {items:[{id:'A', title:'First', archived:true}],page:1,total:1};
+  });
+  await run('loadList()');
+  run('state.batchMode = true');
+  element('selectAllBtn').handlers.click();
+  element('batchDeleteBtn').handlers.click();
+  element('deleteCancelBtn').handlers.click();
+  assert.equal(submitted.length, 0);
+  element('batchDeleteBtn').handlers.click();
+  run("state.checkedIds.add('late')");
+  await Promise.all([element('deleteConfirmBtn').handlers.click(), element('deleteConfirmBtn').handlers.click()]);
+  assert.deepEqual(submitted, [['A']]);
+});
+
+test('idle cleanup includes all matching chats beyond the current page', async () => {
+  const archived = [];
+  const { element, run } = createPanel((path, body) => {
+    if (path.endsWith('/set-archived')) {archived.push(...body.conversationIds); return {succeeded:[],unchanged:[],failed:[],changes:[]};}
+    return {items:[{id:'A'}], page:1,total:51,matchingIds:['A','B']};
+  });
+  run("state.tab = 'stale'");
+  await run('loadList()');
+  await element('archiveAllStaleBtn').handlers.click({currentTarget:element('archiveAllStaleBtn')});
+  assert.deepEqual(archived, ['A','B']);
 });

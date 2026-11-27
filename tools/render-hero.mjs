@@ -87,14 +87,14 @@ function mockScript() {
       '- 正文预览：优先解析 `transcript_full.jsonl`，缺失时回退 `transcript.jsonl` 与 FTS 分片。',
       '',
       '### 4. 数据持久化隔离',
-      '- 标签与备注独立保存在 Sidecar 数据目录，采用原子写入。',
+      '- 原生标签写入后读回核对，个人备注在 Sidecar 数据目录原子保存。',
     ].join('\n') },
   ];
   const counts = { archived: 3, active: items.length, starred: 2, stale: 0, all: items.length + 3 };
   const list = {
     items, counts, warnings: [],
-    projects: [...new Set(items.map((x) => x.project))],
-    projectLabels: Object.fromEntries(items.map((x) => [x.project, x.project])),
+    projectOptions: [...new Set(items.map(x => x.project))].map(label => ({ key: 'project:' + label, label })),
+    groupOptions: [], page: 1, total: items.length,
     allTags: [...new Set(items.flatMap((x) => x.tags))],
   };
   const previews = Object.fromEntries(items.map((x) => [x.id,

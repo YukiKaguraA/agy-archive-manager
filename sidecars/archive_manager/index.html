@@ -763,6 +763,13 @@
     }
     .modal-title { font-size: 14px; font-weight: 600; color: var(--am-danger-fg); }
     .modal-desc { font-size: 12.5px; color: var(--am-muted); line-height: 1.5; word-break: break-word; }
+    [hidden] { display: none !important; }
+    .pager, .batch-report, .tag-resolution { padding: 5px 10px; font-size: 12px; }
+    .pager { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+    .batch-report { max-height: 18vh; overflow: auto; white-space: pre-line; }
+    .delete-targets { max-height: 30vh; overflow-y: auto; padding-inline-start: 24px; overflow-wrap: anywhere; }
+    .tag-resolution { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+    .tag-resolution span { flex-basis: 100%; overflow-wrap: anywhere; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
     /* Toast */
@@ -844,6 +851,13 @@
           <input id="searchInput" type="text" data-i18n-placeholder="searchPlaceholder" data-i18n-label="search" placeholder="全文搜索标题、项目、消息正文或标签..." />
           <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
         </div>
+        <select id="searchModeSelect" class="ctrl-select" data-i18n-label="searchMode" data-i18n-title="searchMode">
+          <option value="literal" data-i18n="literal">原文片段</option>
+          <option value="keywords" data-i18n="keywords">多关键词</option>
+        </select>
+        <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup">
+          <option value="" data-i18n="allGroups">全部分组</option>
+        </select>
         <select id="projectSelect" class="ctrl-select" data-i18n-title="filterProject" data-i18n-label="filterProject">
           <option value="" data-i18n="allProjects">全部项目</option>
         </select>
@@ -877,17 +891,24 @@
       <!-- Batch selection bar -->
       <div id="batchBar" class="sub-bar">
         <div class="sub-bar-left">
-          <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">全选</button>
+          <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">全选本页</button>
           <span id="batchCountText">已选 0 条</span>
         </div>
         <div class="sub-bar-right">
           <button id="batchRestoreBtn" class="btn btn-sm btn-restore" data-i18n="restoreAll">♻️ 批量恢复</button>
           <button id="batchArchiveBtn" class="btn btn-sm btn-archive" data-i18n="archiveAll">📦 批量归档</button>
+          <button id="batchDeleteBtn" class="btn btn-sm btn-danger" data-i18n="deleteSelected" hidden disabled>永久删除所选</button>
           <button id="batchExitBtn" class="btn btn-sm" data-i18n="done">完成</button>
         </div>
       </div>
     </div>
 
+    <nav id="pager" class="pager" data-i18n-label="pages" hidden>
+      <button id="prevPageBtn" class="btn btn-sm" data-i18n="prevPage">上一页</button>
+      <span id="pageStatus" role="status"></span>
+      <button id="nextPageBtn" class="btn btn-sm" data-i18n="nextPage">下一页</button>
+    </nav>
+    <details id="batchReport" class="batch-report" hidden><summary id="batchSummary"></summary><div id="batchDetails"></div></details>
     <div id="listWarning" class="data-status" role="status" hidden></div>
     <div id="mainSplit" class="main">
       <div id="listPane" class="list-pane">
@@ -921,6 +942,11 @@
           </div>
 
           <div id="pvMetaEditor" class="meta-editor">
+            <div class="tag-resolution" id="tagConflictBox" hidden>
+              <span id="tagConflictText"></span>
+              <button class="btn btn-sm" id="useNativeTags" data-i18n="useNative">采用宿主标签</button>
+              <button class="btn btn-sm" id="useLocalTags" data-i18n="useLocal">将本地标签同步到宿主</button>
+            </div>
             <div class="tags-row" id="pvTagsRow">
               <input id="tagInput" class="inline-input" style="width:128px;" data-i18n-placeholder="tagPlaceholder" data-i18n-label="addTag" />
             </div>
@@ -939,6 +965,7 @@
     <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
       <div id="deleteModalTitle" class="modal-title" data-i18n="deleteHeading">⚠️ 永久删除会话（不可撤销）</div>
       <div id="deleteModalDesc" class="modal-desc"></div>
+      <ol id="deleteTargets" class="delete-targets" hidden></ol>
       <div class="modal-actions">
         <button id="deleteCancelBtn" class="btn" data-i18n="cancel">取消</button>
         <button id="deleteConfirmBtn" class="btn btn-danger" data-i18n="confirmDelete">确认永久删除</button>
@@ -966,7 +993,15 @@
         sortBy: '排序方式', recent: '最近更新', mostSteps: '步数最多', byTitle: '按标题',
         idleFor: '闲置超过', idleThreshold: '闲置天数', idleHelp: '（跳过运行中、置顶和收藏的会话）',
         days: (n) => `${number(n)} 天`, archiveIdle: '📦 归档当前闲置',
-        selectAll: '全选', selected: (n) => `已选 ${number(n)} 条`,
+        searchMode: '搜索模式', literal: '原文片段', keywords: '多关键词', filterGroup: '按原生分组筛选', allGroups: '全部分组',
+        pages: '会话分页', prevPage: '上一页', nextPage: '下一页', pageOf: (p, pages, total) => `第 ${p} / ${pages} 页 · ${number(total)} 个会话`,
+        deletedItem: title => `已删除 · ${title}`, skippedItem: (title, reason) => `跳过 · ${title} · ${reason}`,
+        failedItem: (title, reason) => `失败 · ${title} · ${reason}`,
+        deleteSelected: '永久删除所选', batchConfirm: n => `永久删除以下 ${number(n)} 个已归档会话及其历史消息？此操作无法撤回。`,
+        deleteResult: (d,s,f) => `已删除 ${d} · 已跳过 ${s} · 失败 ${f}`,
+        useNative: '采用宿主标签', useLocal: '将本地标签同步到宿主', emptyTags: '无',
+        conflictLabels: (local, native) => `旧本地标签：${local}。宿主标签：${native}。`,
+        selectAll: '全选本页', selected: (n) => `已选 ${number(n)} 条`,
         restoreAll: '♻️ 批量恢复', archiveAll: '📦 批量归档', done: '完成',
         connecting: '正在连接 ConversationService…',
         previewHint: '选择会话以预览正文、重命名、添加标签或导出 Markdown。',
@@ -1024,7 +1059,15 @@
         sortBy: 'Sort by', recent: 'Recent', mostSteps: 'Most steps', byTitle: 'Title',
         idleFor: 'Idle for over', idleThreshold: 'Days idle', idleHelp: '(Skips running, pinned, and starred chats)',
         days: (n) => plural(n, 'day'), archiveIdle: '📦 Archive idle chats',
-        selectAll: 'Select all', selected: (n) => `${number(n)} selected`,
+        searchMode: 'Search mode', literal: 'Exact text', keywords: 'Keywords', filterGroup: 'Filter by native group', allGroups: 'All groups',
+        pages: 'Conversation pages', prevPage: 'Previous', nextPage: 'Next', pageOf: (p, pages, total) => `Page ${p} / ${pages} · ${plural(total, 'chat')}`,
+        deletedItem: title => `Deleted · ${title}`, skippedItem: (title, reason) => `Skipped · ${title} · ${reason}`,
+        failedItem: (title, reason) => `Failed · ${title} · ${reason}`,
+        deleteSelected: 'Delete selected permanently', batchConfirm: n => `Permanently delete these ${plural(n, 'archived chat')} and their messages? This cannot be undone.`,
+        deleteResult: (d,s,f) => `Deleted ${d} · Skipped ${s} · Failed ${f}`,
+        useNative: 'Use host tags', useLocal: 'Sync local tags to host', emptyTags: 'None',
+        conflictLabels: (local, native) => `Saved local tags: ${local}. Host tags: ${native}.`,
+        selectAll: 'Select page', selected: (n) => `${number(n)} selected`,
         restoreAll: '♻️ Restore selected', archiveAll: '📦 Archive selected', done: 'Done',
         connecting: 'Connecting to ConversationService…',
         previewHint: 'Select a chat to preview, rename, tag, or export it as Markdown.',
@@ -1077,7 +1120,18 @@
       locale: defaultLocale,
       tab: 'archived',
       query: '',
-      project: '',
+      projectKey: '',
+      groupKey: '',
+      searchMode: 'literal',
+      page: 1,
+      pageSize: 50,
+      total: 0,
+      snapshotId: null,
+      staleIds: [],
+      selectedTitles: new Map(),
+      pendingBatch: null,
+      deleteBusy: false,
+      deleteReport: null,
       tag: '',
       sort: 'updated',
       staleDays: 7,
@@ -1095,6 +1149,7 @@
     const MSG_COLLAPSE_THRESHOLD = 450;
 
     const $ = (id) => document.getElementById(id);
+    const searchClientId = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
     let searchTimer = null;
     let toastTimer = null;
     let toastContent;
@@ -1131,6 +1186,8 @@
       for (const node of document.querySelectorAll('[data-i18n-label]')) node.setAttribute('aria-label', t(node.dataset.i18nLabel));
       for (const option of document.querySelectorAll('#staleDaysSelect option')) option.textContent = t('days', Number(option.value));
       updateBatchBar();
+      updateDeleteDialog();
+      renderDeleteReport();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
       updateToastText();
@@ -1306,7 +1363,14 @@
       $('batchBar').classList.toggle('show', state.batchMode);
       $('batchToggleBtn').classList.toggle('btn-primary', state.batchMode);
       const count = state.checkedIds.size;
-      const canApply = state.listReady && !state.archivePending;
+      const canApply = state.listReady && !state.archivePending && !state.deleteBusy;
+      const pageCount = Math.max(1, Math.ceil(state.total / state.pageSize));
+      $('pager').hidden = pageCount <= 1;
+      $('pageStatus').textContent = t('pageOf', state.page, pageCount, state.total);
+      $('prevPageBtn').disabled = !state.listReady || state.page <= 1;
+      $('nextPageBtn').disabled = !state.listReady || state.page >= pageCount;
+      $('batchDeleteBtn').hidden = state.tab !== 'archived' || !state.batchMode;
+      $('batchDeleteBtn').disabled = !canApply || count === 0;
       $('batchCountText').textContent = t('selected', count);
       $('selectAllBtn').disabled = !canApply || state.items.length === 0;
       $('batchRestoreBtn').disabled = !canApply || count === 0;
@@ -1326,25 +1390,36 @@
       status.hidden = !text;
     }
 
-    async function loadList() {
+    async function loadList({ refresh = false } = {}) {
       const requestId = invalidateList();
       try {
         const data = await apiPost('/api/conversations', {
           tab: state.tab,
           query: state.query,
-          project: state.project,
+          projectKey: state.projectKey,
+          groupKey: state.groupKey,
+          searchMode: state.searchMode,
+          page: state.page,
+          pageSize: state.pageSize,
+          snapshotId: refresh ? null : state.snapshotId,
+          searchClientId, searchSequence: requestId,
+          includeMatchingIds: state.tab === 'stale',
           tag: state.tag,
           sort: state.sort,
           staleDays: state.staleDays,
         });
         if (requestId !== listRequestId) return false;
+        if (data.cancelled) return false;
         state.items = data.items || [];
+        state.page = data.page ?? 1;
+        state.total = data.total ?? state.items.length;
+        state.snapshotId = data.snapshotId ?? null;
+        state.staleIds = data.matchingIds ?? (state.tab === 'stale' ? state.items.map(item => item.id) : []);
         showDataStatus('listWarning', (data.warnings || []).join(t('noticeSeparator')));
 
-        // Prune checked IDs not in current list
-        const validIds = new Set(state.items.map((x) => x.id));
-        for (const id of [...state.checkedIds]) {
-          if (!validIds.has(id)) state.checkedIds.delete(id);
+        // Keep explicitly selected chats from other pages.
+        for (const item of state.items) {
+          if (state.checkedIds.has(item.id)) state.selectedTitles.set(item.id, item.title);
         }
 
         for (const key of ['archived', 'active', 'starred', 'stale', 'all']) {
@@ -1352,17 +1427,8 @@
           if (el) el.textContent = number(data.counts?.[key] ?? 0);
         }
 
-        const projSel = $('projectSelect');
-        const curProj = state.project;
-        projSel.innerHTML = `<option value="" data-i18n="allProjects">${escapeHtml(t('allProjects'))}</option>`;
-        for (const p of data.projects || []) {
-          const opt = document.createElement('option');
-          opt.value = p;
-          const labels = data.projectLabels || {};
-          opt.textContent = Object.hasOwn(labels, p) ? (labels[p] ?? p) : p;
-          if (p === curProj) opt.selected = true;
-          projSel.appendChild(opt);
-        }
+        fillSelect('projectSelect', 'allProjects', data.projectOptions || [], state.projectKey);
+        fillSelect('groupSelect', 'allGroups', data.groupOptions || [], state.groupKey);
 
         const tagSel = $('tagSelect');
         const curTag = state.tag;
@@ -1389,6 +1455,41 @@
         $('listPane').innerHTML = `<div class="empty-state" role="status">${escapeHtml(t('loadFailed', err.message))}</div>`;
         return false;
       }
+    }
+
+    function fillSelect(id, allLabel, options, selected) {
+      const select = $(id);
+      select.innerHTML = `<option value="">${escapeHtml(t(allLabel))}</option>`;
+      for (const { key, label } of options) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = label;
+        select.appendChild(option);
+      }
+      select.value = selected;
+    }
+
+    function selectItem(item, selected) {
+      if (selected) {
+        state.checkedIds.add(item.id);
+        state.selectedTitles.set(item.id, item.title || item.id);
+      } else {
+        state.checkedIds.delete(item.id);
+        state.selectedTitles.delete(item.id);
+      }
+    }
+
+    function resetSelection() {
+      state.checkedIds.clear();
+      state.selectedTitles.clear();
+      if (state.pendingBatch) closeDeleteModal();
+    }
+
+    function resetFilters() {
+      resetSelection();
+      state.page = 1;
+      state.deleteReport = null;
+      renderDeleteReport();
     }
 
     function renderList() {
@@ -1441,6 +1542,7 @@
           <div class="card-meta">
             ${statusBadge}
             <span class="pill pill-proj">${escapeHtml(item.projectLabel ?? item.project)}</span>
+            ${item.groupId ? `<span class="pill">${escapeHtml(item.groupId)}</span>` : ''}
             ${stepText}
             <span>${escapeHtml(formatTime(item.lastModifiedMs, item.lastModified))}</span>
             ${tagsHtml}
@@ -1455,8 +1557,7 @@
 
         card.addEventListener('click', () => {
           if (state.batchMode) {
-            if (state.checkedIds.has(item.id)) state.checkedIds.delete(item.id);
-            else state.checkedIds.add(item.id);
+            selectItem(item, !state.checkedIds.has(item.id));
             updateBatchBar();
             renderList();
             return;
@@ -1466,8 +1567,7 @@
 
         card.querySelector('.card-check').addEventListener('click', (e) => {
           e.stopPropagation();
-          if (e.target.checked) state.checkedIds.add(item.id);
-          else state.checkedIds.delete(item.id);
+          selectItem(item, e.target.checked);
           updateBatchBar();
         });
 
@@ -1584,6 +1684,8 @@
 
     function closeDeleteModal() {
       state.pendingDeleteId = null;
+      state.pendingBatch = null;
+      $('deleteTargets').hidden = true;
       $('deleteModal').classList.remove('show');
     }
 
@@ -1594,7 +1696,7 @@
       previewOverrides = {};
       state.selectedId = convId;
       state.previewData = null;
-      closeDeleteModal();
+      if (!state.pendingBatch) closeDeleteModal();
       if (previous && $('pvTitleInput').style.display !== 'none') $('pvRenameBtn').textContent = t('save');
       else exitTitleEdit();
       setPreviewControlsReady(false);
@@ -1666,6 +1768,11 @@
         showSourceBanner ? [t('source', t(sourceLabels[d.source] ?? 'unknownSource')), ...pvWarnings].join(t('noticeSeparator')) : ''
       );
 
+      $('tagConflictBox').hidden = !d.tagConflict;
+      if (d.tagConflict) {
+        const display = tags => tags?.join(', ') || t('emptyTags');
+        $('tagConflictText').textContent = t('conflictLabels', display(d.tags), display(d.nativeTags));
+      }
       const row = $('pvTagsRow');
       const input = $('tagInput');
       row.querySelectorAll('.tag-chip').forEach((n) => n.remove());
@@ -1789,13 +1896,15 @@
       syncCollapseAllBtn();
     }
 
-    async function saveTags(convId, tags) {
+    async function saveTags(convId, tags, tagResolution) {
       try {
-        const res = await apiPost('/api/meta/update', { conversationId: convId, tags });
-        applyPreviewPatch(convId, { tags: res.meta.tags || [] });
+        const res = await apiPost('/api/meta/update', { conversationId: convId, tags, tagResolution });
+        applyPreviewPatch(convId, { tags: res.meta.tags, nativeTags: res.meta.nativeTags, tagConflict: res.meta.tagConflict });
         await loadList();
       } catch (err) {
         showToast(() => t('tagsFailed', err.message));
+        if (state.selectedId === convId) await openPreview(convId, { refreshLocale: true });
+        await loadList({ refresh: true });
       }
     }
 
@@ -1869,7 +1978,7 @@
       const btn = e.target.closest('.tab-btn');
       if (!btn) return;
       state.tab = btn.dataset.tab;
-      state.checkedIds.clear();
+      resetFilters();
       document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b === btn));
       $('staleBar').classList.toggle('show', state.tab === 'stale');
       loadList();
@@ -1879,6 +1988,7 @@
       const val = e.target.value;
       $('clearSearchBtn').classList.toggle('show', Boolean(val));
       state.query = val.trim();
+      resetFilters();
       invalidateList();
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
@@ -1892,18 +2002,31 @@
       $('searchInput').value = '';
       $('clearSearchBtn').classList.remove('show');
       state.query = '';
+      resetFilters();
       loadList();
       if (state.previewData) renderPreview();
     });
 
-    $('projectSelect').addEventListener('change', (e) => { state.project = e.target.value; loadList(); });
-    $('tagSelect').addEventListener('change', (e) => { state.tag = e.target.value; loadList(); });
-    $('sortSelect').addEventListener('change', (e) => { state.sort = e.target.value; loadList(); });
-    $('staleDaysSelect').addEventListener('change', (e) => { state.staleDays = Number(e.target.value) || 7; loadList(); });
+    for (const [id, key] of [['projectSelect', 'projectKey'], ['groupSelect', 'groupKey'], ['searchModeSelect', 'searchMode'],
+      ['tagSelect', 'tag'], ['sortSelect', 'sort'], ['staleDaysSelect', 'staleDays']]) {
+      $(id).addEventListener('change', e => {
+        state[key] = key === 'staleDays' ? Number(e.target.value) || 7 : e.target.value;
+        resetFilters();
+        return loadList();
+      });
+    }
+
+    for (const [id, delta] of [['prevPageBtn', -1], ['nextPageBtn', 1]]) {
+      $(id).addEventListener('click', () => {
+        if ($(id).disabled) return;
+        state.page += delta;
+        return loadList();
+      });
+    }
 
     $('refreshBtn').addEventListener('click', async () => {
       if (state.selectedId) openPreview(state.selectedId);
-      if (await loadList()) showToast('refreshed');
+      if (await loadList({ refresh: true })) showToast('refreshed');
     });
 
     $('openExportDirBtn').addEventListener('click', async () => {
@@ -1917,24 +2040,21 @@
     // Batch actions
     $('batchToggleBtn').addEventListener('click', () => {
       state.batchMode = !state.batchMode;
-      if (!state.batchMode) state.checkedIds.clear();
+      if (!state.batchMode) resetSelection();
       updateBatchBar();
       renderList();
     });
     $('batchExitBtn').addEventListener('click', () => {
       state.batchMode = false;
-      state.checkedIds.clear();
+      resetSelection();
       updateBatchBar();
       renderList();
     });
     $('selectAllBtn').addEventListener('click', () => {
       if (!state.listReady || state.archivePending) return;
       const eligible = state.items.filter((i) => !i.isRunning);
-      if (state.checkedIds.size === eligible.length) {
-        state.checkedIds.clear();
-      } else {
-        for (const i of eligible) state.checkedIds.add(i.id);
-      }
+      const selectPage = !eligible.every(i => state.checkedIds.has(i.id));
+      for (const item of eligible) selectItem(item, selectPage);
       updateBatchBar();
       renderList();
     });
@@ -1946,8 +2066,7 @@
     });
     $('archiveAllStaleBtn').addEventListener('click', (e) => {
       if (!state.listReady || state.tab !== 'stale') return;
-      const ids = state.items.map((item) => item.id);
-      return setConversationsArchived(ids, true, e.currentTarget, state.staleDays);
+      return setConversationsArchived(state.staleIds, true, e.currentTarget, state.staleDays);
     });
 
     // Preview toolbar events
@@ -2004,17 +2123,109 @@
       if (e.key === 'Escape') { e.preventDefault(); exitTitleEdit(); }
     });
 
+    function updateDeleteDialog() {
+      const batch = state.pendingBatch;
+      if (batch) {
+        $('deleteModalDesc').textContent = t('batchConfirm', batch.length);
+        const list = $('deleteTargets');
+        list.innerHTML = '';
+        for (const { id, title } of batch) {
+          const entry = document.createElement('li');
+          entry.textContent = title === id ? id : `${title} (${id})`;
+          list.appendChild(entry);
+        }
+        list.hidden = false;
+      } else if (state.pendingDeleteId && state.previewData) {
+        $('deleteModalDesc').textContent = t('deleteConfirm', state.previewData.title);
+      }
+    }
+
+    function renderDeleteReport() {
+      const report = state.deleteReport;
+      $('batchReport').hidden = !report;
+      if (!report) return;
+      const { deleted, skipped, failed, warnings, titles } = report;
+      $('batchSummary').textContent = t('deleteResult', deleted.length, skipped.length, failed.length);
+      const describe = id => titles.get(id) || id;
+      const lines = [
+        ...deleted.map(id => t('deletedItem', describe(id))),
+        ...skipped.map(row => t('skippedItem', describe(row.id), row.reason)),
+        ...failed.map(row => t('failedItem', describe(row.id), row.reason)),
+        ...warnings,
+      ];
+      $('batchDetails').textContent = lines.join('\n');
+    }
+
+    function clearPreview() {
+      ++previewRequestId;
+      state.selectedId = null;
+      state.previewData = null;
+      $('previewContent').style.display = 'none';
+      $('previewEmpty').style.display = 'flex';
+      $('mainSplit').classList.remove('show-preview');
+    }
+
+    async function deleteBatch(batch) {
+      if (state.deleteBusy || !batch.length) return;
+      state.deleteBusy = true;
+      const titles = new Map(batch.map(({ id, title }) => [id, title]));
+      for (const id of titles.keys()) deletingIds.add(id);
+      updateBatchBar();
+      try {
+        const result = await apiPost('/api/delete-batch', { conversationIds: [...titles.keys()] });
+        const { deleted, skipped, failed, warnings = [] } = result;
+        const retryable = new Set(failed.filter(row => row.retryable).map(row => row.id));
+        for (const id of titles.keys()) {
+          if (!retryable.has(id)) {
+            state.checkedIds.delete(id);
+            state.selectedTitles.delete(id);
+          }
+        }
+        state.deleteReport = { deleted, skipped, failed, warnings, titles };
+        renderDeleteReport();
+        $('batchReport').open = Boolean(skipped.length || failed.length || warnings.length);
+        if (deleted.includes(state.selectedId) || skipped.some(row => row.id === state.selectedId && row.code === 'already_gone')) clearPreview();
+      } catch (err) {
+        resetSelection();
+        showToast(() => t('deleteFailed', err.message));
+      } finally {
+        state.deleteBusy = false;
+        for (const id of titles.keys()) deletingIds.delete(id);
+        await loadList({ refresh: true });
+        if (titles.has(state.selectedId)) await openPreview(state.selectedId);
+        updateBatchBar();
+      }
+    }
+
+    $('batchDeleteBtn').addEventListener('click', () => {
+      if (state.tab !== 'archived' || !state.batchMode || !state.listReady || state.deleteBusy || state.archivePending) return;
+      const batch = [...state.checkedIds].map(id => ({ id, title: state.selectedTitles.get(id) || id }));
+      if (!batch.length) return;
+      state.pendingDeleteId = null;
+      state.pendingBatch = batch;
+      updateDeleteDialog();
+      $('deleteModal').classList.add('show');
+      $('deleteCancelBtn').focus?.();
+    });
+    $('deleteModal').addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeDeleteModal();
+    });
+
     // Safe delete modal
     $('pvDeleteBtn').addEventListener('click', () => {
-      if (!state.previewData || state.previewData.isRunning) return;
+      if (!state.previewData || state.previewData.isRunning || state.deleteBusy) return;
+      state.pendingBatch = null;
       state.pendingDeleteId = state.previewData.id;
       $('deleteModalDesc').textContent = t('deleteConfirm', state.previewData.title);
       $('deleteModal').classList.add('show');
+      $('deleteCancelBtn').focus?.();
     });
     $('deleteCancelBtn').addEventListener('click', closeDeleteModal);
     $('deleteConfirmBtn').addEventListener('click', async () => {
+      const batch = state.pendingBatch;
       const id = state.pendingDeleteId;
       closeDeleteModal();
+      if (batch) return deleteBatch(batch);
       if (!id || id !== state.previewData?.id || deletingIds.has(id)) return;
       const preview = state.previewData;
       const requestId = previewRequestId;
@@ -2026,12 +2237,7 @@
       try {
         const result = await apiPost('/api/delete', { conversationId: id });
         if (state.selectedId === id) {
-          ++previewRequestId;
-          state.selectedId = null;
-          state.previewData = null;
-          $('previewContent').style.display = 'none';
-          $('previewEmpty').style.display = 'flex';
-          $('mainSplit').classList.remove('show-preview');
+          clearPreview();
         }
         showToast(() => [t('deleted'), ...(result.warnings || [])].join(t('noticeSeparator')));
         await loadList();
@@ -2050,6 +2256,13 @@
       }
       if (reloadPreview) await openPreview(id, { refreshLocale: true });
     });
+
+    for (const [id, resolution] of [['useNativeTags', 'native'], ['useLocalTags', 'local']]) {
+      $(id).addEventListener('click', async () => {
+        const chat = state.previewData;
+        if (chat?.tagConflict) await saveTags(chat.id, undefined, resolution);
+      });
+    }
 
     // Tags & note inputs
     $('tagInput').addEventListener('keydown', async (e) => {
@@ -2073,7 +2286,7 @@
     // Initial load & auto-refresh on focus
     initializePanel();
     window.addEventListener('focus', () => {
-      if (!$('languageSelect').disabled) loadList();
+      if (!$('languageSelect').disabled) loadList({ refresh: true });
     });
   </script>
 </body>

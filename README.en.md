@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="logo.svg" width="96" height="96" alt="Session Manager Logo" />
 
@@ -44,7 +44,7 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 - **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
 - **One-click Markdown export**: Export conversations with their metadata, tags, and notes to `~/Documents/Antigravity-Exports`.
 - **Bilingual and theme-aware**: Switch the panel language at any time. Colors follow your host theme and UI packs.
-- **Safe by default**: Running conversations cannot be deleted, SQLite is opened read-only, and tags and notes are written atomically.
+- **Safe by default**: Running conversations cannot be deleted, SQLite is opened read-only, and local notes are saved atomically.
 
 ---
 
@@ -72,7 +72,7 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 | :--- | :--- | :--- |
 | Find an old conversation | Search, then filter by project or tag and sort | Top of the panel |
 | Archive / restore | Amber **Archive** / green **Restore**, with undo | Cards, preview toolbar |
-| Work in bulk | Select several, then archive or restore | **Batch** button |
+| Work in bulk | Select chats to archive or restore. Archived chats can also be permanently deleted after confirmation | **Batch** button |
 | Clean up stale conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Stale view |
 | Read long conversations | Expand All / Collapse All, ⬆ Top, ⬇ Bottom, Formatted / Raw | Preview toolbar |
 | Organize | Pin, star, rename, `#tags`, notes | Cards and preview |
@@ -134,11 +134,12 @@ Then remind the user to enable the plugin under **Customizations → Plugins**.
 
 ---
 
-## 🆕 What's New in v2.2.0
+## 🆕 What's New in v2.3.0
 
-- Switch between **简体中文 / English** at the top of the panel. The plugin remembers your choice.
-- Controls, confirmations, and Markdown export labels follow the selected language. Conversation text, titles, tags, and notes stay in their original language.
-- Colors, fonts, and dark code blocks follow your host theme and UI packs, and the left-sidebar entry is more reliable in custom layouts.
+- The list displays 50 conversations per page. Opening one shows all available transcript messages for that conversation.
+- Choose **Exact text** for literal fragments or **Keywords** to combine terms across messages. Project, native group, and tag filters work together. Projects with the same name appear separately.
+- In **Archived → Batch**, select chats across pages and choose **Delete selected permanently**. Review the list before confirming. The results identify deleted, skipped, and failed chats. Permanent deletion cannot be undone.
+- If saved local tags differ from the host, the preview shows both sets. Use the host tags or sync the local set to the host. Notes stay local. Antigravity 2.35.2 can ignore a request to clear the last tag. The panel verifies the host response and retains the local record if the change did not take effect.
 
 👉 [Read the full changelog](./CHANGELOG.md)
 
@@ -177,7 +178,7 @@ Archive operations use Antigravity's internal `ConversationService`, and search 
 <details>
 <summary><strong>Where are exports, tags, and notes stored?</strong></summary>
 
-Exports are saved to `~/Documents/Antigravity-Exports`, one file per export, and the panel can reveal them. Tags and notes are stored separately in the Sidecar data directory and are never written into the conversation itself.
+Exports are saved to `~/Documents/Antigravity-Exports`, one file per export, and the panel can reveal them. The panel writes tags through the host service and reads them back to verify the update. Notes and legacy tag overrides are stored in the Sidecar data directory.
 
 </details>
 

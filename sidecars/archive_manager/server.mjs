@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SidecarApp } from 'sidecar_sdk';
 import { getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
+import { filterSearch, beginSearch } from './search.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -58,7 +59,9 @@ async function callConversationService(method, body = {}) {
   }
   if (!res.ok) {
     const msg = parsed?.message || parsed?.error || text || `HTTP ${res.status}`;
-    throw new Error(t('upstreamFailed', method, msg));
+    const err = new Error(t('upstreamFailed', method, msg));
+    err.notFound = parsed?.code === 'not_found';
+    throw err;
   }
   if (!isRecord(parsed) || Object.hasOwn(parsed, 'raw')) {
     throw new Error(t('upstreamInvalidResponse', method));
@@ -190,18 +193,14 @@ function loadProjectMap() {
   return map;
 }
 
-function parseWorkspaceName(workspaceUrisRaw) {
-  if (!workspaceUrisRaw) return '';
+function workspaceFromIndex(raw) {
   try {
-    const arr = JSON.parse(workspaceUrisRaw);
-    if (Array.isArray(arr) && arr.length > 0) {
-      const decoded = decodeURIComponent(String(arr[0]).replace(/^file:\/\/\/?/i, ''));
-      const clean = decoded.replace(/[\\/]+$/, '');
-      const parts = clean.split(/[\\/]/).filter(Boolean);
-      return parts[parts.length - 1] || clean;
-    }
-  } catch {}
-  return '';
+    const first = JSON.parse(raw)?.[0];
+    if (typeof first !== 'string' || !first) return {};
+    let path = first;
+    try { path = decodeURIComponent(first); } catch {}
+    return { workspaceUri: first, workspaceName: path.split(/[\\/]/).filter(Boolean).at(-1) || first };
+  } catch { return {}; }
 }
 
 function parseIsoMs(tsStr) {
@@ -264,19 +263,21 @@ function openReadOnlyDb() {
 }
 
 // Read step_count and workspace fallback from read-only SQLite summary index
-function loadDbStatsMap() {
+function loadDbStatsMap(id) {
   const map = new Map();
   let db;
   try {
     db = openReadOnlyDb();
     if (!db) return map;
-    const rows = db
-      .prepare(`SELECT conversation_id, step_count, workspace_uris, preview FROM conversation_summaries`)
-      .all();
+    const columns = db.prepare('PRAGMA table_info(conversation_summaries)').all();
+    const groupColumn = columns.some(column => column.name === 'group_id') ? ', group_id' : '';
+    const sql = 'SELECT conversation_id, step_count, workspace_uris, preview' + groupColumn + ' FROM conversation_summaries';
+    const rows = id === undefined ? db.prepare(sql).iterate() : db.prepare(sql + ' WHERE conversation_id = ?').iterate(id);
     for (const r of rows) {
       map.set(r.conversation_id, {
         stepCount: Number(r.step_count) || 0,
-        workspaceName: parseWorkspaceName(r.workspace_uris),
+        ...workspaceFromIndex(r.workspace_uris),
+        groupId: r.group_id,
         preview: (r.preview || '').trim(),
       });
     }
@@ -286,91 +287,82 @@ function loadDbStatsMap() {
   return map;
 }
 
-// Combine native ConversationService state, SQLite stats, and local notes/tags.
-async function loadAllConversations() {
-  const [nativeList, dbStats] = await Promise.all([
-    listAllNativeConversations(),
-    Promise.resolve(loadDbStatsMap()),
-  ]);
+function normalizeTags(tags) {
+  return [...new Set(tags.filter(tag => typeof tag === 'string').map(tag => tag.trim()).filter(Boolean))];
+}
 
+function nativeTagsOf(conversation) {
+  const annotations = conversation.annotations?.tags;
+  const metadata = conversation.metadata?.tags;
+  return normalizeTags([...(Array.isArray(annotations) ? annotations : []), ...(Array.isArray(metadata) ? metadata : [])]);
+}
+
+function sameTags(left, right) {
+  return left.length === right.length && left.every(tag => right.includes(tag));
+}
+
+function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
+  const md = c.metadata || {};
+  const ann = c.annotations || {};
+  const st = c.state || {};
+  const projectId = md.projectId || '';
+  const assigned = projectId && projectId !== 'outside-of-project';
+  const projectName = projectMap.get(projectId) || dbInfo.workspaceName || (assigned ? projectId : '');
+  const projectKey = assigned ? 'project:' + projectId : dbInfo.workspaceUri ? 'workspace:' + dbInfo.workspaceUri : 'unassigned';
+  const groupId = [ann.conversationGroupId, ann.groupId, md.conversationGroupId, md.groupId, c.groupId, dbInfo.groupId]
+    .find(id => typeof id === 'string') || '';
+  const nativeTags = nativeTagsOf(c);
+  const localTags = Array.isArray(localMeta.tags) ? normalizeTags(localMeta.tags) : null;
+  return {
+    id: c.id,
+    title: (ann.title || st.summary || dbInfo.preview || t('untitled')).trim(),
+    summary: (st.summary || dbInfo.preview || '').trim(),
+    stepCount: dbInfo.stepCount || 0,
+    createTime: md.createTime || '',
+    ...getConversationStatus(c, nowMs),
+    project: projectName || UNASSIGNED_PROJECT,
+    projectLabel: projectName || t('unassignedProject'),
+    projectId, projectKey,
+    groupId, groupKey: groupId ? 'group:' + groupId : 'ungrouped',
+    groupLabel: groupId || t('ungrouped'),
+    tags: localTags ?? nativeTags,
+    nativeTags, localTags,
+    tagConflict: localTags !== null && !sameTags(localTags, nativeTags),
+    note: localMeta.note || '',
+  };
+}
+
+async function loadConversationData(id) {
+  // Older targeted replies omit the ID. unpackConversation has already rejected a different returned ID.
+  const nativeList = id === undefined ? await listAllNativeConversations() : [{ ...await getNativeConversation(id), id }];
+  const dbStats = loadDbStatsMap(id);
   const projectMap = loadProjectMap();
-  const { store: metaStore, warnings } = readMetaForDisplay();
+  const { store, warnings } = readMetaForDisplay();
   const nowMs = Date.now();
-  const items = [];
-
-  for (const c of nativeList) {
-    const id = c.id;
-    const md = c.metadata || {};
-    const ann = c.annotations || {};
-    const st = c.state || {};
-    const dbInfo = dbStats.get(id) || {};
-    const localMeta = metaStore.conversations[id] || {};
-
-    const projectId = md.projectId || '';
-    const projectName =
-      projectMap.get(projectId) ||
-      dbInfo.workspaceName ||
-      (projectId === 'outside-of-project' ? '' : projectId);
-
-    // Prefer local tags override when user explicitly manages tags (supports clearing to empty cleanly),
-    // otherwise fall back to native annotations.tags / metadata.tags.
-    const nativeTags = [
-      ...(Array.isArray(ann.tags) ? ann.tags : []),
-      ...(Array.isArray(md.tags) ? md.tags : []),
-    ];
-    const tags = Array.isArray(localMeta.tags)
-      ? localMeta.tags
-      : [...new Set(nativeTags.map((t) => String(t).trim()).filter(Boolean))];
-
-    const title = (ann.title || st.summary || dbInfo.preview || t('untitled')).trim();
-
-    items.push({
-      id,
-      title,
-      summary: (st.summary || dbInfo.preview || '').trim(),
-      stepCount: dbInfo.stepCount || 0,
-      createTime: md.createTime || '',
-      ...getConversationStatus(c, nowMs),
-      project: projectName || UNASSIGNED_PROJECT,
-      projectLabel: projectName || t('unassignedProject'),
-      projectId,
-      tags,
-      note: typeof localMeta.note === 'string' ? localMeta.note : '',
-    });
-  }
-
+  const items = nativeList.map(c => conversationItem(c, projectMap, dbStats.get(c.id) || {}, store.conversations[c.id] || {}, nowMs));
   return { items, warnings };
 }
 
-function searchBodiesInDb(queryLower) {
-  const db = openReadOnlyDb();
-  const hitMap = new Map();
-  if (!db || !queryLower) return hitMap;
-  try {
-    const rows = db
-      .prepare(`SELECT conversation_id, title, user_body, agent_body FROM conversations_fts`)
-      .all();
-    for (const r of rows) {
-      if (hitMap.has(r.conversation_id)) continue;
-      for (const field of [r.user_body, r.agent_body, r.title]) {
-        if (!field || typeof field !== 'string') continue;
-        const idx = field.toLowerCase().indexOf(queryLower);
-        if (idx !== -1) {
-          const start = Math.max(0, idx - 36);
-          const end = Math.min(field.length, idx + queryLower.length + 72);
-          const snippet =
-            (start > 0 ? '…' : '') +
-            field.slice(start, end).replace(/\s+/g, ' ').trim() +
-            (end < field.length ? '…' : '');
-          hitMap.set(r.conversation_id, snippet);
-          break;
-        }
-      }
-    }
-  } catch {} finally {
-    db.close();
+// A client passes its snapshot token between pages. Legacy unpaged calls always load fresh data.
+const snapshots = new Map();
+let snapshotGeneration = 0;
+function invalidateSnapshots() {
+  snapshotGeneration++;
+  snapshots.clear();
+}
+
+async function loadSnapshot(data, paged) {
+  const locale = getRequestLanguage();
+  const prior = snapshots.get(data.snapshotId);
+  if (paged && !data.refresh && prior?.locale === locale) return prior;
+  const generation = snapshotGeneration;
+  const { items, warnings } = await loadConversationData();
+  const snapshot = { id: randomUUID(), locale, items: items.filter(c => !c.isSubagent), warnings, results: new Map() };
+  if (paged && generation === snapshotGeneration) {
+    snapshots.set(snapshot.id, snapshot);
+    if (snapshots.size > 6) snapshots.delete(snapshots.keys().next().value);
   }
-  return hitMap;
+  return snapshot;
 }
 
 async function getArchivedCount() {
@@ -502,10 +494,7 @@ function loadTranscript(conversationId, warnings) {
 }
 
 async function loadConversationPreview(conversationId) {
-  const { items, warnings } = await loadAllConversations();
-  const conv = items.find((c) => c.id === conversationId);
-  if (!conv) throw new Error(t('conversationNotFound', conversationId));
-
+  const { items: [conv], warnings } = await loadConversationData(conversationId);
   const { source, messages } = loadTranscript(conversationId, warnings);
   if (source === 'transcript') warnings.push(t('transcriptCompact'));
 
@@ -617,83 +606,94 @@ registerApi('/api/preferences', async (data) => {
   return { language };
 });
 
+function optionsOf(items, key, label, collator) {
+  const options = new Map(items.map(item => [item[key], item[label]]));
+  const labels = new Map();
+  for (const name of options.values()) labels.set(name, (labels.get(name) || 0) + 1);
+  return [...options].map(([key, label]) => ({
+    key, label: labels.get(label) > 1 ? label + ' (' + key + ')' : label,
+  }))
+    .sort((a, b) => collator.compare(a.label, b.label) || compareId(a.key, b.key));
+}
+
+function compareId(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function sortedItems(items, tab, sort, collator) {
+  return items.sort((a, b) => {
+    if (sort === 'updated' && (tab === 'active' || tab === 'all') && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    const time = b.lastModifiedMs - a.lastModifiedMs;
+    if (sort === 'steps') return b.stepCount - a.stepCount || time || compareId(a.id, b.id);
+    if (sort === 'title') return collator.compare(a.title, b.title) || compareId(a.id, b.id);
+    return time || compareId(a.id, b.id);
+  });
+}
+
 registerApi('/api/conversations', async (data) => {
   const tab = String(data.tab || 'archived');
-  const query = String(data.query || '').trim();
-  const queryLower = query.toLowerCase();
-  const projectFilter = String(data.project || '').trim();
-  const tagFilter = String(data.tag || '').trim();
-  const sortBy = String(data.sort || 'updated');
+  const query = String(data.query || '').trim().toLowerCase();
+  const searchMode = data.searchMode === 'keywords' ? 'keywords' : 'literal';
+  const projectKey = String(data.projectKey || '');
+  const groupKey = String(data.groupKey || '');
+  const project = String(data.project || '').trim();
+  const tag = String(data.tag || '').trim();
+  const sort = String(data.sort || 'updated');
   const staleDays = Math.max(1, Number(data.staleDays) || 7);
-  const collator = new Intl.Collator(getRequestLanguage());
-
-  const { items, warnings } = await loadAllConversations();
-  const baseList = items.filter((c) => !c.isSubagent);
-  const stale = baseList.filter((c) => !getStaleExclusion(c, staleDays));
-
-  const projectLabels = new Map();
-  const tagsSet = new Set();
-  for (const c of baseList) {
-    // A real project can share the legacy fallback value. Retain its actual name in the filter.
-    if (!projectLabels.has(c.project) || c.project === c.projectLabel) projectLabels.set(c.project, c.projectLabel);
-    for (const t of c.tags) tagsSet.add(t);
-  }
-
-  const counts = {
-    archived: baseList.filter((c) => c.archived).length,
-    active: baseList.filter((c) => !c.archived).length,
-    starred: baseList.filter((c) => c.starred).length,
-    stale: stale.length,
-    all: baseList.length,
-  };
-
-  let filtered = baseList;
-  if (tab === 'archived') filtered = filtered.filter((c) => c.archived);
-  else if (tab === 'active') filtered = filtered.filter((c) => !c.archived);
-  else if (tab === 'starred') filtered = filtered.filter((c) => c.starred);
-  else if (tab === 'stale') filtered = stale;
-
-  if (projectFilter) {
-    filtered = filtered.filter((c) => c.project === projectFilter);
-  }
-  if (tagFilter) {
-    filtered = filtered.filter((c) => c.tags.includes(tagFilter));
-  }
-
-  if (queryLower) {
-    const bodyHits = searchBodiesInDb(queryLower);
-    filtered = filtered
-      .map((c) => {
-        const titleHit = c.title.toLowerCase().includes(queryLower);
-        const summaryHit = c.summary.toLowerCase().includes(queryLower);
-        const projHit = c.project.toLowerCase().includes(queryLower) || c.projectLabel.toLowerCase().includes(queryLower);
-        const tagHit = c.tags.some((t) => t.toLowerCase().includes(queryLower));
-        const noteHit = c.note.toLowerCase().includes(queryLower);
-        const idHit = c.id.toLowerCase().includes(queryLower);
-        const snippet = bodyHits.get(c.id) || '';
-        if (!titleHit && !summaryHit && !projHit && !tagHit && !noteHit && !idHit && !snippet) return null;
-        return { ...c, matchSnippet: snippet };
-      })
-      .filter(Boolean);
-  }
-
-  filtered.sort((a, b) => {
-    // Keep pinned conversations at top in active/all views when sorting by updated
-    if (sortBy === 'updated' && (tab === 'active' || tab === 'all')) {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+  const paged = data.page !== undefined || data.pageSize !== undefined;
+  const signal = beginSearch(data.searchClientId, data.searchSequence);
+  const cancelled = { cancelled: true, items: [] };
+  if (signal?.aborted) return cancelled;
+  const snapshot = await loadSnapshot(data, paged);
+  if (signal?.aborted) return cancelled;
+  const key = JSON.stringify([tab, query, searchMode, projectKey, groupKey, project, tag, sort, staleDays]);
+  let result = snapshot.results.get(key);
+  if (!result) {
+    const collator = new Intl.Collator(snapshot.locale);
+    const all = snapshot.items;
+    const stale = all.filter(c => !getStaleExclusion(c, staleDays));
+    const counts = { all: all.length, archived: 0, active: 0, starred: 0, stale: stale.length };
+    const projectLabels = new Map();
+    const tags = new Set();
+    for (const c of all) {
+      counts[c.archived ? 'archived' : 'active']++;
+      if (c.starred) counts.starred++;
+      if (!projectLabels.has(c.project) || c.project === c.projectLabel) projectLabels.set(c.project, c.projectLabel);
+      for (const value of c.tags) tags.add(value);
     }
-    if (sortBy === 'steps') return b.stepCount - a.stepCount || b.lastModifiedMs - a.lastModifiedMs;
-    if (sortBy === 'title') return collator.compare(a.title, b.title);
-    return b.lastModifiedMs - a.lastModifiedMs;
-  });
+    let filtered = (tab === 'stale' ? stale : all).filter(c =>
+      (tab !== 'archived' || c.archived) && (tab !== 'active' || !c.archived) && (tab !== 'starred' || c.starred) &&
+      (!projectKey || c.projectKey === projectKey) && (projectKey || !project || c.project === project) &&
+      (!groupKey || c.groupKey === groupKey) && (!tag || c.tags.includes(tag)));
+    const warnings = [...snapshot.warnings];
+    if (query) {
+      const search = await filterSearch(filtered, query, searchMode, SUMMARIES_DB, signal);
+      if (signal?.aborted) return cancelled;
+      filtered = search.items;
+      if (search.warning) warnings.push(t(search.warning));
+    }
+    result = {
+      items: sortedItems(filtered, tab, sort, collator),
+      counts, warnings, projectLabels: Object.fromEntries(projectLabels),
+      projects: [...projectLabels.keys()].sort((a, b) => collator.compare(projectLabels.get(a), projectLabels.get(b))),
+      projectOptions: optionsOf(all, 'projectKey', 'projectLabel', collator),
+      groupOptions: optionsOf(all, 'groupKey', 'groupLabel', collator),
+      allTags: [...tags].sort(collator.compare),
+    };
+    if (paged) {
+      snapshot.results.set(key, result);
+      if (snapshot.results.size > 4) snapshot.results.delete(snapshot.results.keys().next().value);
+    }
+  }
 
+  const total = result.items.length;
+  const pageSize = paged ? Math.max(1, Math.min(500, Math.floor(Number(data.pageSize)) || 50)) : total;
+  const pageCount = paged ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+  const page = paged ? Math.min(pageCount, Math.max(1, Math.floor(Number(data.page)) || 1)) : 1;
   return {
-    items: filtered,
-    counts,
-    projects: [...projectLabels.keys()].sort((a, b) => collator.compare(projectLabels.get(a), projectLabels.get(b))),
-    projectLabels: Object.fromEntries(projectLabels),
-    allTags: [...tagsSet].sort(collator.compare),
-    warnings,
+    ...result, page, pageSize, total, snapshotId: snapshot.id,
+    items: paged ? result.items.slice((page - 1) * pageSize, page * pageSize) : result.items,
+    ...(tab === 'stale' && data.includeMatchingIds === true ? { matchingIds: result.items.map(c => c.id) } : {}),
   };
 });
 
@@ -803,37 +803,69 @@ registerApi('/api/set-archived', serializeMutation(async (data) => {
         throw new Error(t('undoStateChanged'));
       }
       if (op.archived) requireIdle(status, 'archive');
-      await updateNativeAnnotations(id, { archived: op.archived });
+      try {
+        await updateNativeAnnotations(id, { archived: op.archived });
+      } finally {
+        // Even an error can follow a successful host write.
+        invalidateSnapshots();
+      }
       result.succeeded.push(id);
       result.changes.push({ id, previousArchived, archived: op.archived });
     } catch (err) {
       result.failed.push({ id, error: err.message });
     }
   }
-  if (result.changes.length) invalidateCount();
+  if (result.changes.length) {
+    invalidateCount();
+  }
   result.ok = result.failed.length === 0;
   return result;
 }));
 
-// Native update of title, pinned, starred, tags + local note persistence
+function completeNativeIdentity(conv, id) {
+  return conv.id === id && typeof conv.state?.runState === 'string' && conv.state.runState.length > 0;
+}
+
+async function verifiedNativeTags(id) {
+  const conv = await getNativeConversation(id);
+  const ann = conv.annotations;
+  const md = conv.metadata;
+  const invalidFields = [ann, md].some(record =>
+    record !== undefined && (!isRecord(record) || (Object.hasOwn(record, 'tags') &&
+      (!Array.isArray(record.tags) || record.tags.some(tag => typeof tag !== 'string')))));
+  if (!completeNativeIdentity(conv, id) || invalidFields || (!ann && !Array.isArray(md?.tags))) {
+    throw new Error(t('unconfirmedTags'));
+  }
+  return nativeTagsOf(conv);
+}
+
 registerApi('/api/meta/update', serializeMutation(async (data) => {
   const id = String(data.conversationId || '').trim();
   if (!id) throw new Error(t('missingConversationId'));
-
+  const resolution = data.tagResolution;
+  if (resolution !== undefined && !['native', 'local'].includes(resolution)) throw new Error(t('invalidTagResolution'));
+  if (data.tags !== undefined && (!Array.isArray(data.tags) || data.tags.some(tag => typeof tag !== 'string'))) {
+    throw new Error(t('invalidTags'));
+  }
+  const managesTags = Array.isArray(data.tags) || resolution !== undefined;
+  const writesNote = typeof data.note === 'string';
+  const { store, warnings } = managesTags || writesNote ? { store: readMetaStore(), warnings: [] } : readMetaForDisplay();
+  const prev = store.conversations[id] || {};
+  const next = { ...prev };
   const nativeAnn = {};
+  let nativeTags;
   if (typeof data.title === 'string' && data.title.trim()) nativeAnn.title = data.title.trim().slice(0, 160);
   if (typeof data.starred === 'boolean') nativeAnn.starred = data.starred;
   if (typeof data.pinned === 'boolean') nativeAnn.pinned = data.pinned;
 
-  let cleanTags = null;
-  if (Array.isArray(data.tags)) {
-    cleanTags = [...new Set(data.tags.map((t) => String(t).trim()).filter(Boolean))].slice(0, 20);
-    if (cleanTags.length > 0) {
-      nativeAnn.tags = cleanTags;
-    }
+  if (resolution === 'native') {
+    nativeTags = await verifiedNativeTags(id);
+  } else if (resolution === 'local') {
+    if (!Array.isArray(prev.tags)) throw new Error(t('missingLocalTags'));
+    nativeAnn.tags = normalizeTags(prev.tags);
+  } else if (Array.isArray(data.tags)) {
+    nativeAnn.tags = normalizeTags(data.tags).slice(0, 20);
   }
-
-  const updateLocal = cleanTags !== null || typeof data.note === 'string';
   if (typeof data.archived === 'boolean') {
     const current = await getNativeConversation(id);
     if (getKnownArchiveState(current) !== data.archived) {
@@ -841,59 +873,125 @@ registerApi('/api/meta/update', serializeMutation(async (data) => {
       nativeAnn.archived = data.archived;
     }
   }
-
-  if (Object.keys(nativeAnn).length > 0) {
-    if (updateLocal) readMetaStore();
-    await updateNativeAnnotations(id, nativeAnn);
+  if (Object.keys(nativeAnn).length) {
+    try {
+      await updateNativeAnnotations(id, nativeAnn);
+    } finally {
+      invalidateSnapshots();
+    }
     if (Object.hasOwn(nativeAnn, 'archived')) invalidateCount();
   }
-
-  const { store, warnings } = updateLocal ? { store: readMetaStore(), warnings: [] } : readMetaForDisplay();
-  const prev = store.conversations[id] || {};
-  const next = { ...prev };
-  if (updateLocal) {
-    if (cleanTags !== null) next.tags = cleanTags;
-    if (typeof data.note === 'string') {
-      next.note = data.note.trim().slice(0, 500);
-      if (!next.note) delete next.note;
-    }
+  if (Object.hasOwn(nativeAnn, 'tags')) {
+    nativeTags = await verifiedNativeTags(id);
+    if (!sameTags(nativeTags, nativeAnn.tags)) throw new Error(t('unconfirmedTags'));
+  }
+  if (managesTags) delete next.tags;
+  if (writesNote) {
+    next.note = data.note.trim().slice(0, 500);
+    if (!next.note) delete next.note;
+  }
+  if (JSON.stringify(next) !== JSON.stringify(prev)) {
     if (Object.keys(next).length) store.conversations[id] = next;
     else delete store.conversations[id];
     writeMetaStore(store);
+    invalidateSnapshots();
   }
-
   return {
-    ok: true,
-    conversationId: id,
-    annotations: nativeAnn,
+    ok: true, conversationId: id, annotations: nativeAnn,
     meta: {
-      tags: cleanTags !== null ? cleanTags : prev.tags || [],
+      tags: nativeTags ?? next.tags ?? [],
+      ...(nativeTags === undefined ? {} : { nativeTags, tagConflict: false }),
       note: next.note || '',
     },
     warnings,
   };
 }));
 
-// Native permanent delete requires an explicit idle state.
-registerApi('/api/delete', serializeMutation(async (data) => {
+function deleteIssue(id, code, reason, retryable = false) {
+  return { id, code, reason, retryable };
+}
+
+async function deleteOne(id, archivedOnly, result) {
+  let current;
+  try {
+    current = await getNativeConversation(id);
+    if (archivedOnly && current.id !== id) throw new Error(t('unknownConversation'));
+  } catch (err) {
+    if (err.notFound) result.skipped.push(deleteIssue(id, 'already_gone', t('alreadyGone')));
+    else result.failed.push(deleteIssue(id, 'read_failed', err.message, true));
+    return;
+  }
+
+  const status = getConversationStatus(current);
+  if (status.isSubagent) {
+    result.skipped.push(deleteIssue(id, 'subagent', t('deleteSubagent')));
+    return;
+  }
+  if (status.runState !== 'RUN_STATE_IDLE') {
+    result.skipped.push(deleteIssue(id, status.isRunning ? 'running' : 'unknown_state', t(status.isRunning ? 'runningDelete' : 'unknownDelete')));
+    return;
+  }
+  if (archivedOnly && !status.archived) {
+    result.skipped.push(deleteIssue(id, 'not_archived', t('deleteArchivedOnly')));
+    return;
+  }
+
+  let writeError;
+  try {
+    await callConversationService('DeleteConversation', { conversationId: id });
+  } catch (err) {
+    writeError = err;
+  }
+  invalidateSnapshots();
+  try {
+    const present = await getNativeConversation(id);
+    if (!completeNativeIdentity(present, id)) throw new Error(t('unknownConversation'));
+    result.failed.push(deleteIssue(id, 'delete_failed', writeError?.message || t('deleteRemains'), true));
+  } catch (err) {
+    if (!err.notFound) {
+      result.failed.push(deleteIssue(id, 'unknown_outcome', t('deleteUnknown') + ' (' + err.message + ')'));
+      return;
+    }
+    result.deleted.push(id);
+    if (writeError) result.warnings.push(t('deleteRecovered', id, writeError.message));
+  }
+}
+
+async function deleteConversations(ids, archivedOnly) {
+  const result = { deleted: [], skipped: [], failed: [], warnings: [] };
+  for (const id of ids) await deleteOne(id, archivedOnly, result);
+  if (result.deleted.length || result.failed.some(issue => issue.code === 'unknown_outcome')) invalidateCount();
+  if (result.deleted.length) {
+    try {
+      const store = readMetaStore();
+      let changed = false;
+      for (const id of result.deleted) {
+        if (Object.hasOwn(store.conversations, id)) {
+          delete store.conversations[id];
+          changed = true;
+        }
+      }
+      if (changed) writeMetaStore(store);
+    } catch (err) {
+      result.warnings.push(err.message);
+    }
+  }
+  return { ...result, ok: result.failed.length === 0 && result.skipped.length === 0 };
+}
+
+registerApi('/api/delete-batch', serializeMutation(async data => {
+  if (!Array.isArray(data.conversationIds) || !data.conversationIds.length ||
+      data.conversationIds.some(id => typeof id !== 'string' || !id.trim())) throw new Error(t('missingConversationId'));
+  return deleteConversations([...new Set(data.conversationIds.map(id => id.trim()))], true);
+}));
+
+registerApi('/api/delete', serializeMutation(async data => {
   const id = String(data.conversationId || '').trim();
   if (!id) throw new Error(t('missingConversationId'));
-  const current = await getNativeConversation(id);
-  requireIdle(getConversationStatus(current), 'delete');
-  await callConversationService('DeleteConversation', { conversationId: id });
-  invalidateCount();
-
-  const warnings = [];
-  try {
-    const store = readMetaStore();
-    if (Object.hasOwn(store.conversations, id)) {
-      delete store.conversations[id];
-      writeMetaStore(store);
-    }
-  } catch (err) {
-    warnings.push(err.message);
-  }
-  return { ok: true, deletedId: id, warnings };
+  // Existing individual delete also supports explicitly confirmed, idle active conversations.
+  const result = await deleteConversations([id], false);
+  if (!result.deleted.length) throw new Error((result.skipped[0] || result.failed[0]).reason);
+  return { ok: true, deletedId: id, warnings: result.warnings };
 }));
 
 registerApi('/api/export', async (data) => {
