@@ -119,6 +119,21 @@ async function discoverMainPages() {
   return [];
 }
 
+function readNativeProjectOrder() {
+  try {
+    const list = document.querySelector('[data-testid="conversation-list-sidebar"]');
+    const names = [];
+    for (const header of list?.querySelectorAll('[data-testid="project-header"]') ?? []) {
+      if (!header.getClientRects().length || getComputedStyle(header).visibility !== 'visible') continue;
+      const label = header.getAttribute('data-project-label')?.trim();
+      if (label) names.push(label);
+    }
+    return names;
+  } catch {
+    return [];
+  }
+}
+
 function mountLeftSidebarButton(payload) {
   if (window.__agArchiveNavOwnerTs && payload.instanceTs < window.__agArchiveNavOwnerTs) {
     return 'superseded';
@@ -290,13 +305,36 @@ function mountLeftSidebarButton(payload) {
   return 'ok';
 }
 
-export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => DEFAULT_LANGUAGE) {
+export function startSidebarInjector(
+  getArchivedCountAsync, getLanguage = () => DEFAULT_LANGUAGE, onNativeProjectOrder,
+) {
   let busy = false;
   let stopped = false;
   let refreshRequested = false;
   let archivedCount = 0;
   let nextCountReadAt = 0;
   let pendingMount;
+  let pendingOrder;
+
+  function reportOrder(order) {
+    try { onNativeProjectOrder?.(order); } catch {}
+  }
+
+  function scanNativeProjectOrder(pages) {
+    if (!onNativeProjectOrder || pendingOrder) return;
+    const expression = `(${readNativeProjectOrder.toString()})()`;
+    const scan = Promise.all(pages.map((page) =>
+      evalCdp(page.webSocketDebuggerUrl, expression).catch(() => []),
+    ));
+    pendingOrder = scan;
+    void scan.then((orders) => {
+      if (pendingOrder !== scan) return;
+      pendingOrder = undefined;
+      if (!stopped) {
+        reportOrder(orders.find((order) => Array.isArray(order) && order.length) ?? []);
+      }
+    });
+  }
 
   async function tick() {
     if (busy || stopped) return;
@@ -304,7 +342,12 @@ export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 
     refreshRequested = false;
     try {
       const pages = await discoverMainPages();
-      if (stopped || pages.length === 0) return;
+      if (stopped) return;
+      if (pages.length === 0) {
+        pendingOrder = undefined;
+        reportOrder([]);
+        return;
+      }
 
       const language = (() => {
         try { return getLanguage(); } catch { return DEFAULT_LANGUAGE; }
@@ -320,6 +363,7 @@ export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 
         if (!refreshRequested) nextCountReadAt = Date.now() + COUNT_TTL_MS;
       }
 
+      const nativePages = [];
       for (const page of pages) {
         if (stopped || refreshRequested) break;
         const expr = `(${mountLeftSidebarButton.toString()})(${JSON.stringify({
@@ -329,9 +373,12 @@ export function startSidebarInjector(getArchivedCountAsync, getLanguage = () => 
           archivedCount,
         })})`;
         pendingMount = evalCdp(page.webSocketDebuggerUrl, expr).catch(() => {});
-        await pendingMount;
+        const mountResult = await pendingMount;
         pendingMount = undefined;
+        if (mountResult === 'ok') nativePages.push(page);
       }
+
+      if (!stopped && !refreshRequested) scanNativeProjectOrder(nativePages);
     } catch {
       // The optional sidebar can retry on the next poll.
     } finally {

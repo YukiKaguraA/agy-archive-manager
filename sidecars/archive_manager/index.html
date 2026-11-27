@@ -806,8 +806,34 @@
       font-size: 11.5px;
       cursor: pointer;
     }
-    .primary-nav { display: flex; flex-wrap: wrap; gap: 4px; }
-    .primary-nav button[aria-pressed="true"] { color: var(--am-accent); border-color: var(--am-accent); }
+    .header-identity { flex-wrap: wrap; }
+    .primary-nav {
+      display: flex; flex-shrink: 0; gap: 3px; padding: 3px;
+      background: var(--am-subtle-bg); border: 1px solid var(--am-border); border-radius: 9px;
+    }
+    .primary-nav .btn {
+      background: transparent; border-color: transparent; padding: 5px 14px;
+      border-radius: 6px; font-size: 13px; font-weight: 600;
+    }
+    .primary-nav .btn:hover { background: var(--am-tag-bg); }
+    .primary-nav button[aria-pressed="true"] { color: var(--am-accent-fg); background: var(--am-accent); }
+    #settingsPane { flex: 1; min-height: 0; overflow: auto; }
+    .settings-content { max-width: 720px; margin: 0 auto; padding: 14px; }
+    .settings-card { padding: 14px; cursor: default; }
+    .settings-card h2 { margin: 0 0 6px; font-size: 14px; }
+    .settings-card p { margin: 5px 0 9px; color: var(--am-muted); overflow-wrap: anywhere; }
+    .settings-card label { display: block; margin: 0 0 4px; }
+    .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .settings-status { margin-top: 8px; overflow-wrap: anywhere; }
+    #exportDirInput { width: 100%; margin-bottom: 7px; }
+    #trashRetentionInput { width: 85px; }
+    .sweep-dialog { color: var(--am-fg); max-width: calc(100% - 24px); margin: auto; }
+    .sweep-dialog:not([open]) { display: none; }
+    .sweep-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    .match-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 10px; border-bottom: 1px solid var(--am-border); }
+    #pvMatchCount { margin-inline-end: auto; color: var(--am-muted); }
+    mark.is-current-match { outline: 2px solid #e4881c; outline-offset: 1px; }
+    @media (max-width: 360px) { .primary-nav .btn { padding-inline: 9px; } }
     .search-box { min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg); }
     .search-box:focus-within { border-color: var(--am-accent); }
     .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; }
@@ -822,6 +848,8 @@
       border-radius: 7px; text-align: start; font: inherit; font-weight: 600; color: var(--am-fg);
       background: var(--am-card); cursor: pointer;
     }
+    .workspace-folder { display: block; color: var(--am-muted); }
+    .workspace-toggle[aria-expanded="true"] .workspace-folder { color: var(--am-accent); }
     .workspace-toggle:hover { background: var(--am-tag-bg); }
     .workspace-toggle .workspace-label { flex: 1; overflow-wrap: anywhere; min-width: 0; }
     .workspace-count, .card-storage { color: var(--am-muted); font-size: 11px; }
@@ -855,16 +883,9 @@
           </nav>
         </div>
         <div class="header-actions">
-          <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
-            <option value="zh-CN" lang="zh-CN">简体中文</option>
-            <option value="en" lang="en">English</option>
-            <option value="zh-TW" lang="zh-TW">繁體中文</option>
-            <option value="ja" lang="ja">日本語</option>
-          </select>
           <button id="refreshBtn" class="btn btn-sm" data-i18n="refresh" data-i18n-title="refreshHelp">↻ 刷新</button>
         </div>
       </div>
-      <div id="languageStatus" role="status" hidden></div>
 
       <div id="libraryTools">
         <nav class="tabs" id="tabs" data-i18n-label="library">
@@ -900,7 +921,6 @@
             <option value="title" data-i18n="byTitle">按标题</option>
           </select>
           <button id="batchToggleBtn" class="btn btn-sm" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
-          <button id="openExportDirBtn" class="btn btn-sm" data-i18n="exportDir" data-i18n-title="exportDirHelp">📂 导出目录</button>
         </div>
 
         <!-- Stale quick cleanup bar -->
@@ -936,7 +956,56 @@
       </div>
     </div>
 
-    <section id="settingsPane" aria-labelledby="settingsBtn" hidden></section>
+    <section id="settingsPane" aria-labelledby="settingsBtn" hidden>
+      <div class="settings-content">
+        <div id="settingsLoadStatus" class="data-status" role="status" hidden></div>
+        <section class="conv-card settings-card" aria-labelledby="languageHeading">
+          <h2 id="languageHeading" data-i18n="language">界面语言</h2>
+          <p data-i18n="settingsLanguageHelp">选择面板的显示语言。</p>
+          <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
+            <option value="zh-CN" lang="zh-CN">简体中文</option>
+            <option value="en" lang="en">English</option>
+            <option value="zh-TW" lang="zh-TW">繁體中文</option>
+            <option value="ja" lang="ja">日本語</option>
+          </select>
+          <div id="languageStatus" class="settings-status" role="status" hidden></div>
+        </section>
+        <section class="conv-card settings-card" aria-labelledby="exportDirHeading">
+          <h2 id="exportDirHeading" data-i18n="exportDirHeading">Markdown 导出目录</h2>
+          <p data-i18n="exportDirHint">输入绝对路径，或选择文件夹后保存。</p>
+          <p id="exportDirEffective"></p>
+          <form id="exportDirForm" novalidate>
+            <label for="exportDirInput" data-i18n="exportDirPath">文件夹路径</label>
+            <input id="exportDirInput" class="inline-input" type="text" autocomplete="off" spellcheck="false">
+            <div class="settings-actions">
+              <button id="saveExportDirBtn" type="submit" class="btn btn-sm btn-primary" data-i18n="saveExportDir" disabled>保存路径</button>
+              <button id="pickExportDirBtn" type="button" class="btn btn-sm" data-i18n="pickExportDir" disabled>📂 选择文件夹…</button>
+              <button id="openExportDirBtn" type="button" class="btn btn-sm" data-i18n="openExportDir">📂 打开目录</button>
+              <button id="resetExportDirBtn" type="button" class="btn btn-sm" data-i18n="resetExportDir" disabled>恢复默认</button>
+            </div>
+          </form>
+          <div id="exportDirStatus" class="settings-status" role="status" hidden></div>
+        </section>
+        <section class="conv-card settings-card" aria-labelledby="trashSettingsHeading">
+          <h2 id="trashSettingsHeading" data-i18n="trashSettingsHeading">回收站与自动清理</h2>
+          <p data-i18n="trashSettingsHint">到期会话将在例行检查时清理，也可以手动清理。</p>
+          <form id="trashRetentionForm" novalidate>
+            <label for="trashRetentionInput" data-i18n="trashRetentionLabel">保留天数（1–365）</label>
+            <div class="settings-actions">
+              <input id="trashRetentionInput" class="inline-input" type="number" min="1" max="365" step="1" list="trashRetentionPresets" value="7">
+              <datalist id="trashRetentionPresets"><option value="3"></option><option value="7"></option><option value="14"></option><option value="30"></option></datalist>
+              <button id="saveRetentionBtn" type="submit" class="btn btn-sm btn-primary" data-i18n="saveRetention" disabled>保存天数</button>
+            </div>
+          </form>
+          <p id="trashSummary" role="status"></p>
+          <div class="settings-actions">
+            <button id="sweepTrashBtn" type="button" class="btn btn-sm btn-danger" data-i18n="sweepTrash" disabled>立即清理已到期会话</button>
+            <button id="viewTrashBtn" type="button" class="btn btn-sm" data-i18n="viewTrash">查看回收站</button>
+          </div>
+          <div id="trashSettingsStatus" class="settings-status" role="status" hidden></div>
+        </section>
+      </div>
+    </section>
     <details id="batchReport" class="batch-report" hidden><summary id="batchSummary"></summary><div id="batchDetails"></div></details>
     <div id="listWarning" class="data-status" role="status" hidden></div>
     <div id="mainSplit" class="main">
@@ -962,6 +1031,7 @@
               <button id="pvOpenBtn" class="btn btn-sm btn-primary" data-i18n="openChat">↗ 打开对话</button>
               <button id="pvArchiveToggleBtn" class="btn btn-sm btn-restore">♻️ 恢复</button>
               <button id="pvExportFileBtn" class="btn btn-sm" data-i18n="exportMarkdown">📥 导出 .md</button>
+              <button id="pvRevealLogsBtn" class="btn btn-sm" type="button" data-i18n="revealLogs" disabled>📄 日志目录</button>
               <button id="pvRawBtn" class="btn btn-sm" data-i18n-title="rawHelp">原文</button>
               <button id="pvCollapseAllBtn" class="btn btn-sm" disabled>⊞ 展开全部</button>
               <button id="pvScrollTopBtn" class="btn btn-sm" data-i18n="top" data-i18n-title="topHelp" disabled>⬆ 顶部</button>
@@ -984,6 +1054,11 @@
 
           <div id="pvTrashInfo" class="data-status" hidden></div>
           <div id="pvSource" class="data-status" role="status" hidden></div>
+          <div id="pvMatchNav" class="match-nav" hidden>
+            <span id="pvMatchCount" role="status"></span>
+            <button id="pvPrevMatchBtn" type="button" class="btn btn-sm" data-i18n="prevMatch">↑ 上一处</button>
+            <button id="pvNextMatchBtn" type="button" class="btn btn-sm" data-i18n="nextMatch">↓ 下一处</button>
+          </div>
           <div id="pvMessages" class="messages-scroll"></div>
         </div>
       </div>
@@ -1003,6 +1078,15 @@
     </div>
   </div>
 
+  <dialog id="sweepDialog" class="modal-box sweep-dialog" aria-labelledby="sweepHeading" aria-describedby="sweepDescription">
+    <div id="sweepHeading" class="modal-title" data-i18n="sweepTrash">立即清理已到期会话</div>
+    <p id="sweepDescription" class="modal-desc"></p>
+    <form method="dialog" class="modal-actions">
+      <button class="btn" data-i18n="cancel" value="cancel" autofocus>取消</button>
+      <button class="btn btn-danger" data-i18n="trashPurge" value="confirm">彻底删除</button>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast">
     <span id="toastText" role="status"></span>
     <button id="toastAction" class="toast-link" style="display:none;"></button>
@@ -1011,6 +1095,35 @@
   <script>
     const messages = {
       'zh-CN': {
+        settingsLanguageHelp: "选择面板的显示语言。",
+        exportDirHeading: "Markdown 导出目录",
+        exportDirHint: "输入绝对路径，或选择文件夹后保存。",
+        exportDirPath: "文件夹路径",
+        saveExportDir: "保存路径",
+        pickExportDir: "📂 选择文件夹…",
+        openExportDir: "📂 打开目录",
+        resetExportDir: "恢复默认",
+        exportPathInvalid: "请输入非空的绝对路径。",
+        pickerUnavailable: "系统文件夹选择器不可用，请在输入框粘贴路径。",
+        settingsSaved: "设置已保存。",
+        settingsLoadFailed: "无法读取设置",
+        trashSettingsHeading: "回收站与自动清理",
+        trashSettingsHint: "到期会话将在例行检查时清理，也可以手动清理。",
+        trashRetentionLabel: "保留天数（1–365）",
+        saveRetention: "保存天数",
+        retentionInvalid: "保留天数须为 1 到 365 之间的整数。",
+        sweepTrash: "立即清理已到期会话",
+        viewTrash: "查看回收站",
+        nothingToSweep: "没有已到期的会话。",
+        revealLogs: "📄 日志目录",
+        prevMatch: "↑ 上一处",
+        nextMatch: "↓ 下一处",
+        exportDirEffective: (v1, v2) => `当前目录：${v1}（默认：${v2}）`,
+        trashSummary: (v1, v2) => `回收站共 ${number(v1)} 条，其中 ${number(v2)} 条已到期。`,
+        trashDue: (v1) => `当前有 ${number(v1)} 条会话已到期，将在下次例行检查或手动清理时处理。`,
+        sweepConfirm: (v1) => `彻底删除 ${number(v1)} 条已到期的会话？删除后无法恢复。`,
+        sweepOutcome: (v1, v2, v3) => `清理 ${number(v1)} 条，跳过 ${number(v2)} 条，失败 ${number(v3)} 条。`,
+        matchCount: (v1, v2) => `命中 ${number(v1)} / ${number(v2)}`,
         library: "会话库", settings: "设置", trashTab: "回收站", noTrash: "回收站为空",
         trashMove: "移入回收站", trashRestore: "从回收站恢复", trashPurge: "彻底删除", trashedAt: "移入时间",
         purgeAt: "自动清理时间", originalProject: "原工作区", storageLabel: "会话占用", statsPartial: "部分统计",
@@ -1080,6 +1193,35 @@
         languageFailed: '未能保存界面语言，请重试。',
       },
       en: {
+        settingsLanguageHelp: "Choose the display language for this panel.",
+        exportDirHeading: "Markdown export folder",
+        exportDirHint: "Enter an absolute path or choose a folder, then save it.",
+        exportDirPath: "Folder path",
+        saveExportDir: "Save path",
+        pickExportDir: "📂 Choose folder…",
+        openExportDir: "📂 Open folder",
+        resetExportDir: "Restore default",
+        exportPathInvalid: "Enter a non-empty absolute path.",
+        pickerUnavailable: "The system folder picker is unavailable. Paste the path into the field.",
+        settingsSaved: "Settings saved.",
+        settingsLoadFailed: "Could not load settings",
+        trashSettingsHeading: "Trash and automatic cleanup",
+        trashSettingsHint: "Expired conversations are removed during routine checks. You can also clean them up manually.",
+        trashRetentionLabel: "Retention days (1–365)",
+        saveRetention: "Save days",
+        retentionInvalid: "Enter a whole number from 1 to 365.",
+        sweepTrash: "Clean up expired conversations",
+        viewTrash: "View Trash",
+        nothingToSweep: "No conversations have expired.",
+        revealLogs: "📄 Logs",
+        prevMatch: "↑ Previous match",
+        nextMatch: "↓ Next match",
+        exportDirEffective: (v1, v2) => `Current folder: ${v1} (default: ${v2})`,
+        trashSummary: (v1, v2) => `${number(v1)} in Trash · ${number(v2)} expired`,
+        trashDue: (v1) => `${number(v1)} conversations have expired and will be processed during the next routine check or manual cleanup.`,
+        sweepConfirm: (v1) => `Permanently delete ${number(v1)} expired conversations? This cannot be undone.`,
+        sweepOutcome: (v1, v2, v3) => `Removed ${number(v1)} · Skipped ${number(v2)} · Failed ${number(v3)}`,
+        matchCount: (v1, v2) => `Match ${number(v1)} / ${number(v2)}`,
         library: "Library", settings: "Settings", trashTab: "Trash", noTrash: "Trash is empty",
         trashMove: "Move to Trash", trashRestore: "Restore from Trash", trashPurge: "Delete permanently", trashedAt: "Moved to Trash",
         purgeAt: "Automatic cleanup", originalProject: "Original workspace", storageLabel: "Session storage", statsPartial: "Partial statistics",
@@ -1149,6 +1291,35 @@
         languageFailed: 'Could not save the display language. Please try again.',
       },
       'zh-TW': {
+        settingsLanguageHelp: "選擇面板的顯示語言。",
+        exportDirHeading: "Markdown 匯出資料夾",
+        exportDirHint: "輸入絕對路徑，或選擇資料夾後儲存。",
+        exportDirPath: "資料夾路徑",
+        saveExportDir: "儲存路徑",
+        pickExportDir: "📂 選擇資料夾…",
+        openExportDir: "📂 開啟資料夾",
+        resetExportDir: "還原預設值",
+        exportPathInvalid: "請輸入非空的絕對路徑。",
+        pickerUnavailable: "無法開啟系統資料夾選擇器，請在欄位貼上路徑。",
+        settingsSaved: "已儲存設定。",
+        settingsLoadFailed: "無法讀取設定",
+        trashSettingsHeading: "資源回收筒與自動清理",
+        trashSettingsHint: "到期的對話會在定期檢查時清理，也可以手動清理。",
+        trashRetentionLabel: "保留天數（1–365）",
+        saveRetention: "儲存天數",
+        retentionInvalid: "保留天數須為 1 到 365 之間的整數。",
+        sweepTrash: "立即清理已到期的對話",
+        viewTrash: "查看資源回收筒",
+        nothingToSweep: "沒有已到期的對話。",
+        revealLogs: "📄 記錄資料夾",
+        prevMatch: "↑ 上一處",
+        nextMatch: "↓ 下一處",
+        exportDirEffective: (v1, v2) => `目前資料夾：${v1}（預設：${v2}）`,
+        trashSummary: (v1, v2) => `資源回收筒共 ${number(v1)} 筆，其中 ${number(v2)} 筆已到期。`,
+        trashDue: (v1) => `目前有 ${number(v1)} 筆對話已到期，會在下次定期檢查或手動清理時處理。`,
+        sweepConfirm: (v1) => `要永久刪除 ${number(v1)} 筆已到期的對話嗎？刪除後無法復原。`,
+        sweepOutcome: (v1, v2, v3) => `已清理 ${number(v1)} 筆 · 略過 ${number(v2)} 筆 · 失敗 ${number(v3)} 筆`,
+        matchCount: (v1, v2) => `第 ${number(v1)} / ${number(v2)} 筆`,
         library: "會話庫", settings: "設定", trashTab: "資源回收筒", noTrash: "資源回收筒是空的",
         trashMove: "移入資源回收筒", trashRestore: "從資源回收筒還原", trashPurge: "永久刪除", trashedAt: "移入時間",
         purgeAt: "自動清理時間", originalProject: "原工作區", storageLabel: "會話儲存用量", statsPartial: "部分統計",
@@ -1218,6 +1389,35 @@
         languageFailed: '無法儲存介面語言，請再試一次。',
       },
       ja: {
+        settingsLanguageHelp: "パネルの表示言語を選択します。",
+        exportDirHeading: "Markdown の保存先",
+        exportDirHint: "絶対パスを入力するかフォルダーを選択してから保存します。",
+        exportDirPath: "フォルダーのパス",
+        saveExportDir: "パスを保存",
+        pickExportDir: "📂 フォルダーを選択…",
+        openExportDir: "📂 フォルダーを開く",
+        resetExportDir: "既定値に戻す",
+        exportPathInvalid: "絶対パスを入力してください。",
+        pickerUnavailable: "フォルダー選択画面を開けません。入力欄にパスを貼り付けてください。",
+        settingsSaved: "設定を保存しました。",
+        settingsLoadFailed: "設定を読み込めませんでした",
+        trashSettingsHeading: "ゴミ箱と自動削除",
+        trashSettingsHint: "保持期間を過ぎた会話は定期チェック時に削除されます。手動で削除することもできます。",
+        trashRetentionLabel: "保持日数（1～365）",
+        saveRetention: "日数を保存",
+        retentionInvalid: "1～365 の整数を入力してください。",
+        sweepTrash: "期限切れの会話を今すぐ削除",
+        viewTrash: "ゴミ箱を表示",
+        nothingToSweep: "期限切れの会話はありません。",
+        revealLogs: "📄 ログ",
+        prevMatch: "↑ 前の一致",
+        nextMatch: "↓ 次の一致",
+        exportDirEffective: (v1, v2) => `現在の保存先：${v1}（既定：${v2}）`,
+        trashSummary: (v1, v2) => `ゴミ箱に ${number(v1)} 件（期限切れ ${number(v2)} 件）`,
+        trashDue: (v1) => `期限切れの会話が ${number(v1)} 件あります。次の定期チェックまたは手動操作で削除されます。`,
+        sweepConfirm: (v1) => `期限切れの会話 ${number(v1)} 件を完全に削除しますか？この操作は元に戻せません。`,
+        sweepOutcome: (v1, v2, v3) => `削除 ${number(v1)} 件 · スキップ ${number(v2)} 件 · 失敗 ${number(v3)} 件`,
+        matchCount: (v1, v2) => `一致 ${number(v1)} / ${number(v2)}`,
         library: "会話ライブラリ", settings: "設定", trashTab: "ごみ箱", noTrash: "ごみ箱は空です",
         trashMove: "ごみ箱に移動", trashRestore: "ごみ箱から復元", trashPurge: "完全に削除", trashedAt: "ごみ箱への移動日時",
         purgeAt: "自動削除日時", originalProject: "元のワークスペース", storageLabel: "会話の使用容量", statsPartial: "一部のみ集計",
@@ -1330,6 +1530,9 @@
       archivePending: false,
       selectedId: null,
       previewData: null,
+      previewMatchIndex: -1,
+      preferences: {},
+      settingsBusy: false,
       rawMode: false,
       batchMode: false,
       checkedIds: new Set(),
@@ -1398,6 +1601,7 @@
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
       updateToastText();
+      renderSettings();
     }
 
     function escapeHtml(s) {
@@ -1565,7 +1769,7 @@
         body: JSON.stringify({ ...body, locale }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) {
+      if (!res.ok || (data.error && !(path === '/api/pick-directory' && data.unavailable))) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       return data;
@@ -1670,14 +1874,21 @@
         }
         tagSel.value = curTag;
 
+        let initialGroup;
         if (state.groups.length && !state.query && !state.openedByTab.has(state.tab)) {
-          const latest = state.groups.reduce((a, b) =>
-            (Date.parse(b.lastModified) || 0) > (Date.parse(a.lastModified) || 0) ? b : a);
-          state.openedByTab.set(state.tab, new Set([latest.key]));
+          const assigned = state.groups.filter(group => group.key !== 'unassigned');
+          const modified = group => group.lastModifiedMs || Date.parse(group.lastModified) || 0;
+          const latest = (assigned.length ? assigned : state.groups).reduce((a, b) => modified(b) > modified(a) ? b : a);
+          initialGroup = latest.key;
+          state.openedByTab.set(state.tab, new Set([initialGroup]));
         }
         state.listReady = true;
         updateBatchBar();
         renderList();
+        if (initialGroup && state.surface === 'library') {
+          const toggle = workspaceNodes.get(initialGroup)?.toggle;
+          if (toggle) scrollWithin($('listPane'), toggle);
+        }
         const opened = state.groups.filter(group => groupIsOpen(group.key));
         // Large searches can open many workspaces. Leave capacity for input and preview requests.
         for (let start = 0; start < opened.length && requestId === listRequestId; start += 6) {
@@ -1821,7 +2032,9 @@
       cards.length = 0;
       const expanded = groupIsOpen(key);
       toggle.setAttribute('aria-expanded', expanded);
-      marker.textContent = expanded ? '▾' : '▸';
+      marker.innerHTML = `<svg class="workspace-folder" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${expanded
+        ? '<path d="M3 17V7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1"/><path d="M3 17l2.8-6a1 1 0 0 1 .9-.6H21a1 1 0 0 1 .9 1.4l-2.7 6a2 2 0 0 1-1.8 1.2H5a2 2 0 0 1-2-2Z"/>'
+        : '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>'}</svg>`;
       content.hidden = !expanded;
       content.innerHTML = '';
       if (!expanded) return;
@@ -2174,7 +2387,7 @@
 
     function setPreviewControlsReady(ready) {
       for (const id of ['pvRenameBtn', 'pvTitleInput', 'pvOpenBtn', 'pvArchiveToggleBtn', 'pvExportFileBtn',
-        'pvRawBtn', 'pvDeleteBtn', 'tagInput', 'noteInput', 'pvCollapseAllBtn', 'pvScrollTopBtn', 'pvScrollBottomBtn']) {
+        'pvRawBtn', 'pvRevealLogsBtn', 'pvDeleteBtn', 'tagInput', 'noteInput', 'pvCollapseAllBtn', 'pvScrollTopBtn', 'pvScrollBottomBtn']) {
         $(id).disabled = !ready;
       }
       $('pvMetaEditor').style.display = ready ? '' : 'none';
@@ -2206,6 +2419,7 @@
       $('previewEmpty').style.display = 'none';
       $('previewContent').style.display = 'flex';
       $('pvTitle').textContent = t('loading');
+      resetPreviewMatches();
       $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(t('loadingMessages'))}</div>`;
       syncCollapseAllBtn();
       for (const [card, { id }] of observedCards) card.classList.toggle('selected', id === convId);
@@ -2342,10 +2556,58 @@
       syncCollapseAllBtn();
     }
 
+    function scrollWithin(container, target, center = false) {
+      if (!container.getBoundingClientRect || !target.getBoundingClientRect) return;
+      const viewport = container.getBoundingClientRect();
+      const item = target.getBoundingClientRect();
+      let offset = 0;
+      if (center) offset = item.top - viewport.top - (viewport.height - item.height) / 2;
+      else if (item.top < viewport.top) offset = item.top - viewport.top;
+      else if (item.bottom > viewport.bottom) offset = item.bottom - viewport.bottom;
+      if (offset) container.scrollBy?.({ top: offset, behavior: 'smooth' });
+    }
+
+    function resetPreviewMatches() {
+      const box = $('pvMessages');
+      box.querySelectorAll('mark')[state.previewMatchIndex]?.classList.remove('is-current-match');
+      state.previewMatchIndex = -1;
+      $('pvMatchNav').hidden = true;
+      $('pvMatchCount').textContent = '';
+    }
+
+    function stepPreviewMatch(direction) {
+      if (state.surface !== 'library' || !state.previewData) return false;
+      const marks = state.query ? $('pvMessages').querySelectorAll('mark') : [];
+      if (!marks.length) {
+        resetPreviewMatches();
+        return false;
+      }
+      const previous = state.previewMatchIndex;
+      marks[previous]?.classList.remove('is-current-match');
+      const index = previous < 0 ? 0 : (previous + direction + marks.length) % marks.length;
+      state.previewMatchIndex = index;
+      const mark = marks[index];
+      const block = mark.closest('.msg-block');
+      if (block && (block.classList.contains('is-folded') || block.classList.contains('is-collapsed'))) {
+        block.classList.remove('is-folded', 'is-collapsed');
+        const button = block.querySelector('.msg-expand-btn');
+        if (button) button.textContent = t('foldMessage');
+        syncCollapseAllBtn();
+      }
+      mark.classList.add('is-current-match');
+      $('pvMatchNav').hidden = false;
+      $('pvMatchCount').textContent = t('matchCount', index + 1, marks.length);
+      if ($('pvMessages').getClientRects?.().length !== 0) {
+        scrollWithin($('pvMessages'), mark, true);
+      }
+      return true;
+    }
+
     function renderPreview() {
       const d = state.previewData;
       if (!d) return;
       updatePreviewHeaderState();
+      resetPreviewMatches();
 
       const box = $('pvMessages');
       if (!d.messages || !d.messages.length) {
@@ -2401,6 +2663,7 @@
       }
       box.scrollTop = 0;
       syncCollapseAllBtn();
+      stepPreviewMatch(1);
     }
 
     async function saveTags(convId, tags, tagResolution) {
@@ -2440,16 +2703,163 @@
       }
     }
 
+
+    function renderSettings() {
+      const { exportDir, defaultExportDir, trashSummary } = state.preferences;
+      $('exportDirEffective').textContent = defaultExportDir
+        ? t('exportDirEffective', exportDir || defaultExportDir, defaultExportDir) : '';
+      $('trashSummary').textContent = trashSummary
+        ? t('trashSummary', trashSummary.totalCount, trashSummary.expiredCount) : '';
+      for (const id of ['languageSelect', 'saveExportDirBtn', 'pickExportDirBtn', 'resetExportDirBtn', 'saveRetentionBtn', 'sweepTrashBtn']) {
+        $(id).disabled = state.settingsBusy;
+      }
+    }
+
+    function updatePreferences(data, { replacePath = false, replaceDays = false } = {}) {
+      const previous = state.preferences;
+      const oldPath = previous.exportDir || previous.defaultExportDir || '';
+      const oldDays = previous.trashRetentionDays ?? 7;
+      state.preferences = { ...previous, ...data };
+      const path = $('exportDirInput');
+      const days = $('trashRetentionInput');
+      if (replacePath || path.value == null || path.value === oldPath) {
+        path.value = state.preferences.exportDir || state.preferences.defaultExportDir || '';
+      }
+      if (replaceDays || days.value == null || Number(days.value) === oldDays) {
+        days.value = state.preferences.trashRetentionDays ?? 7;
+      }
+      renderSettings();
+    }
+
+    async function runSettingsAction(status, action) {
+      if (state.settingsBusy) return;
+      state.settingsBusy = true;
+      renderSettings();
+      if (status) showDataStatus(status, '');
+      try {
+        await action();
+      } catch (err) {
+        if (status) showDataStatus(status, err.message);
+      } finally {
+        state.settingsBusy = false;
+        renderSettings();
+      }
+    }
+
+    function loadSettings() {
+      return runSettingsAction(null, async () => {
+        try {
+          updatePreferences(await apiPost('/api/preferences'));
+          showDataStatus('settingsLoadStatus', '');
+        } catch (err) {
+          showDataStatus('settingsLoadStatus', [t('settingsLoadFailed'), err.message].join(t('noticeSeparator')));
+        }
+      });
+    }
+
+    function saveExportDir(exportDir) {
+      return runSettingsAction('exportDirStatus', async () => {
+        updatePreferences(await apiPost('/api/preferences', { exportDir }), { replacePath: true });
+        showDataStatus('settingsLoadStatus', '');
+        showDataStatus('exportDirStatus', t('settingsSaved'));
+      });
+    }
+
+    $('exportDirForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const exportDir = $('exportDirInput').value.trim();
+      if (!/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+)/.test(exportDir)) {
+        showDataStatus('exportDirStatus', t('exportPathInvalid'));
+        return;
+      }
+      return saveExportDir(exportDir);
+    });
+    $('resetExportDirBtn').addEventListener('click', () => saveExportDir(null));
+    $('pickExportDirBtn').addEventListener('click', () => runSettingsAction('exportDirStatus', async () => {
+      const response = await apiPost('/api/pick-directory');
+      if (response.unavailable) showDataStatus('exportDirStatus', t('pickerUnavailable'));
+      else if (response.path) $('exportDirInput').value = response.path;
+    }));
+
+    $('trashRetentionForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const trashRetentionDays = Number($('trashRetentionInput').value);
+      if (!Number.isInteger(trashRetentionDays) || trashRetentionDays < 1 || trashRetentionDays > 365) {
+        showDataStatus('trashSettingsStatus', t('retentionInvalid'));
+        return;
+      }
+      return runSettingsAction('trashSettingsStatus', async () => {
+        const saved = await apiPost('/api/preferences', { trashRetentionDays });
+        updatePreferences(saved, { replaceDays: true });
+        showDataStatus('settingsLoadStatus', '');
+        showDataStatus('trashSettingsStatus', saved.dueCount > 0 ? t('trashDue', saved.dueCount) : t('settingsSaved'));
+      });
+    });
+
+    function confirmSweep(count) {
+      const dialog = $('sweepDialog');
+      $('sweepDescription').textContent = t('sweepConfirm', count);
+      dialog.showModal();
+      return new Promise(resolve => {
+        const finish = confirmed => {
+          dialog.onsubmit = null;
+          dialog.oncancel = null;
+          dialog.close();
+          resolve(confirmed);
+        };
+        dialog.onsubmit = event => {
+          event.preventDefault();
+          finish(event.submitter?.value === 'confirm');
+        };
+        dialog.oncancel = event => {
+          event.preventDefault();
+          finish(false);
+        };
+      });
+    }
+
+    $('sweepTrashBtn').addEventListener('click', () => runSettingsAction('trashSettingsStatus', async () => {
+      const latest = await apiPost('/api/preferences');
+      updatePreferences(latest);
+      const count = latest.trashSummary?.expiredCount;
+      if (!Number.isInteger(count) || count < 0) throw new Error(t('settingsLoadFailed'));
+      if (count === 0) {
+        showDataStatus('trashSettingsStatus', t('nothingToSweep'));
+        return;
+      }
+      if (!await confirmSweep(count)) return;
+      let result;
+      try {
+        result = await apiPost('/api/sweep-trash', { maxExpiredCount: count, expectedRetentionDays: latest.trashRetentionDays });
+      } catch (err) {
+        // Reload the count if a retention or expiry change invalidated the confirmation.
+        const current = await apiPost('/api/preferences').catch(() => null);
+        if (current) updatePreferences(current);
+        throw err;
+      }
+      const { purged = [], skipped = [], failed = [], warnings = [], trashSummary } = result;
+      updatePreferences({ trashSummary });
+      const details = failed.map(entry => entry.error).filter(Boolean);
+      showDataStatus('trashSettingsStatus', [
+        t('sweepOutcome', purged.length, skipped.length, failed.length), ...details, ...warnings,
+      ].join(t('noticeSeparator')));
+      if (purged.includes(state.selectedId)) clearPreview();
+      state.snapshotId = null;
+      await loadList({ refresh: true });
+    }));
+
     async function initializePanel() {
-      const select = $('languageSelect');
+      state.settingsBusy = true;
       applyLocale(defaultLocale);
       try {
-        const { language } = await apiPost('/api/preferences');
-        if (Object.hasOwn(messages, language)) applyLocale(language);
-      } catch {
-        // The WebView language still applies if the preferences are unavailable.
+        const saved = await apiPost('/api/preferences');
+        updatePreferences(saved, { replacePath: true, replaceDays: true });
+        if (Object.hasOwn(messages, saved.language)) applyLocale(saved.language);
+      } catch (err) {
+        showDataStatus('settingsLoadStatus', [t('settingsLoadFailed'), err.message].join(t('noticeSeparator')));
       } finally {
-        select.disabled = false;
+        state.settingsBusy = false;
+        renderSettings();
       }
       await loadList();
     }
@@ -2459,17 +2869,21 @@
       const language = select.value;
       if (select.disabled || language === state.locale || !Object.hasOwn(messages, language)) return;
       showDataStatus('languageStatus', '');
-      select.disabled = true;
+      state.settingsBusy = true;
+      renderSettings();
       try {
         const saved = await apiPost('/api/preferences', { language }, language);
         if (saved.language !== language) throw new Error();
+        updatePreferences(saved);
         applyLocale(language);
+        for (const id of ['settingsLoadStatus', 'exportDirStatus', 'trashSettingsStatus']) showDataStatus(id, '');
       } catch {
         select.value = state.locale;
         showDataStatus('languageStatus', t('languageFailed'));
         return;
       } finally {
-        select.disabled = false;
+        state.settingsBusy = false;
+        renderSettings();
       }
 
       clearTimeout(searchTimer);
@@ -2495,8 +2909,10 @@
         pendingStats.clear();
         visibleStats.clear();
         statsObserver?.disconnect?.();
-      } else if (state.listReady) {
-        renderList();
+        return loadSettings();
+      } else {
+        if (state.listReady) renderList();
+        if (state.previewMatchIndex < 0) stepPreviewMatch(1);
       }
     }
 
@@ -2504,27 +2920,36 @@
     $('settingsBtn').addEventListener('click', () => showSurface('settings'));
 
     // Tabs & Filter events
-    $('tabs').addEventListener('click', (e) => {
-      const btn = e.target.closest('.tab-btn');
-      if (!btn) return;
-      if (state.tab === btn.dataset.tab) return;
+    function switchTab(tab) {
+      if (state.tab === tab) return;
       clearTimeout(searchTimer);
-      state.tab = btn.dataset.tab;
+      state.tab = tab;
       clearPreview();
       resetFilters();
       document.querySelectorAll('.tab-btn').forEach((b) => {
-        b.classList.toggle('active', b === btn);
-        if (b === btn) b.setAttribute('aria-current', 'true');
+        b.classList.toggle('active', b.dataset.tab === tab);
+        if (b.dataset.tab === tab) b.setAttribute('aria-current', 'true');
         else b.removeAttribute('aria-current');
       });
       $('staleBar').classList.toggle('show', state.tab === 'stale');
-      loadList();
+      return loadList();
+    }
+
+    $('tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.tab-btn');
+      if (btn) return switchTab(btn.dataset.tab);
+    });
+    $('viewTrashBtn').addEventListener('click', () => {
+      showSurface('library');
+      $('libraryBtn').focus();
+      return switchTab('trash');
     });
 
     $('searchInput').addEventListener('input', (e) => {
       const val = e.target.value;
       $('clearSearchBtn').classList.toggle('show', Boolean(val));
       state.query = val.trim();
+      resetPreviewMatches();
       resetFilters();
       invalidateList();
       clearTimeout(searchTimer);
@@ -2557,6 +2982,7 @@
     }
 
     $('refreshBtn').addEventListener('click', async () => {
+      if (state.surface === 'settings') return loadSettings();
       if (state.selectedId) openPreview(state.selectedId);
       if (await loadList({ refresh: true })) showToast('refreshed');
     });
@@ -2621,9 +3047,27 @@
     $('pvExportFileBtn').addEventListener('click', () => {
       if (state.previewData) exportConversationToFile(state.previewData.id);
     });
+    $('pvRevealLogsBtn').addEventListener('click', async () => {
+      const id = state.previewData?.id;
+      if (!id) return;
+      try {
+        await apiPost('/api/reveal-logs', { conversationId: id });
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
     $('pvRawBtn').addEventListener('click', () => {
       state.rawMode = !state.rawMode;
       renderPreview();
+    });
+    $('pvPrevMatchBtn').addEventListener('click', () => stepPreviewMatch(-1));
+    $('pvNextMatchBtn').addEventListener('click', () => stepPreviewMatch(1));
+    window.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.key !== 'F3' || event.ctrlKey || event.altKey || event.metaKey
+        || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
+        || $('pvMatchNav').hidden || $('sweepDialog').open || state.pendingBatch
+        || $('previewPane').getClientRects?.().length === 0) return;
+      if (stepPreviewMatch(event.shiftKey ? -1 : 1)) event.preventDefault();
     });
     $('pvCollapseAllBtn').addEventListener('click', toggleCollapseAllMessages);
     $('pvScrollTopBtn').addEventListener('click', () => {
@@ -2700,6 +3144,8 @@
       ++previewRequestId;
       state.selectedId = null;
       state.previewData = null;
+      resetPreviewMatches();
+      setPreviewControlsReady(false);
       $('previewContent').style.display = 'none';
       $('previewEmpty').style.display = 'flex';
       $('mainSplit').classList.remove('show-preview');

@@ -6,6 +6,15 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
+## 2.4.1 - 2026-11-28（内部版 / Internal build）
+
+- 工作区优先沿用宿主项目顺序，未归属置底。首次进入视图时展开并定位最近更新的工作区。
+- 设置集中管理界面语言、Markdown 导出目录和回收站保留天数。缩短保留期时先显示到期数量。
+- 预览支持在搜索命中之间循环跳转，自动展开命中的折叠消息，并可打开原始日志目录。
+- Workspace order follows the host when available, with unassigned sessions last. Each view initially expands and scrolls to the most recently updated workspace.
+- Settings groups language, Markdown export directory, and Trash retention. A shorter retention period shows the eligible count before cleanup.
+- Preview supports wrapping search match navigation, expansion of folded matches, and opening raw logs.
+
 ## 2.4.0 - 2026-11-28（内部版 / Internal build）
 
 - 会话库按工作区折叠浏览，每组单独分页。新增设置页入口，合并搜索输入与模式选择。

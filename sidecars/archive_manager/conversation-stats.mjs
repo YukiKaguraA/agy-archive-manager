@@ -4,6 +4,9 @@ import { join, resolve } from 'node:path';
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const WINDOWS_DEVICE = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+export function isSafeConversationId(id) {
+  return typeof id === 'string' && SAFE_ID.test(id) && !WINDOWS_DEVICE.test(id);
+}
 const FULL_LOG = 'transcript_full.jsonl';
 const COMPACT_LOG = 'transcript.jsonl';
 const MAX_CACHED_TURNS = 2048;
@@ -223,7 +226,7 @@ export function createConversationStats(agyDir) {
   }
 
   return async (id) => {
-    if (typeof id !== 'string' || !SAFE_ID.test(id) || WINDOWS_DEVICE.test(id)) return null;
+    if (!isSafeConversationId(id)) return null;
     if (pending.has(id)) return pending.get(id);
     const scheduled = (async () => {
       if (running < MAX_CONCURRENT_SCANS) {

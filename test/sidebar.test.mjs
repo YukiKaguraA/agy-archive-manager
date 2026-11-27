@@ -21,6 +21,7 @@ function mockSidebarEnvironment(t, {
   waitForMount = async () => {},
   ownerTimestamp,
   onMount = () => {},
+  onReadOrder = () => [],
 } = {}) {
   t.mock.timers.enable({ apis: ['Date', 'setInterval', 'setTimeout'] });
   const originalExistsSync = fs.existsSync;
@@ -68,16 +69,20 @@ function mockSidebarEnvironment(t, {
 
     async send(message) {
       const { id, params } = JSON.parse(message);
+      let value = 'ok';
       const count = params.expression.match(/"archivedCount":(\d+)\}\)$/);
       if (count) {
         operations.push('mount');
         badgeCounts.push(Number(count[1]));
         await waitForMount();
         onMount(params.expression);
+      } else if (params.expression.includes('readNativeProjectOrder')) {
+        operations.push('read-order');
+        value = await onReadOrder(params.expression);
       } else {
         runInNewContext(params.expression, { window, document });
       }
-      this.onmessage({ data: JSON.stringify({ id, result: { result: { value: 'ok' } } }) });
+      this.onmessage({ data: JSON.stringify({ id, result: { result: { value } } }) });
     }
 
     close() {}
@@ -91,6 +96,69 @@ function mockSidebarEnvironment(t, {
 
   return { advance, badgeCounts, operations };
 }
+
+test('reports visible native project labels in DOM order and keeps mounting the badge', async (t) => {
+  const makeHeader = (label, visibility = 'visible', rendered = true) => ({
+    getAttribute: (name) => name === 'data-project-label' ? label : null,
+    getClientRects: () => rendered ? [{}] : [],
+    visibility,
+  });
+  const headers = [
+    makeHeader(' Project B '), makeHeader('Hidden', 'hidden'),
+    makeHeader('Project A'), makeHeader('Unrendered', 'visible', false),
+    makeHeader(''), makeHeader('Project A'),
+  ];
+  let readList = () => ({
+    querySelectorAll(selector) {
+      assert.equal(selector, '[data-testid="project-header"]');
+      return headers;
+    },
+  });
+  const document = {
+    querySelector(selector) {
+      assert.equal(selector, '[data-testid="conversation-list-sidebar"]');
+      return readList();
+    },
+  };
+  const { advance, badgeCounts, operations } = mockSidebarEnvironment(t, {
+    onReadOrder: (expression) => runInNewContext(expression, {
+      document,
+      getComputedStyle: (element) => ({ visibility: element.visibility }),
+    }),
+  });
+  const received = [];
+  startSidebarInjector(async () => 3, undefined, (order) => {
+    received.push(order);
+    if (order.length) throw new Error('consumer failure');
+  });
+  await advance(500);
+  assert.deepEqual(received, [['Project B', 'Project A', 'Project A']]);
+
+  readList = () => { throw new Error('sidebar DOM changed'); };
+  await advance(2000);
+  assert.deepEqual(received, [['Project B', 'Project A', 'Project A'], []]);
+  assert.deepEqual(badgeCounts, [3, 3]);
+  assert.deepEqual(operations, ['mount', 'read-order', 'mount', 'read-order']);
+});
+
+test('a pending project scan does not delay a requested badge refresh', async (t) => {
+  const pendingScan = Promise.withResolvers();
+  const { advance, badgeCounts } = mockSidebarEnvironment(t, {
+    onReadOrder: () => pendingScan.promise,
+  });
+  let count = 3;
+  const { invalidateCount } = startSidebarInjector(async () => count, undefined, () => {});
+  await advance(500);
+
+  count = 4;
+  invalidateCount();
+  await setImmediate();
+  const countsBeforeScanCompletes = [...badgeCounts];
+  pendingScan.resolve([]);
+  await setImmediate();
+
+  assert.deepEqual(countsBeforeScanCompletes, [3, 4]);
+});
 
 test('skips archive counting when there is no debugging port', async (t) => {
   const { advance } = mockSidebarEnvironment(t, { hasPort: false });

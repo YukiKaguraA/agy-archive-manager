@@ -14,6 +14,9 @@ const preferencesFile = join(dataDir, 'preferences.json');
 const dbFile = join(agyDir, 'conversation_summaries.db');
 const routes = new Map();
 let archivedCount;
+let onProjectOrder;
+const explorerCalls = [];
+let commandOutput = '';
 let invalidations;
 let conversations;
 let requests;
@@ -28,11 +31,21 @@ const testBindings = Symbol.for('archive-manager-test');
 globalThis[testBindings] = {
   routes,
   registerCount: (callback) => { archivedCount = callback; },
+  registerOrder: (callback) => { onProjectOrder = callback; },
+  explorerCalls, commandOutput: () => commandOutput,
   invalidateCount: () => { invalidations++; },
 };
 
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier === 'node:child_process' && context.parentURL?.endsWith('/server.mjs')) {
+      return { url: `data:text/javascript,${encodeURIComponent(`
+        export function execFile(file, args, options, done) {
+          const fixture = globalThis[Symbol.for('archive-manager-test')];
+          fixture.explorerCalls.push({ file, args, options });
+          done(null, { stdout: fixture.commandOutput(), stderr: '' });
+        }`)}`, shortCircuit: true };
+    }
     if (specifier === 'sidecar_sdk') {
       return { url: `data:text/javascript,${encodeURIComponent(`
         export class SidecarApp {
@@ -43,9 +56,10 @@ const hooks = registerHooks({
     }
     if (specifier === './sidebar_injector.mjs' && context.parentURL?.endsWith('/server.mjs')) {
       return { url: `data:text/javascript,${encodeURIComponent(`
-        export function startSidebarInjector(callback) {
+        export function startSidebarInjector(callback, language, order) {
           const tools = globalThis[Symbol.for('archive-manager-test')];
           tools.registerCount(callback);
+          tools.registerOrder(order);
           return { cleanup() {}, invalidateCount: tools.invalidateCount };
         }`)}`, shortCircuit: true };
     }
@@ -96,6 +110,9 @@ beforeEach(() => {
   deleteReply = null;
   getReply = null;
   invalidations = 0;
+  explorerCalls.length = 0;
+  commandOutput = '';
+  onProjectOrder?.([]);
   for (const file of [metaFile, preferencesFile, dbFile, join(dataDir, 'meta.json.tmp')]) {
     rmSync(file, { force: true });
   }
@@ -271,6 +288,101 @@ test('grouped lists count the full filtered result before loading pages for one 
   assert.equal(mutationIds('ListConversations').length, 1);
 });
 
+test('workspace headers follow native order and always place unassigned last', async () => {
+  const projects = join(home, '.gemini', 'config', 'projects');
+  mkdirSync(projects, { recursive: true });
+  for (const id of ['A', 'B']) writeFileSync(join(projects, id + '.json'), JSON.stringify({ id, name: id }));
+  for (const [id, days, projectId] of [['recent-unassigned', 0], ['a', 1, 'A'], ['b', 15, 'B']]) {
+    addConversation(id, { days });
+    if (projectId) conversations.get(id).metadata.projectId = projectId;
+  }
+  const initial = await call('conversations', { tab: 'all', grouped: true });
+  onProjectOrder?.(['B', 'A']);
+  const reordered = await call('conversations', { tab: 'all', grouped: true, snapshotId: initial.snapshotId });
+  assert.notEqual(reordered.snapshotId, initial.snapshotId);
+  assert.deepEqual(reordered.groups.map(group => group.key), ['project:B', 'project:A', 'unassigned']);
+  for (const id of ['A', 'B']) rmSync(join(projects, id + '.json'));
+});
+
+test('workspace URI fallback recognizes nested project resources and ignores sidecar projects', async () => {
+  const projects = join(home, '.gemini', 'config', 'projects');
+  mkdirSync(projects, { recursive: true });
+  const path = join(projects, 'time-known.json');
+  const virtual = join(projects, 'time-virtual.json');
+  const workspace = 'file:///d:/Example%20Workspace';
+  writeFileSync(path, JSON.stringify({ id: 'time-known', name: 'Known',
+    projectResources: { resources: [{ folderUri: workspace }] } }));
+  writeFileSync(virtual, JSON.stringify({ id: 'time-virtual', name: 'Virtual', sidecar: {} }));
+  try {
+    addConversation('via-workspace', { days: 20 });
+    addConversation('virtual', { days: 1 });
+    conversations.get('virtual').metadata.projectId = 'time-virtual';
+    mkdirSync(agyDir, { recursive: true });
+    const db = new DatabaseSync(dbFile);
+    db.exec('CREATE TABLE conversation_summaries (conversation_id TEXT, step_count INTEGER, workspace_uris TEXT, preview TEXT)');
+    db.prepare('INSERT INTO conversation_summaries VALUES (?, 0, ?, ?)').run('via-workspace', JSON.stringify([workspace]), '');
+    db.close();
+    const result = await call('conversations', { tab: 'all', grouped: true });
+    assert.deepEqual(result.groups.map(group => group.label), ['Known', 'time-virtual']);
+  } finally {
+    rmSync(path);
+    rmSync(virtual);
+  }
+});
+
+test('preferences merge export path, language and retention without cleaning until a sweep', async () => {
+  addConversation('due', { archived: true });
+  const trashedAt = Date.now() - 4 * 86400000;
+  writeFileSync(metaFile, JSON.stringify({ conversations: { due: { trash: {trashedAt, previousArchived: true} } } }));
+  const dir = join(home, 'custom-exports');
+  await call('preferences', { exportDir: dir, language: 'ja' });
+  const result = await call('preferences', { trashRetentionDays: 3 });
+  assert.deepEqual(result.trashSummary, { totalCount: 1, expiredCount: 1 });
+  assert.equal(result.dueCount, 1);
+  assert.equal(result.language, 'ja');
+  assert.equal(result.exportDir, dir);
+  const saved = readFileSync(preferencesFile, 'utf8');
+  await assert.rejects(call('preferences', { exportDir: 'relative', trashRetentionDays: 7 }));
+  await assert.rejects(call('preferences', { trashRetentionDays: 366 }));
+  assert.equal(readFileSync(preferencesFile, 'utf8'), saved);
+  assert.equal((await call('conversations', { tab: 'trash' })).items[0].purgeAt, trashedAt + 3 * 86400000);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+  const exported = await call('export', { conversationId: 'due', saveToDisk: true });
+  assert.equal(dirname(exported.savedPath), dir);
+  assert.equal((await call('reveal-file', {})).path, dir);
+  await assert.rejects(call('sweep-trash', { maxExpiredCount: 0 }));
+  await assert.rejects(call('sweep-trash', { expectedRetentionDays: 7 }));
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+  assert.deepEqual((await call('sweep-trash', {})).purged, ['due']);
+  const reset = await call('preferences', { exportDir: null });
+  assert.equal(reset.exportDir, reset.defaultExportDir);
+  assert.equal(reset.trashRetentionDays, 3);
+});
+
+test('log paths come from validated IDs and prefer the raw logs directory', async () => {
+  const dir = join(agyDir, 'brain', 'raw-test');
+  const logs = join(dir, '.system_generated', 'logs');
+  mkdirSync(dir, { recursive: true });
+  assert.equal((await call('reveal-logs', { conversationId: 'raw-test' })).path, dir);
+  mkdirSync(logs, { recursive: true });
+  assert.equal((await call('reveal-logs', { conversationId: 'raw-test' })).path, logs);
+  for (const id of ['../foo', 'CON', 'missing-id']) {
+    await assert.rejects(call('reveal-logs', { conversationId: id }));
+  }
+  assert.equal(explorerCalls.length, 2);
+});
+
+test('the Windows folder picker distinguishes cancellation and a Unicode path without writing preferences', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  assert.deepEqual(await call('pick-directory', {}), { cancelled: true });
+  const chosen = join(home, '导出目录');
+  commandOutput = chosen + '\r\n';
+  assert.deepEqual(await call('pick-directory', {}), { path: chosen });
+  assert.equal(existsSync(preferencesFile), false);
+  assert.ok(explorerCalls.every(({ args }) => args.includes('-STA')));
+});
+
 test('statistics use the conversation snapshot and only inspect recognized IDs', async () => {
   addConversation('sized');
   const logs = join(agyDir, 'brain', 'sized', '.system_generated', 'logs');
@@ -289,22 +401,22 @@ test('statistics use the conversation snapshot and only inspect recognized IDs',
 test('language preference persists in a separate file and rejects unsupported values', async () => {
   const existingNotes = JSON.stringify({ conversations: { 'note-id': { note: '保留备注' } } });
   writeFileSync(metaFile, existingNotes);
-  assert.deepEqual(await call('preferences', { locale: 'en' }), { language: null });
+  assert.equal((await call('preferences', { locale: 'en' })).language, null);
   assert.equal(existsSync(preferencesFile), false);
 
-  assert.deepEqual(await call('preferences', { language: 'en' }), { language: 'en' });
+  assert.equal((await call('preferences', { language: 'en' })).language, 'en');
   assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'en' });
-  assert.deepEqual(await call('preferences', { locale: 'zh-CN' }), { language: 'en' });
+  assert.equal((await call('preferences', { locale: 'zh-CN' })).language, 'en');
   for (const language of ['fr', 'EN', null, 1, ['en']]) {
     await assert.rejects(call('preferences', { locale: 'en', language }), /Unsupported language/);
   }
-  assert.deepEqual(await call('preferences', {}), { language: 'en' });
-  assert.deepEqual(await call('preferences', { locale: 'en', language: 'zh-CN' }), { language: 'zh-CN' });
+  assert.equal((await call('preferences', {})).language, 'en');
+  assert.equal((await call('preferences', { locale: 'en', language: 'zh-CN' })).language, 'zh-CN');
   assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'zh-CN' });
   for (const language of ['zh-TW', 'ja']) {
-    assert.deepEqual(await call('preferences', { language }), { language });
+    assert.equal((await call('preferences', { language })).language, language);
     assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language });
-    assert.deepEqual(await call('preferences', { locale: 'en' }), { language });
+    assert.equal((await call('preferences', { locale: 'en' })).language, language);
   }
   assert.equal(readFileSync(metaFile, 'utf8'), existingNotes);
   assert.deepEqual(readdirSync(dataDir).sort(), ['meta.json', 'preferences.json']);
@@ -315,8 +427,8 @@ test('invalid preference data stays on disk until a valid language is saved', as
   writeFileSync(preferencesFile, invalid);
   await assert.rejects(call('preferences', { locale: 'en' }), /Invalid language preferences.*preferences\.json/);
   assert.equal(readFileSync(preferencesFile, 'utf8'), invalid);
-  assert.deepEqual(await call('preferences', { language: 'en' }), { language: 'en' });
-  assert.deepEqual(await call('preferences', {}), { language: 'en' });
+  assert.equal((await call('preferences', { language: 'en' })).language, 'en');
+  assert.equal((await call('preferences', {})).language, 'en');
 });
 
 test('concurrent requests keep independent languages in archive and delete safety errors', async () => {
@@ -892,7 +1004,7 @@ test('batch deletion rechecks each archived ordinary idle ID and distinguishes u
   const result = await call('purge-trash', {conversationIds:['a','missing','changed','active','child','remains','ambiguous','lost-reply','a']});
   assert.deepEqual(result.succeeded, ['a','missing','lost-reply']);
   assert.deepEqual(result.failed.map(x => [x.id,x.code]), [
-    ['changed','operation_failed'],['active','not_archived'],['child','subagent'],['remains','delete_failed'],['ambiguous','unknown_outcome'],
+    ['changed','running'],['active','not_archived'],['child','subagent'],['remains','delete_failed'],['ambiguous','unknown_outcome'],
   ]);
   assert.ok(result.warnings.length);
   assert.deepEqual(mutationIds('DeleteConversation'), ['a','remains','ambiguous','lost-reply']);

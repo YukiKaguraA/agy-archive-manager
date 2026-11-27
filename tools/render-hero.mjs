@@ -104,7 +104,13 @@ function mockScript() {
       const stats = ${JSON.stringify(stats)};
       const counts = { archived: 2, active: 5, starred: 2, stale: 0, all: items.length, trash: 0 };
       const api = {
-        '/api/preferences': () => ({ language: 'zh-CN' }),
+        '/api/preferences': () => ({
+          language: 'zh-CN',
+          exportDir: '~/Documents/Antigravity-Exports',
+          defaultExportDir: '~/Documents/Antigravity-Exports',
+          trashRetentionDays: 7,
+          trashSummary: { totalCount: 0, expiredCount: 0 },
+        }),
         '/api/conversations': ({ tab, query, projectKey }) => {
           const filtered = items.filter(item => item.archived === (tab === 'archived') &&
             (!query || item.title.toLowerCase().includes(query.toLowerCase())));

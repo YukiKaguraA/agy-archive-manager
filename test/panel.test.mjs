@@ -8,12 +8,15 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 function createPanel(fetch, language, { renderCards = false, IntersectionObserver } = {}) {
   const elements = new Map();
+  const windowHandlers = {};
   function makeElement() {
     return {
       style: {}, dataset: {}, handlers: {}, children: [], textContent: '',
       set innerHTML(value) { this.children = []; this.markup = value; },
       get innerHTML() { return this.markup; },
       focus() { context.document.activeElement = this; },
+      getBoundingClientRect() { return { top: 10, bottom: 12, height: 2 }; },
+      scrollBy() { this.scrolled = (this.scrolled ?? 0) + 1; },
       removeAttribute(name) { delete this[name]; },
       classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
       setAttribute(name, value) { this[name] = value; },
@@ -40,7 +43,7 @@ function createPanel(fetch, language, { renderCards = false, IntersectionObserve
       createElement: makeElement, querySelectorAll: () => [],
     },
     window: {
-      addEventListener() {},
+      addEventListener(event, handler) { windowHandlers[event] = handler; },
       sidecar: { fetch: async (path, req) => ({
         ok: true, json: async () => fetch(path, JSON.parse(req.body)),
       }) },
@@ -59,7 +62,7 @@ function createPanel(fetch, language, { renderCards = false, IntersectionObserve
         action: $('toastAction').onclick,
       };
     };`);
-  return { element, run };
+  return { element, run, windowHandlers };
 }
 
 function deferred() {
@@ -723,4 +726,130 @@ test('clearSearchBtn precedes searchModeSelect, stale button shows total count, 
   el('settingsBtn').handlers.click();
   focusHandler();
   assert.equal(convCalls, beforeFocus);
+});
+
+test('settings reads and writes export and retention preferences independently', async () => {
+  const requests = [];
+  const preferences = {
+    language: 'en', exportDir: 'D:\\Exports', defaultExportDir: 'D:\\Default',
+    trashRetentionDays: 7, trashSummary: { totalCount: 4, expiredCount: 1 },
+  };
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/conversations') return { groups: [] };
+    requests.push([path, body]);
+    return { ...preferences, ...body, ...(body.trashRetentionDays ? { dueCount: 3 } : {}) };
+  }, 'en');
+  await run('initializePanel()');
+  assert.equal(element('exportDirInput').value, preferences.exportDir);
+  assert.match(element('trashSummary').textContent, /4.*1/);
+  element('exportDirInput').value = 'relative';
+  await element('exportDirForm').handlers.submit({ preventDefault() {} });
+  assert.equal(requests.length, 1);
+  element('exportDirInput').value = 'D:\\Another';
+  await element('exportDirForm').handlers.submit({ preventDefault() {} });
+  assert.deepEqual(requests.at(-1), ['/api/preferences', { exportDir: 'D:\\Another', locale: 'en' }]);
+  element('trashRetentionInput').value = '3';
+  await element('trashRetentionForm').handlers.submit({ preventDefault() {} });
+  assert.deepEqual(requests.at(-1), ['/api/preferences', { trashRetentionDays: 3, locale: 'en' }]);
+  assert.match(element('trashSettingsStatus').textContent, /3.*next/i);
+});
+
+test('first workspace follows recency within assigned groups and scrolls once', async () => {
+  const groups = [
+    { key: 'old', label: 'Old', total: 1, lastModified: '2026-01-01' },
+    { key: 'new', label: 'New', total: 1, lastModified: '2026-02-01' },
+    { key: 'unassigned', label: 'No project', total: 1, lastModified: '2026-03-01' },
+  ];
+  const { element, run } = createPanel((_, body) => body.projectKey ? { items: [] } : { groups }, 'en', { renderCards: true });
+  const pane = element('listPane');
+  pane.getBoundingClientRect = () => ({ top: 0, bottom: 6, height: 6 });
+  await run('loadList()');
+  let toggles = pane.children.map(section => section.children[0]);
+  assert.deepEqual(toggles.map(toggle => toggle['aria-expanded']), [false, true, false]);
+  assert.match(toggles[1].children[0].innerHTML, /<svg .*workspace-folder/);
+  assert.equal(pane.scrolled, 1);
+  await run('loadList()');
+  toggles = element('listPane').children.map(section => section.children[0]);
+  assert.equal(toggles[1]['aria-expanded'], true);
+  assert.equal(pane.scrolled, 1);
+});
+
+test('logs are enabled for either kind of preview and target the loaded conversation', async () => {
+  const requests = [];
+  const { element, run } = createPanel((path, body) => {
+    requests.push([path, body]);
+    return path === '/api/preview' ? { id: body.conversationId } : { ok: true };
+  }, 'en');
+  for (const tab of ['active', 'trash']) {
+    await run(`state.tab = '${tab}'; openPreview('${tab}')`);
+    assert.equal(element('pvRevealLogsBtn').disabled, false);
+    await element('pvRevealLogsBtn').handlers.click();
+    assert.deepEqual(requests.at(-1), ['/api/reveal-logs', { conversationId: tab, locale: 'en' }]);
+  }
+});
+
+test('match navigation wraps, expands a folded message, and handles F3 outside inputs', () => {
+  const { element, run, windowHandlers } = createPanel(() => ({}), 'en');
+  const classes = new Set(['is-folded', 'is-collapsed']);
+  const expand = {};
+  const block = {
+    classList: { contains: key => classes.has(key), remove: (...keys) => keys.forEach(key => classes.delete(key)) },
+    querySelector: () => expand,
+  };
+  const makeMark = () => ({
+    classList: new Set(),
+    closest: () => block,
+    getBoundingClientRect() { return { top: 20, bottom: 22, height: 2 }; },
+  });
+  const marks = [makeMark(), makeMark()];
+  for (const mark of marks) mark.classList.remove = mark.classList.delete.bind(mark.classList);
+  element('pvMessages').querySelectorAll = selector => selector === 'mark' ? marks : [];
+  run("state.query = 'needle'; state.previewData = { id: 'A' }; stepPreviewMatch(1);");
+  assert.equal(element('pvMatchNav').hidden, false);
+  assert.equal(element('pvMatchCount').textContent, 'Match 1 / 2');
+  assert.equal(classes.size, 0);
+  assert.match(expand.textContent, /collapse|fold/i);
+  assert.equal(element('pvMessages').scrolled, 1);
+  assert.equal(marks[0].classList.has('is-current-match'), true);
+  const key = { key: 'F3', shiftKey: true, target: { closest: () => null }, preventDefault() { this.handled = true; } };
+  windowHandlers.keydown(key);
+  assert.equal(key.handled, true);
+  assert.equal(element('pvMatchCount').textContent, 'Match 2 / 2');
+  assert.equal(marks[0].classList.has('is-current-match'), false);
+  windowHandlers.keydown({ ...key, target: { closest: () => ({}) } });
+  assert.equal(element('pvMatchCount').textContent, 'Match 2 / 2');
+  element('pvNextMatchBtn').handlers.click();
+  assert.equal(element('pvMatchCount').textContent, 'Match 1 / 2');
+  run("state.query = ''; stepPreviewMatch(1);");
+  assert.equal(element('pvMatchNav').hidden, true);
+});
+
+test('manual sweep reads a fresh count, requires confirmation, and bounds the request', async () => {
+  const requests = [];
+  const latest = { trashRetentionDays: 7, trashSummary: { totalCount: 5, expiredCount: 2 } };
+  const { element } = createPanel((path, body) => {
+    requests.push([path, body]);
+    if (path === '/api/preferences') return latest;
+    if (path === '/api/conversations') return { groups: [] };
+    return { purged: ['A'], skipped: [{ id: 'B' }], failed: [], trashSummary: { totalCount: 4, expiredCount: 1 } };
+  }, 'en');
+  const dialog = element('sweepDialog');
+  dialog.showModal = () => {};
+  dialog.close = () => {};
+  const click = () => element('sweepTrashBtn').handlers.click();
+  const close = async value => {
+    await new Promise(resolve => setImmediate(resolve));
+    dialog.onsubmit({ preventDefault() {}, submitter: { value } });
+  };
+  const cancelled = click();
+  await close('cancel');
+  await cancelled;
+  assert.match(element('sweepDescription').textContent, /delete 2/);
+  assert.deepEqual(requests.map(([path]) => path), ['/api/preferences']);
+  const confirmed = click();
+  await close('confirm');
+  await confirmed;
+  assert.deepEqual(requests[2], ['/api/sweep-trash', { maxExpiredCount: 2, expectedRetentionDays: 7, locale: 'en' }]);
+  assert.match(element('trashSummary').textContent, /4.*1/);
+  assert.match(element('trashSettingsStatus').textContent, /Removed 1 .* Skipped 1/);
 });

@@ -40,7 +40,7 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 - **Workspace browsing**. Library contains Active, Archived, Starred, All, Idle, and Trash. Active opens first and expands the most recently updated workspace. Load up to 50 sessions at a time per workspace.
 - **Combined search field**. Type your query and use the dropdown on its right to switch between Exact text and Keywords. Filter by host group or tag and see highlighted matches.
 - **Session statistics**. Cards show user turns, steps, file count, and session storage size.
-- **Trash**. Moving a session to Trash archives it. Restoring brings back its previous archive status. Sessions are eligible for automatic cleanup after seven full days and can be restored until cleanup runs.
+- **Trash**. Moving a session to Trash archives it. Restoring brings back its previous archive status. Trash keeps sessions for seven days by default. Set a retention period from 1 to 365 days in Settings. Shortening it shows the eligible count before scheduled or manually confirmed cleanup.
 - **Read without restoring**: Preview past conversations directly. Long replies collapse automatically, and you can switch between formatted and raw views.
 - **Changed your mind? Undo**: Archive or restore in batches, archive idle conversations by days inactive, and undo the result.
 - **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
@@ -79,10 +79,12 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 | Clean up idle conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Idle view |
 | Read long conversations | Expand All / Collapse All, ⬆ Top, ⬇ Bottom, Formatted / Raw | Preview toolbar |
 | Organize | Pin, star, rename, `#tags`, notes | Cards and preview |
-| Export | Save as `.md`, reveal the file, or open the export folder | Preview toolbar, **📂 Exports** |
+| Export | Save as `.md`, reveal the file, or open the export folder | Preview toolbar or Settings |
 | Open the panel | Left-sidebar entry (CDP) / Plugins menu / chat prompt | Several places |
 
 ---
+
+Workspace order follows the host when available, with unassigned sessions last. In a preview, use `F3` or `Shift+F3` to cycle through search matches and open folded messages. Use **Logs** to open the raw log folder.
 
 ## 🚀 Quick Start
 
@@ -180,7 +182,7 @@ Archive operations use Antigravity's internal `ConversationService`, and search 
 <details>
 <summary><strong>Where are exports, tags, and notes stored?</strong></summary>
 
-Exports are saved to `~/Documents/Antigravity-Exports`, one file per export, and the panel can reveal them. The panel writes tags through the host service and reads them back to verify the update. Notes and legacy tag overrides are stored in the Sidecar data directory. Antigravity 2.35.2 can ignore a request to clear the last tag. The panel checks whether the change took effect and retains the local record if it did not.
+Exports go to `~/Documents/Antigravity-Exports` by default. Choose a folder or enter an absolute path in Settings. The panel creates one file per export, and the panel can reveal them. The panel writes tags through the host service and reads them back to verify the update. Notes and legacy tag overrides are stored in the Sidecar data directory. Antigravity 2.35.2 can ignore a request to clear the last tag. The panel checks whether the change took effect and retains the local record if it did not.
 
 </details>
 

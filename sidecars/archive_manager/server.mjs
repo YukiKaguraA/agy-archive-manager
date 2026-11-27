@@ -1,15 +1,15 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { accessSync, closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SidecarApp } from 'sidecar_sdk';
 import { DEFAULT_LANGUAGE, getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
 import { filterSearch, beginSearch } from './search.mjs';
-import { createConversationStats } from './conversation-stats.mjs';
+import { createConversationStats, isSafeConversationId } from './conversation-stats.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -24,8 +24,9 @@ const DATA_DIR =
   join(AGY_DIR, 'sidecar_data', 'archive-manager', 'archive_manager', 'data');
 const META_FILE = join(DATA_DIR, 'meta.json');
 const PREFERENCES_FILE = join(DATA_DIR, 'preferences.json');
-const EXPORT_DIR = join(HOME, 'Documents', 'Antigravity-Exports');
-const TRASH_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_EXPORT_DIR = join(HOME, 'Documents', 'Antigravity-Exports');
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_RETENTION_DAYS = 7;
 const TRASH_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const inspectConversation = createConversationStats(AGY_DIR);
 
@@ -102,7 +103,7 @@ function isRecord(value) {
 function validTrashRecord(trash) {
   return isRecord(trash) && typeof trash.previousArchived === 'boolean' &&
     Number.isSafeInteger(trash.trashedAt) && trash.trashedAt > 0 &&
-    trash.trashedAt <= 8640000000000000 - TRASH_RETENTION_MS &&
+    trash.trashedAt <= 8640000000000000 - 365 * DAY_MS &&
     [undefined, 'moving', 'restoring'].includes(trash.phase);
 }
 
@@ -173,12 +174,21 @@ function writeMetaStore(store) {
   }
 }
 
-function readLanguagePreference() {
+function validRetention(days) {
+  return Number.isInteger(days) && days >= 1 && days <= 365;
+}
+
+function validExportPath(value) {
+  return typeof value === 'string' && !value.includes('\0') && isAbsolute(value) &&
+    (process.platform !== 'win32' || (!/^[\\/][\\/][?.][\\/]/u.test(value) && parse(value).root.length > 1));
+}
+
+function readPreferences() {
   let raw;
   try {
     raw = readFileSync(PREFERENCES_FILE, 'utf8');
   } catch (err) {
-    if (err.code === 'ENOENT') return null;
+    if (err.code === 'ENOENT') return {};
     throw new Error(t('preferencesRead'), { cause: err });
   }
 
@@ -188,25 +198,73 @@ function readLanguagePreference() {
   } catch (err) {
     throw new Error(t('preferencesInvalid'), { cause: err });
   }
-  if (!isSupportedLanguage(store?.language)) throw new Error(t('preferencesInvalid'));
-  return store.language;
+  if (!isRecord(store) ||
+      (store.language != null && !isSupportedLanguage(store.language)) ||
+      (store.exportDir != null && store.exportDir !== '' && !validExportPath(store.exportDir)) ||
+      (store.trashRetentionDays !== undefined && !validRetention(store.trashRetentionDays))) {
+    throw new Error(t('preferencesInvalid'));
+  }
+  return store;
+}
+
+function readPreferencesOrDefault() {
+  try { return readPreferences(); } catch { return {}; }
+}
+
+function getExportDir() {
+  return readPreferencesOrDefault().exportDir || DEFAULT_EXPORT_DIR;
+}
+
+function getTrashRetentionMs(store = readPreferencesOrDefault()) {
+  return (store.trashRetentionDays ?? DEFAULT_RETENTION_DAYS) * DAY_MS;
+}
+
+function isDue(trash, retention, now) {
+  return trash && !trash.phase && trash.trashedAt + retention <= now;
+}
+
+function summarizeTrash(retention, now = Date.now()) {
+  const { store, warnings } = readMetaForDisplay();
+  const entries = Object.values(store.conversations).filter(inTrash);
+  return {
+    totalCount: entries.length,
+    expiredCount: entries.filter(({ trash }) => isDue(trash, retention, now)).length,
+    ...(warnings.length ? { warning: warnings.join(' ') } : {}),
+  };
 }
 
 function loadProjectMap() {
-  const map = new Map();
-  if (!existsSync(PROJECTS_DIR)) return map;
+  const byId = new Map();
+  const byUri = new Map();
   try {
     for (const file of readdirSync(PROJECTS_DIR)) {
       if (!file.endsWith('.json')) continue;
       try {
-        const obj = JSON.parse(readFileSync(join(PROJECTS_DIR, file), 'utf8'));
+        const path = join(PROJECTS_DIR, file);
+        const obj = JSON.parse(readFileSync(path, 'utf8'));
         const id = obj.id || obj.projectId || file.replace(/\.json$/i, '');
         const name = obj.name || obj.displayName || obj.title || '';
-        if (id && name) map.set(id, name);
+        if (Object.hasOwn(obj, 'sidecar') || typeof id !== 'string' || !id || typeof name !== 'string' || !name.trim()) continue;
+        const stat = statSync(path);
+        const project = { name: name.trim(), createdAtMs: stat.birthtimeMs || stat.mtimeMs };
+        byId.set(id, project);
+        const resources = Array.isArray(obj.projectResources?.resources) ? obj.projectResources.resources : [];
+        const uris = new Set([obj.folderUri, ...resources.map(resource => resource?.folderUri)]
+          .filter(uri => typeof uri === 'string' && uri)
+          .map(normalizeWorkspaceUri));
+        for (const uri of uris) {
+          byUri.set(uri, byUri.has(uri) && byUri.get(uri) !== project ? null : project);
+        }
       } catch {}
     }
   } catch {}
-  return map;
+  return { byId, byUri };
+}
+
+function normalizeWorkspaceUri(uri) {
+  let normalized = uri.replace(/\/$/u, '');
+  try { normalized = decodeURIComponent(normalized); } catch {}
+  return process.platform === 'win32' && normalized.startsWith('file:') ? normalized.toLowerCase() : normalized;
 }
 
 function workspaceFromIndex(raw) {
@@ -317,13 +375,15 @@ function sameTags(left, right) {
   return left.length === right.length && left.every(tag => right.includes(tag));
 }
 
-function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
+function conversationItem(c, projectMap, dbInfo, localMeta, nowMs, trashRetentionMs) {
   const md = c.metadata || {};
   const ann = c.annotations || {};
   const st = c.state || {};
   const projectId = md.projectId || '';
   const assigned = projectId && projectId !== 'outside-of-project';
-  const projectName = projectMap.get(projectId) || dbInfo.workspaceName || (assigned ? projectId : '');
+  const knownProject = projectMap.byId.get(projectId) ||
+    (dbInfo.workspaceUri && projectMap.byUri.get(normalizeWorkspaceUri(dbInfo.workspaceUri)));
+  const projectName = knownProject?.name || dbInfo.workspaceName || (assigned ? projectId : '');
   const projectKey = assigned ? 'project:' + projectId : dbInfo.workspaceUri ? 'workspace:' + dbInfo.workspaceUri : 'unassigned';
   const groupId = [ann.conversationGroupId, ann.groupId, md.conversationGroupId, md.groupId, c.groupId, dbInfo.groupId]
     .find(id => typeof id === 'string' && id.trim())?.trim() || '';
@@ -343,6 +403,7 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
     project: projectName || UNASSIGNED_PROJECT,
     projectLabel: projectName || t('unassignedProject'),
     projectId, projectKey,
+    projectCreatedAtMs: knownProject?.createdAtMs ?? null,
     groupId, groupKey: groupId ? 'group:' + groupId : 'ungrouped',
     groupLabel: groupId || t('ungrouped'),
     tags: localTags ?? nativeTags,
@@ -350,7 +411,7 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
     tagConflict: localTags !== null && !sameTags(localTags, nativeTags),
     note: localMeta.note || '',
     trashedAt,
-    purgeAt: trashedAt === null ? null : trashedAt + TRASH_RETENTION_MS,
+    purgeAt: trashedAt === null ? null : trashedAt + trashRetentionMs,
   };
 }
 
@@ -361,7 +422,8 @@ async function loadConversationData(id) {
   const projectMap = loadProjectMap();
   const { store, warnings } = readMetaForDisplay();
   const nowMs = Date.now();
-  const items = nativeList.map(c => conversationItem(c, projectMap, dbStats.get(c.id) || {}, store.conversations[c.id] || {}, nowMs));
+  const trashRetentionMs = getTrashRetentionMs();
+  const items = nativeList.map(c => conversationItem(c, projectMap, dbStats.get(c.id) || {}, store.conversations[c.id] || {}, nowMs, trashRetentionMs));
   return { items, warnings };
 }
 
@@ -574,10 +636,11 @@ function sanitizeFilename(name) {
 }
 
 function saveMarkdownSnapshot(stem, markdown) {
-  mkdirSync(EXPORT_DIR, { recursive: true });
+  const exportDir = getExportDir();
+  mkdirSync(exportDir, { recursive: true });
   for (let attempt = 1; ; attempt++) {
     const filename = `${stem}${attempt > 1 ? `-${attempt}` : ''}.md`;
-    const savedPath = join(EXPORT_DIR, filename);
+    const savedPath = join(exportDir, filename);
     let handle;
     try {
       handle = openSync(savedPath, 'wx');
@@ -618,18 +681,53 @@ function serializeMutation(handler) {
 
 app.page('/', () => readFileSync(join(__dirname, 'index.html'), 'utf8'));
 
-registerApi('/api/preferences', async (data) => {
-  if (!Object.hasOwn(data, 'language')) return { language: readLanguagePreference() };
-  const { language } = data;
-  if (!isSupportedLanguage(language)) throw new Error(t('invalidLanguage'));
-  try {
-    writeSidecarJson(PREFERENCES_FILE, { language });
-  } catch (err) {
-    throw new Error(t('preferencesWrite'), { cause: err });
+function preferenceResponse(store) {
+  return {
+    language: store.language ?? null,
+    exportDir: store.exportDir || DEFAULT_EXPORT_DIR,
+    defaultExportDir: DEFAULT_EXPORT_DIR,
+    trashRetentionDays: store.trashRetentionDays ?? DEFAULT_RETENTION_DAYS,
+    trashSummary: summarizeTrash(getTrashRetentionMs(store)),
+  };
+}
+
+registerApi('/api/preferences', serializeMutation(async data => {
+  const writesLanguage = Object.hasOwn(data, 'language');
+  const writesExport = Object.hasOwn(data, 'exportDir');
+  const writesRetention = Object.hasOwn(data, 'trashRetentionDays');
+  if (!writesLanguage && !writesExport && !writesRetention) return preferenceResponse(readPreferences());
+
+  const { language, exportDir, trashRetentionDays } = data;
+  if (writesLanguage && !isSupportedLanguage(language)) throw new Error(t('invalidLanguage'));
+  if (writesRetention && !validRetention(trashRetentionDays)) throw new Error(t('invalidTrashRetention'));
+  if (writesExport && exportDir !== null && exportDir !== '' && !validExportPath(exportDir)) {
+    throw new Error(t('invalidExportDirectory'));
   }
-  invalidateCount();
-  return { language };
-});
+  const previous = readPreferencesOrDefault();
+  const next = { ...previous };
+  if (writesLanguage) next.language = language;
+  if (writesRetention) next.trashRetentionDays = trashRetentionDays;
+  if (writesExport && exportDir) {
+    const path = resolve(exportDir);
+    try {
+      mkdirSync(path, { recursive: true });
+      if (!statSync(path).isDirectory()) throw new Error();
+      accessSync(path, constants.R_OK | constants.W_OK | constants.X_OK);
+    } catch {
+      throw new Error(t('exportDirectoryUnavailable', path));
+    }
+    next.exportDir = path;
+  } else if (writesExport) {
+    delete next.exportDir;
+  }
+  try { writeSidecarJson(PREFERENCES_FILE, next); }
+  catch (err) { throw new Error(t('preferencesWrite'), { cause: err }); }
+
+  invalidateTrashViews();
+  const response = preferenceResponse(next);
+  if (getTrashRetentionMs(next) < getTrashRetentionMs(previous)) response.dueCount = response.trashSummary.expiredCount;
+  return response;
+}));
 
 function optionsOf(items, key, label, collator) {
   const options = new Map(items.map(item => [item[key], item[label]]));
@@ -655,13 +753,30 @@ function sortedItems(items, tab, sort, collator) {
   });
 }
 
-function groupByWorkspace(items, collator) {
+function projectOrderFor(workspaceScope) {
+  const names = new Map();
+  for (const { projectLabel, projectKey } of workspaceScope) {
+    if (!names.has(projectLabel)) names.set(projectLabel, new Set());
+    names.get(projectLabel).add(projectKey);
+  }
+  const order = new Map();
+  for (const [index, name] of nativeProjectOrder.entries()) {
+    if (order.has(name)) order.set(name, Infinity);
+    else if (names.get(name)?.size === 1) order.set(name, index);
+  }
+  return order;
+}
+
+function groupByWorkspace(items, collator, workspaceScope) {
   const groups = new Map();
   const labels = new Map(optionsOf(items, 'projectKey', 'projectLabel', collator)
     .map(({ key, label }) => [key, label]));
   for (const item of items) {
     const key = item.projectKey;
-    if (!groups.has(key)) groups.set(key, { key, label: labels.get(key), lastModifiedMs: 0, lastModified: '', items: [] });
+    if (!groups.has(key)) groups.set(key, {
+      key, label: labels.get(key), name: item.projectLabel, createdAtMs: item.projectCreatedAtMs ?? Infinity,
+      lastModifiedMs: 0, lastModified: '', items: [],
+    });
     const group = groups.get(key);
     group.items.push(item);
     if (item.lastModifiedMs > group.lastModifiedMs) {
@@ -669,7 +784,12 @@ function groupByWorkspace(items, collator) {
       group.lastModified = item.lastModified;
     }
   }
-  const summaries = [...groups.values()].sort((a, b) => b.lastModifiedMs - a.lastModifiedMs ||
+  const projectOrder = projectOrderFor(workspaceScope);
+  const nativeRank = group => group.createdAtMs === Infinity ? Infinity : projectOrder.get(group.name) ?? Infinity;
+  const summaries = [...groups.values()].sort((a, b) =>
+    Number(a.key === 'unassigned') - Number(b.key === 'unassigned') ||
+    nativeRank(a) - nativeRank(b) ||
+    a.createdAtMs - b.createdAtMs || b.lastModifiedMs - a.lastModifiedMs ||
     collator.compare(a.label, b.label) || compareId(a.key, b.key))
     .map(({ key, label, lastModified, items }) => ({ key, label, lastModified, total: items.length }));
   return { groups, summaries };
@@ -724,7 +844,7 @@ registerApi('/api/conversations', async (data) => {
     const items = sortedItems(filtered, tab, sort, collator);
     result = {
       items,
-      workspace: grouped ? groupByWorkspace(items, collator) : null,
+      workspace: grouped ? groupByWorkspace(items, collator, snapshot.items) : null,
       counts, warnings, projectLabels: Object.fromEntries(projectLabels),
       projects: [...projectLabels.keys()].sort((a, b) => collator.compare(projectLabels.get(a), projectLabels.get(b))),
       projectOptions: optionsOf(scope, 'projectKey', 'projectLabel', collator),
@@ -844,9 +964,9 @@ async function updateNativeAnnotations(id, annotations) {
 }
 
 function requireIdle(status, operation) {
-  if (status.isRunning) throw new Error(t(operation === 'archive' ? 'runningArchive' : 'runningDelete'));
+  if (status.isRunning) throw trashFailure('running', operation === 'archive' ? 'runningArchive' : 'runningDelete');
   if (status.runState !== 'RUN_STATE_IDLE') {
-    throw new Error(t(operation === 'archive' ? 'unknownArchive' : 'unknownDelete'));
+    throw trashFailure('unknown_state', operation === 'archive' ? 'unknownArchive' : 'unknownDelete');
   }
 }
 
@@ -1078,7 +1198,8 @@ async function purgeTrashed(id, warnings) {
     present = false;
   }
 
-  if (present) {
+  const wasPresent = present;
+  if (wasPresent) {
     let writeError;
     try {
       await callConversationService('DeleteConversation', { conversationId: id });
@@ -1100,6 +1221,7 @@ async function purgeTrashed(id, warnings) {
   delete store.conversations[id];
   writeMetaStore(store);
   invalidateTrashViews();
+  return wasPresent;
 }
 
 async function applyTrashOperations(ids, operation) {
@@ -1141,11 +1263,17 @@ async function reconcileTrashMove(id) {
 }
 
 export function sweepTrash(now = Date.now()) {
-  return enqueueTrashSweep(now);
+  return enqueueTrashSweep({ now });
 }
 
-const enqueueTrashSweep = serializeMutation(async now => {
+const enqueueTrashSweep = serializeMutation(async ({ now, maxExpiredCount, expectedRetentionDays }) => {
   const { conversations } = readMetaStore();
+  const retention = getTrashRetentionMs();
+  if ((expectedRetentionDays !== undefined && retention !== expectedRetentionDays * DAY_MS) ||
+      (maxExpiredCount !== undefined &&
+        Object.values(conversations).filter(({ trash }) => isDue(trash, retention, now)).length > maxExpiredCount)) {
+    throw new Error(t('trashSweepChanged'));
+  }
   const pending = Object.entries(conversations).filter(([, entry]) => entry.trash?.phase);
   const settled = await applyTrashOperations(pending.map(([id]) => id), async id => {
     try {
@@ -1157,20 +1285,42 @@ const enqueueTrashSweep = serializeMutation(async now => {
     }
   });
   const latestStore = readMetaStore();
-  const expired = Object.entries(latestStore.conversations).filter(([, { trash }]) =>
-    trash && !trash.phase && trash.trashedAt + TRASH_RETENTION_MS <= now);
+  const expired = Object.entries(latestStore.conversations).filter(([, { trash }]) => isDue(trash, retention, now));
+  const skipped = [];
   const purged = await applyTrashOperations(expired.map(([id]) => id), async (id, warnings) => {
     try {
-      await purgeTrashed(id, warnings);
+      if (!await purgeTrashed(id, warnings)) skipped.push({ id, code: 'already_gone', error: t('alreadyGone') });
     } catch (err) {
       if (err.code === 'not_archived') {
         saveTrash(readMetaStore(), id, null);
+        skipped.push({ id, code: err.code, error: err.message });
+        return;
+      }
+      if (['running', 'unknown_state', 'subagent'].includes(err.code)) {
+        skipped.push({ id, code: err.code, error: err.message });
         return;
       }
       throw err;
     }
   });
-  return { settled, purged };
+  const skippedIds = new Set(skipped.map(item => item.id));
+  purged.succeeded = purged.succeeded.filter(id => !skippedIds.has(id));
+  return { settled, purged, skipped };
+});
+
+registerApi('/api/sweep-trash', async data => {
+  const { maxExpiredCount, expectedRetentionDays } = data;
+  if ((maxExpiredCount !== undefined && (!Number.isSafeInteger(maxExpiredCount) || maxExpiredCount < 0)) ||
+      (expectedRetentionDays !== undefined && !validRetention(expectedRetentionDays))) {
+    throw new Error(t('trashSweepChanged'));
+  }
+  const { settled, purged, skipped } = await enqueueTrashSweep({ now: Date.now(), maxExpiredCount, expectedRetentionDays });
+  return {
+    ok: settled.ok && purged.ok,
+    purged: purged.succeeded, skipped, failed: [...settled.failed, ...purged.failed],
+    warnings: [...settled.warnings, ...purged.warnings],
+    trashSummary: summarizeTrash(getTrashRetentionMs()),
+  };
 });
 
 function scheduleTrashSweep() {
@@ -1193,11 +1343,8 @@ registerApi('/api/export', async (data) => {
   return { ok: true, filename: `${stem}.md`, markdown };
 });
 
-registerApi('/api/reveal-file', async (data) => {
-  const target = resolve(String(data.path || EXPORT_DIR));
-  if (!existsSync(target)) throw new Error(t('pathNotFound', target));
+async function openInSystemExplorer(target, isFile) {
   if (process.platform === 'win32') {
-    const isFile = Boolean(data.isFile);
     const psCmd = isFile
       ? 'Start-Process -FilePath explorer.exe -ArgumentList (\'/select,"\' + $env:AGY_REVEAL_PATH + \'"\')'
       : 'Start-Process -FilePath explorer.exe -ArgumentList (\'"\' + $env:AGY_REVEAL_PATH + \'"\')';
@@ -1207,26 +1354,95 @@ registerApi('/api/reveal-file', async (data) => {
       timeout: 15000,
     });
   } else if (process.platform === 'darwin') {
-    const isFile = Boolean(data.isFile);
     await execFileAsync('open', isFile ? ['-R', target] : [target], { timeout: 15000 });
   } else {
-    const isFile = Boolean(data.isFile);
     await execFileAsync('xdg-open', [isFile ? dirname(target) : target], { timeout: 15000 });
   }
+}
+
+registerApi('/api/reveal-file', async data => {
+  const target = data.path ? resolve(String(data.path)) : getExportDir();
+  if (!data.path) mkdirSync(target, { recursive: true });
+  if (!existsSync(target)) throw new Error(t('pathNotFound', target));
+  await openInSystemExplorer(target, Boolean(data.path && data.isFile));
   return { ok: true, path: target };
+});
+
+function isLocalDirectory(path) {
+  try { return lstatSync(path).isDirectory(); } catch { return false; }
+}
+
+registerApi('/api/reveal-logs', async ({ conversationId }) => {
+  if (!isSafeConversationId(conversationId)) throw new Error(t('invalidLogConversation'));
+  const directory = join(BRAIN_DIR, conversationId);
+  if (!isLocalDirectory(AGY_DIR) || !isLocalDirectory(BRAIN_DIR) || !isLocalDirectory(directory)) {
+    throw new Error(t('rawLogDirectoryMissing'));
+  }
+  const generated = join(directory, '.system_generated');
+  const logs = join(generated, 'logs');
+  const target = isLocalDirectory(generated) && isLocalDirectory(logs) ? logs : directory;
+  await openInSystemExplorer(target, false);
+  return { ok: true, path: target };
+});
+
+const windowsDirectoryDialog = `
+  $ErrorActionPreference = 'Stop'
+  [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+  Add-Type -AssemblyName System.Windows.Forms
+  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+  try {
+    if ([IO.Directory]::Exists($env:AGY_EXPORT_PICKER_START)) { $dialog.SelectedPath = $env:AGY_EXPORT_PICKER_START }
+    if ($dialog.ShowDialog() -eq [Windows.Forms.DialogResult]::OK) { [Console]::WriteLine($dialog.SelectedPath) }
+  } finally {
+    $dialog.Dispose()
+  }
+`;
+
+function directoryPickers() {
+  if (process.platform === 'win32') return [['powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-STA', '-Command', windowsDirectoryDialog,
+  ], { windowsHide: false, env: { ...process.env, AGY_EXPORT_PICKER_START: getExportDir() } }]];
+  if (process.platform === 'darwin') return [['osascript', [
+    '-e', 'try', '-e', 'POSIX path of (choose folder)', '-e', 'on error number -128',
+    '-e', 'return ""', '-e', 'end try',
+  ]]];
+  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return [];
+  return [['zenity', ['--file-selection', '--directory']], ['kdialog', ['--getexistingdirectory']]];
+}
+
+registerApi('/api/pick-directory', async () => {
+  for (const [file, args, options] of directoryPickers()) {
+    try {
+      const { stdout } = await execFileAsync(file, args, { ...options, timeout: 180000 });
+      const path = stdout.replace(/\r?\n$/u, '');
+      if (!path) return { cancelled: true };
+      if (validExportPath(path)) return { path };
+    } catch (err) {
+      if ((file === 'zenity' || file === 'kdialog') && err.code === 1 && !err.stderr?.trim()) return { cancelled: true };
+    }
+  }
+  return { unavailable: true, error: t('directoryPickerUnavailable') };
 });
 
 app.run();
 
 function getSidebarLanguage() {
   try {
-    return readLanguagePreference() || DEFAULT_LANGUAGE;
+    return readPreferences().language || DEFAULT_LANGUAGE;
   } catch {
     return DEFAULT_LANGUAGE;
   }
 }
 
-const { cleanup: cleanupSidebar, invalidateCount } = startSidebarInjector(getArchivedCount, getSidebarLanguage);
+let nativeProjectOrder = [];
+function updateNativeProjectOrder(order) {
+  if (JSON.stringify(order) === JSON.stringify(nativeProjectOrder)) return;
+  nativeProjectOrder = order;
+  invalidateSnapshots();
+}
+
+const { cleanup: cleanupSidebar, invalidateCount } =
+  startSidebarInjector(getArchivedCount, getSidebarLanguage, updateNativeProjectOrder);
 scheduleTrashSweep();
 
 process.on('SIGTERM', async () => {
