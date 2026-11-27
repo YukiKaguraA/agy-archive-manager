@@ -10,6 +10,7 @@ import { SidecarApp } from 'sidecar_sdk';
 import { DEFAULT_LANGUAGE, getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
 import { filterSearch, beginSearch } from './search.mjs';
 import { createConversationStats, isSafeConversationId } from './conversation-stats.mjs';
+import { createSessionDetailStats } from './session-detail-stats.mjs';
 import { createPluginUpdater } from './plugin-updater.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
@@ -31,6 +32,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_RETENTION_DAYS = 7;
 const TRASH_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const inspectConversation = createConversationStats(AGY_DIR);
+const inspectSessionDetail = createSessionDetailStats(AGY_DIR, { inspectConversation });
 
 const LS_ADDRESS = process.env.ANTIGRAVITY_LS_ADDRESS || 'localhost:5387';
 const CSRF_TOKEN = process.env.ANTIGRAVITY_CSRF_TOKEN || '';
@@ -901,6 +903,15 @@ registerApi('/api/preview', async (data) => {
   return loadConversationPreview(id);
 });
 
+registerApi('/api/conversation-detail-stats', async ({ conversationId }) => {
+  if (!isSafeConversationId(conversationId)) throw new Error(t('invalidDetailConversation'));
+  const conversation = await getNativeConversation(conversationId);
+  if (getConversationStatus(conversation).isSubagent) throw new Error(t('detailNotAvailable'));
+  const detail = await inspectSessionDetail(conversationId);
+  if (!detail) throw new Error(t('detailNotAvailable'));
+  return { ...detail, warnings: detail.warnings.map(key => t(key) ?? t('detailNotAvailable')) };
+});
+
 registerApi('/api/conversation-stats', async (data) => {
   if (!Array.isArray(data.conversationIds) || data.conversationIds.length > 50) {
     throw new Error(t('invalidStatsRequest'));
@@ -1046,8 +1057,7 @@ function completeNativeIdentity(conv, id) {
   return conv.id === id && typeof conv.state?.runState === 'string' && conv.state.runState.length > 0;
 }
 
-async function verifiedNativeTags(id) {
-  const conv = await getNativeConversation(id);
+function verifyConversationTags(conv, id) {
   const ann = conv.annotations;
   const md = conv.metadata;
   const invalidFields = [ann, md].some(record =>
@@ -1058,6 +1068,120 @@ async function verifiedNativeTags(id) {
   }
   return nativeTagsOf(conv);
 }
+
+async function verifiedNativeTags(id) {
+  return verifyConversationTags(await getNativeConversation(id), id);
+}
+
+function tagInventory(items) {
+  const tags = new Map();
+  let taggedCount = 0;
+  let totalCount = 0;
+  let conflictSessions = 0;
+  for (const conversation of items) {
+    if (conversation.trashedAt !== null) continue;
+    totalCount++;
+    if (conversation.tagConflict) conflictSessions++;
+    if (conversation.tags.length) taggedCount++;
+    for (const name of conversation.tags) {
+      if (!tags.has(name)) tags.set(name, {
+        name, totalCount: 0, activeCount: 0, archivedCount: 0, starredCount: 0, conflictCount: 0, lastModifiedMs: 0,
+      });
+      const tag = tags.get(name);
+      tag.totalCount++;
+      tag[conversation.archived ? 'archivedCount' : 'activeCount']++;
+      if (conversation.starred) tag.starredCount++;
+      if (conversation.tagConflict) tag.conflictCount++;
+      tag.lastModifiedMs = Math.max(tag.lastModifiedMs, conversation.lastModifiedMs);
+    }
+  }
+  return {
+    summary: { totalTags: tags.size, taggedCount, untaggedCount: totalCount - taggedCount, totalCount, conflictSessions },
+    tags: [...tags.values()],
+  };
+}
+
+registerApi('/api/tags', async data => {
+  const snapshot = await loadSnapshot(data, true);
+  snapshot.tagInventory ??= tagInventory(snapshot.items);
+  return { snapshotId: snapshot.id, ...snapshot.tagInventory, warnings: snapshot.warnings };
+});
+
+function tagLabel(value) {
+  const tag = typeof value === 'string' ? value.trim().replace(/^#+/u, '').trim() : '';
+  if (!tag) throw new Error(t('invalidTagName'));
+  return tag;
+}
+
+function removeSynchronizedTagOverride(store, id, previous) {
+  if (!previous?.tags) return;
+  const entry = { ...previous };
+  delete entry.tags;
+  if (Object.keys(entry).length) store.conversations[id] = entry;
+  else delete store.conversations[id];
+  try {
+    writeMetaStore(store);
+  } catch (err) {
+    store.conversations[id] = previous;
+    throw err;
+  }
+}
+
+async function relocateTag(oldTag, newTag) {
+  const store = readMetaStore();
+  const snapshot = await loadSnapshot({}, false);
+  const candidates = snapshot.items.filter(item => item.trashedAt === null && item.tags.includes(oldTag));
+  const merged = Boolean(newTag && snapshot.items.some(item => item.trashedAt === null && item.tags.includes(newTag)));
+  const result = { ok: true, succeeded: [], unchanged: [], skipped: [], failed: [] };
+  for (const { id } of candidates) {
+    try {
+      const native = await getNativeConversation(id);
+      const nativeTags = verifyConversationTags(native, id);
+      const status = getConversationStatus(native);
+      const previous = store.conversations[id];
+      if (status.isSubagent || (previous?.trash && (status.archived || previous.trash.phase))) {
+        result.skipped.push({ id, code: 'tag_unavailable', error: t('tagSessionUnavailable') });
+        continue;
+      }
+      if (previous?.tags && !sameTags(normalizeTags(previous.tags), nativeTags)) {
+        result.skipped.push({ id, code: 'tag_conflict', error: t('tagConflictSkipped') });
+        continue;
+      }
+      if (!nativeTags.includes(oldTag)) {
+        result.unchanged.push(id);
+        continue;
+      }
+      const next = normalizeTags(nativeTags.map(tag => tag === oldTag ? newTag : tag));
+      if (next.length > 20) throw new Error(t('tagLimitExceeded'));
+      let updateError;
+      try {
+        await updateNativeAnnotations(id, { tags: next });
+      } catch (err) {
+        updateError = err;
+      }
+      try {
+        if (!sameTags(await verifiedNativeTags(id), next)) throw updateError ?? new Error(t('unconfirmedTags'));
+        removeSynchronizedTagOverride(store, id, previous);
+      } finally {
+        invalidateSnapshots();
+      }
+      result.succeeded.push(id);
+    } catch (err) {
+      result.failed.push({ id, error: err.message });
+    }
+  }
+  result.ok = result.skipped.length === 0 && result.failed.length === 0;
+  return newTag ? { ...result, oldTag, newTag, merged } : { ...result, tag: oldTag };
+}
+
+registerApi('/api/tags/rename', serializeMutation(async data => {
+  const oldTag = tagLabel(data.oldTag);
+  const newTag = tagLabel(data.newTag);
+  if (oldTag === newTag || [...newTag].length > 64) throw new Error(t('invalidTagRename'));
+  return relocateTag(oldTag, newTag);
+}));
+
+registerApi('/api/tags/delete', serializeMutation(data => relocateTag(tagLabel(data.tag), null)));
 
 registerApi('/api/meta/update', serializeMutation(async (data) => {
   const id = String(data.conversationId || '').trim();

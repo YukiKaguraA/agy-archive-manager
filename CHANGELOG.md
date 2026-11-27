@@ -6,6 +6,15 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
+## 2.3.4 - 2026-11-28（内部版 / Internal build）
+
+- 预览新增「详情统计」，显示轮次、工具调用分布和已记录的改动文件。现存文件可在资源管理器中定位。
+- Token 优先读取本机 Usage Monitor 账本，缺失时使用会话日志中的实际计数。
+- 顶栏新增独立标签页，支持搜索、排序、按标签跳转筛选、重命名或合并，以及仅移除标签。存在本地标签冲突的会话会跳过。
+- Preview adds Details for turns, tool calls, and recorded file changes. Existing files can be revealed in the system file manager.
+- Recorded Token data comes from the local Usage Monitor ledger when available, with a fallback to the session transcript.
+- The Tags page supports search, sorting, filtering conversations, renaming, merging, and removing tags. Bulk actions skip sessions with unresolved local tag conflicts.
+
 ## 2.3.3 - 2026-11-28（内部版 / Internal build）
 
 - 工作区优先沿用宿主项目顺序，未归属置底。首次进入视图时展开并定位最近更新的工作区。

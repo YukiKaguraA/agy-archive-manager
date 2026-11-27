@@ -1236,6 +1236,22 @@
     #libraryTools { display: flex; flex-direction: column; gap: 8px; }
     @media (max-width: 560px) { .tab-btn { padding: 4px 7px; gap: 4px; font-size: 11.5px; } }
     @media (max-width: 480px) { .search-box { flex-basis: 100%; } }
+    #pvContentView { display:flex; flex:1; min-height:0; flex-direction:column; }
+    #pvViewNav { align-self:flex-start; flex-shrink:0; margin:6px 12px; }
+    #pvStatsView, #tagsPane { flex:1; min-height:0; overflow:auto; padding:12px 14px 20px; }
+    #pvStatsView .settings-card, #tagsGrid .settings-card { padding:12px; margin:0 0 10px; min-width:0; overflow-wrap:anywhere; }
+    #pvStatsView h3, #tagsPane h2 { margin:.25em 0 .7em; }
+    .stats-grid, #tagsGrid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
+    .stats-grid div, .file-row, .stat-row { padding:5px; overflow-wrap:anywhere; }
+    .stats-grid strong, .tag-main strong { display:block; color:var(--am-accent); }
+    .stat-row progress { vertical-align:middle; width:28%; accent-color:var(--am-accent); }
+    .tags-controls { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    #tagsReport { white-space:pre-wrap; overflow-wrap:anywhere; }
+    .tag-main { width:100%; background:transparent; color:inherit; border:0; cursor:pointer; text-align:start; overflow-wrap:anywhere; }
+    .pill-tag { border:0; cursor:pointer; } .pill-tag.is-active { outline:1px solid currentColor; }
+    #tagDialog { color:var(--am-fg); background:var(--am-bg); border-radius:10px; max-width:min(92vw,440px); }
+    #tagDialog::backdrop { background:#0006; } #tagDialogHint { overflow-wrap:anywhere; }
+    @media(max-width:360px){ .primary-nav .nav-btn{padding-inline:5px;white-space:nowrap;} }
   </style>
 </head>
 <body>
@@ -1253,6 +1269,7 @@
               </svg>
               <span data-i18n="library">会话库</span>
             </button>
+            <button type="button" id="tagsBtn" class="nav-btn" aria-pressed="false" aria-controls="tagsPane"><span aria-hidden="true">#</span><span data-i18n="tagsTitle"></span></button>
             <button type="button" id="settingsBtn" class="nav-btn" aria-pressed="false" aria-controls="settingsPane">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3"/>
@@ -1343,6 +1360,16 @@
       </div>
     </div>
 
+    <section id="tagsPane" aria-labelledby="tagsBtn" hidden>
+      <div class="settings-content">
+        <h2 data-i18n="tagsTitle"></h2><p id="tagsSummary" role="status"></p><p data-i18n="tagsScope"></p><p id="tagsConflict" hidden></p>
+        <div class="tags-controls"><input type="search" id="tagsSearchInput" class="inline-input" data-i18n-placeholder="tagsSearch" data-i18n-label="tagsSearch">
+          <button type="button" class="btn btn-sm" id="tagsClearBtn" data-i18n="clearTagSearch"></button>
+          <select id="tagsSortSelect" class="ctrl-select" data-i18n-label="tagsSort"><option value="count" data-i18n="tagsMost"></option><option value="recent" data-i18n="tagsRecent"></option><option value="name" data-i18n="tagsName"></option></select>
+        </div>
+        <pre id="tagsReport" role="status" hidden></pre><div id="tagsGrid"></div>
+      </div>
+    </section>
     <section id="settingsPane" aria-labelledby="settingsBtn" hidden>
       <div class="settings-content">
         <div id="settingsLoadStatus" class="data-status" role="status" hidden></div>
@@ -1520,6 +1547,12 @@
             </div>
           </div>
 
+          <nav id="pvViewNav" class="primary-nav" role="tablist" data-i18n-label="previewViews">
+            <div class="nav-glider" id="pvViewGlider" aria-hidden="true"></div>
+            <button class="nav-btn" role="tab" aria-selected="true" aria-controls="pvContentView" data-pv-tab="content" id="pvContentTabBtn"><span data-i18n="pvContent"></span><span id="pvMsgBadge"></span></button>
+            <button class="nav-btn" role="tab" aria-selected="false" aria-controls="pvStatsView" data-pv-tab="stats" id="pvStatsTabBtn" data-i18n="pvStats"></button>
+          </nav>
+          <div id="pvContentView" role="tabpanel" aria-labelledby="pvContentTabBtn">
           <div id="pvMetaEditor" class="meta-editor">
             <div class="tag-resolution" id="tagConflictBox" hidden>
               <span id="tagConflictText"></span>
@@ -1540,11 +1573,17 @@
             <button id="pvNextMatchBtn" type="button" class="btn btn-sm" data-i18n="nextMatch">↓ 下一处</button>
           </div>
           <div id="pvMessages" class="messages-scroll"></div>
+          </div>
+          <div id="pvStatsView" role="tabpanel" aria-labelledby="pvStatsTabBtn" hidden></div>
         </div>
       </div>
     </div>
   </div>
 
+  <dialog id="tagDialog" aria-labelledby="tagDialogTitle"><form method="dialog">
+    <h3 id="tagDialogTitle"></h3><input id="tagDialogInput" class="inline-input" data-i18n-label="tagsName">
+    <p id="tagDialogHint"></p><div class="modal-actions"><button type="button" id="tagDialogCancel" class="btn" data-i18n="cancel"></button><button id="tagDialogSubmit" class="btn btn-primary"></button></div>
+  </form></dialog>
   <!-- Confirmation for moving chats to trash or permanently deleting them -->
   <div id="deleteModal" class="modal-backdrop">
     <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
@@ -2133,6 +2172,288 @@
       },
     };
 
+    Object.assign(messages["zh-CN"], {
+      tagsTitle: "标签",
+      tagsScope: "统计活跃、已归档及收藏会话，排除子代理与回收站。",
+      tagsSearch: "搜索标签",
+      clearTagSearch: "清空搜索",
+      tagsSort: "标签排序",
+      tagsMost: "会话数最多",
+      tagsRecent: "最近使用",
+      tagsName: "标签名称",
+      tagged: "已打标",
+      untagged: "未打标",
+      tagConflicts: "请在会话预览中处理标签冲突",
+      tagRemove: "删除标签",
+      tagRename: "重命名标签",
+      tagMerge: "将合并至现有标签",
+      tagRemoveHint: "将从以下数量的会话中移除标签，会话本身会保留",
+      tagEmpty: "没有匹配的标签",
+      tagSuccess: "已修改",
+      tagSkipped: "已跳过",
+      tagFailed: "失败",
+      pvContent: "会话正文",
+      pvStats: "详情统计",
+      previewViews: "预览视图",
+      detailOverview: "会话概览",
+      userTurns: "用户轮次",
+      assistantReplies: "助手回复",
+      userChars: "用户字数",
+      assistantChars: "助手字数",
+      activeSpanMs: "活动跨度",
+      fileCount: "会话文件",
+      sizeBytes: "占用空间",
+      plannerSteps: "规划步骤",
+      errorSteps: "错误步骤",
+      detailPartial: "统计数据不完整",
+      detailTokens: "Token 与模型",
+      transcriptLabel: "会话日志",
+      ledgerLabel: "本机只读账本",
+      inputTokens: "输入",
+      cacheReadTokens: "缓存读取",
+      outputTokens: "输出",
+      totalTokens: "Token 总量",
+      thinkingTokens: "思考",
+      responseTokens: "正文输出",
+      cacheHitRate: "缓存命中率",
+      avgTokPerSec: "平均 Token/s",
+      avgTtftSec: "平均首 Token 时间（秒）",
+      peakContextTokens: "上下文峰值",
+      contextLimitTokens: "上下文上限",
+      compactionCount: "压缩次数",
+      revertedStepCount: "撤回步数",
+      detailTools: "工具调用",
+      toolNames: "工具明细",
+      read: "读取",
+      write: "写入",
+      terminal: "终端",
+      searchCategory: "搜索",
+      subagent: "子代理",
+      other: "其他",
+      detailFiles: "产出与改动文件",
+      workspace: "工作区",
+      artifact: "产出物",
+      scratch: "临时脚本",
+      writes: "新建/覆写",
+      edits: "编辑",
+      missingFile: "已不存在",
+      allFiles: "全部",
+      statSteps: "步",
+      starredTag: "收藏",
+      detailRetry: "重试",
+    });
+    Object.assign(messages["en"], {
+      tagsTitle: "Tags",
+      tagsScope: "Includes active, archived and starred chats. Excludes subagents and trash.",
+      tagsSearch: "Search tags",
+      clearTagSearch: "Clear search",
+      tagsSort: "Sort tags",
+      tagsMost: "Most chats",
+      tagsRecent: "Recently used",
+      tagsName: "Tag name",
+      tagged: "Tagged",
+      untagged: "Untagged",
+      tagConflicts: "Resolve tag conflicts in the conversation preview",
+      tagRemove: "Remove tag",
+      tagRename: "Rename tag",
+      tagMerge: "Merge into existing tag",
+      tagRemoveHint: "Remove this tag from the following number of chats. The chats will be kept.",
+      tagEmpty: "No matching tags",
+      tagSuccess: "Changed",
+      tagSkipped: "Skipped",
+      tagFailed: "Failed",
+      pvContent: "Messages",
+      pvStats: "Statistics",
+      previewViews: "Preview views",
+      detailOverview: "Overview",
+      userTurns: "User turns",
+      assistantReplies: "Assistant replies",
+      userChars: "User characters",
+      assistantChars: "Assistant characters",
+      activeSpanMs: "Time span",
+      fileCount: "Session files",
+      sizeBytes: "Storage",
+      plannerSteps: "Planner steps",
+      errorSteps: "Error steps",
+      detailPartial: "Partial statistics",
+      detailTokens: "Tokens and models",
+      transcriptLabel: "Conversation log",
+      ledgerLabel: "Local read-only ledger",
+      inputTokens: "Input",
+      cacheReadTokens: "Cache reads",
+      outputTokens: "Output",
+      totalTokens: "Total tokens",
+      thinkingTokens: "Thinking",
+      responseTokens: "Response",
+      cacheHitRate: "Cache hit rate",
+      avgTokPerSec: "Mean tokens/s",
+      avgTtftSec: "Mean TTFT (s)",
+      peakContextTokens: "Peak context",
+      contextLimitTokens: "Context limit",
+      compactionCount: "Compactions",
+      revertedStepCount: "Reverted steps",
+      detailTools: "Tool calls",
+      toolNames: "Tool breakdown",
+      read: "Read",
+      write: "Write",
+      terminal: "Terminal",
+      searchCategory: "Search",
+      subagent: "Subagents",
+      other: "Other",
+      detailFiles: "Created and modified files",
+      workspace: "Workspace",
+      artifact: "Artifacts",
+      scratch: "Scratch",
+      writes: "Writes",
+      edits: "Edits",
+      missingFile: "Missing",
+      allFiles: "All",
+      statSteps: "steps",
+      starredTag: "Starred",
+      detailRetry: "Retry",
+    });
+    Object.assign(messages["zh-TW"], {
+      tagsTitle: "標籤",
+      tagsScope: "統計活躍、已封存及收藏會話，排除子代理與回收桶。",
+      tagsSearch: "搜尋標籤",
+      clearTagSearch: "清除搜尋",
+      tagsSort: "標籤排序",
+      tagsMost: "會話數最多",
+      tagsRecent: "最近使用",
+      tagsName: "標籤名稱",
+      tagged: "已加標籤",
+      untagged: "未加標籤",
+      tagConflicts: "請在會話預覽中處理標籤衝突",
+      tagRemove: "刪除標籤",
+      tagRename: "重新命名標籤",
+      tagMerge: "將合併至現有標籤",
+      tagRemoveHint: "將從以下數量的會話移除標籤，會話本身會保留",
+      tagEmpty: "沒有相符的標籤",
+      tagSuccess: "已變更",
+      tagSkipped: "已略過",
+      tagFailed: "失敗",
+      pvContent: "會話正文",
+      pvStats: "詳細統計",
+      previewViews: "預覽檢視",
+      detailOverview: "會話概覽",
+      userTurns: "使用者輪次",
+      assistantReplies: "助理回覆",
+      userChars: "使用者字數",
+      assistantChars: "助理字數",
+      activeSpanMs: "活動跨度",
+      fileCount: "會話檔案",
+      sizeBytes: "佔用空間",
+      plannerSteps: "規劃步驟",
+      errorSteps: "錯誤步驟",
+      detailPartial: "統計資料不完整",
+      detailTokens: "Token 與模型",
+      transcriptLabel: "會話日誌",
+      ledgerLabel: "本機唯讀帳本",
+      inputTokens: "輸入",
+      cacheReadTokens: "快取讀取",
+      outputTokens: "輸出",
+      totalTokens: "Token 總量",
+      thinkingTokens: "思考",
+      responseTokens: "正文輸出",
+      cacheHitRate: "快取命中率",
+      avgTokPerSec: "平均 Token/s",
+      avgTtftSec: "平均首 Token 時間（秒）",
+      peakContextTokens: "上下文峰值",
+      contextLimitTokens: "上下文上限",
+      compactionCount: "壓縮次數",
+      revertedStepCount: "撤回步數",
+      detailTools: "工具呼叫",
+      toolNames: "工具明細",
+      read: "讀取",
+      write: "寫入",
+      terminal: "終端機",
+      searchCategory: "搜尋",
+      subagent: "子代理",
+      other: "其他",
+      detailFiles: "產出與變更檔案",
+      workspace: "工作區",
+      artifact: "產出物",
+      scratch: "臨時指令碼",
+      writes: "新增/覆寫",
+      edits: "編輯",
+      missingFile: "已不存在",
+      allFiles: "全部",
+      statSteps: "步",
+      starredTag: "收藏",
+      detailRetry: "重試",
+    });
+    Object.assign(messages["ja"], {
+      tagsTitle: "タグ",
+      tagsScope: "アクティブ、アーカイブ、スター付きの会話が対象です。サブエージェントとゴミ箱は除きます。",
+      tagsSearch: "タグを検索",
+      clearTagSearch: "検索をクリア",
+      tagsSort: "並べ替え",
+      tagsMost: "会話数順",
+      tagsRecent: "最近使用した順",
+      tagsName: "タグ名",
+      tagged: "タグあり",
+      untagged: "タグなし",
+      tagConflicts: "タグの競合は会話プレビューで解決してください",
+      tagRemove: "タグを削除",
+      tagRename: "タグ名を変更",
+      tagMerge: "既存のタグに統合します",
+      tagRemoveHint: "次の件数の会話からタグを外します。会話は保持されます",
+      tagEmpty: "一致するタグはありません",
+      tagSuccess: "変更済み",
+      tagSkipped: "スキップ",
+      tagFailed: "失敗",
+      pvContent: "メッセージ",
+      pvStats: "詳細統計",
+      previewViews: "プレビュー表示",
+      detailOverview: "会話概要",
+      userTurns: "ユーザー発言",
+      assistantReplies: "アシスタント応答",
+      userChars: "ユーザー文字数",
+      assistantChars: "アシスタント文字数",
+      activeSpanMs: "経過時間",
+      fileCount: "会話ファイル",
+      sizeBytes: "使用容量",
+      plannerSteps: "プランナーのステップ",
+      errorSteps: "エラーステップ",
+      detailPartial: "統計は一部のみです",
+      detailTokens: "トークンとモデル",
+      transcriptLabel: "会話ログ",
+      ledgerLabel: "ローカルの読み取り専用台帳",
+      inputTokens: "入力",
+      cacheReadTokens: "キャッシュ読込",
+      outputTokens: "出力",
+      totalTokens: "合計トークン",
+      thinkingTokens: "思考",
+      responseTokens: "応答出力",
+      cacheHitRate: "キャッシュヒット率",
+      avgTokPerSec: "平均トークン/秒",
+      avgTtftSec: "初回トークン平均時間（秒）",
+      peakContextTokens: "コンテキストのピーク",
+      contextLimitTokens: "コンテキスト上限",
+      compactionCount: "圧縮回数",
+      revertedStepCount: "取り消しステップ",
+      detailTools: "ツール呼び出し",
+      toolNames: "ツール内訳",
+      read: "読み込み",
+      write: "書き込み",
+      terminal: "ターミナル",
+      searchCategory: "検索",
+      subagent: "サブエージェント",
+      other: "その他",
+      detailFiles: "作成・変更したファイル",
+      workspace: "ワークスペース",
+      artifact: "成果物",
+      scratch: "一時ファイル",
+      writes: "作成・上書き",
+      edits: "編集",
+      missingFile: "削除済み",
+      allFiles: "すべて",
+      statSteps: "ステップ",
+      starredTag: "スター付き",
+      detailRetry: "再試行",
+    });
+
+
     function detectLocale(language) {
       if (!language) return 'zh-CN';
       let locale;
@@ -2149,6 +2470,8 @@
 
     const defaultLocale = detectLocale(navigator.language);
     const state = {
+      previewTab: 'content', detailStats: null, detailStatus: 'idle', detailError: '', fileKind: 'all',
+      tagInventory: null, tagAction: null,
       locale: defaultLocale,
       tab: 'active',
       query: '',
@@ -2194,6 +2517,9 @@
     let toastTimer = null;
     let toastContent;
     let listRequestId = 0;
+    const detailStatsCache = new Map();
+    let detailStatsRequestId = 0;
+    let tagsRequestId = 0;
     let previewRequestId = 0;
     let previewOverrides = {};
     const deletingIds = new Set();
@@ -2255,7 +2581,8 @@
     }
 
     function syncAllGliders() {
-      syncGlider($('primaryNav'), $('primaryGlider'), state.surface === 'settings' ? $('settingsBtn') : $('libraryBtn'));
+      syncGlider($('primaryNav'), $('primaryGlider'), $(state.surface + 'Btn'));
+      syncGlider($('pvViewNav'), $('pvViewGlider'), $(state.previewTab === 'stats' ? 'pvStatsTabBtn' : 'pvContentTabBtn'));
       const tabsEl = $('tabs');
       syncGlider(tabsEl, $('tabsGlider'), tabsEl?.querySelector?.('.tab-btn.active'));
       const fontEl = $('fontScaleControl');
@@ -2267,6 +2594,7 @@
       : null;
     if (navGliderObserver) {
       navGliderObserver.observe($('primaryNav'));
+      if ($('pvViewNav')) navGliderObserver.observe($('pvViewNav'));
       navGliderObserver.observe($('tabs'));
       navGliderObserver.observe($('fontScaleControl'));
     }
@@ -2298,7 +2626,9 @@
     }
 
     function applyLocale(locale) {
+      const changed = state.locale !== locale;
       state.locale = locale;
+      if (changed) invalidateDetailCache();
       document.documentElement.lang = locale;
       document.title = t('brand');
       $('languageSelect').value = locale;
@@ -2315,6 +2645,8 @@
       renderDeleteReport();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
+      if (state.tagInventory) renderTagsInventory();
+      if (state.previewTab === 'stats') renderDetailStats();
       updateToastText();
       renderSettings();
       syncAllGliders();
@@ -2546,6 +2878,7 @@
     }
 
     async function loadList({ refresh = false, retrySnapshot = true } = {}) {
+      if (refresh) invalidateDetailCache();
       const requestId = invalidateList();
       try {
         const data = await apiPost('/api/conversations', {
@@ -2592,13 +2925,15 @@
         tagSel.value = curTag;
 
         let initialGroup;
-        if (state.groups.length && !state.query && !state.openedByTab.has(state.tab)) {
+        if (state.groups.length && !state.query && (!state.openedByTab.has(state.tab) ||
+          (state.openTaggedGroup && !state.groups.some(group => groupIsOpen(group.key))))) {
           const assigned = state.groups.filter(group => group.key !== 'unassigned');
           const modified = group => group.lastModifiedMs || Date.parse(group.lastModified) || 0;
           const latest = (assigned.length ? assigned : state.groups).reduce((a, b) => modified(b) > modified(a) ? b : a);
           initialGroup = latest.key;
           state.openedByTab.set(state.tab, new Set([initialGroup]));
         }
+        state.openTaggedGroup = false;
         state.listReady = true;
         updateBatchBar();
         renderList();
@@ -2858,7 +3193,7 @@
           : `<span class="pill pill-status pill-active"><span class="status-dot"></span>${escapeHtml(t('active'))}</span>`;
 
       const tagsHtml = (item.tags || [])
-        .map((t) => `<span class="pill pill-tag">#${escapeHtml(t)}</span>`)
+        .map(tag => `<button type="button" class="pill pill-tag js-card-tag ${state.tag === tag ? 'is-active' : ''}" data-tag="${escapeHtml(tag)}" aria-pressed="${state.tag === tag}">#${escapeHtml(tag)}</button>`)
         .join('');
       const snippetHtml = item.matchSnippet
         ? `<div class="card-snippet">${highlightText(escapeHtml(item.matchSnippet), state.query)}</div>`
@@ -2903,6 +3238,13 @@
         ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
       `;
 
+      for (const button of card.querySelectorAll('.js-card-tag')) button.addEventListener('click', event => {
+        event.stopPropagation();
+        state.tag = state.tag === button.dataset.tag ? '' : button.dataset.tag;
+        $('tagSelect').value = state.tag;
+        resetFilters();
+        loadList();
+      });
       card.addEventListener('click', () => {
         if (state.batchMode) {
           selectItem(item, !state.checkedIds.has(item.id));
@@ -3125,11 +3467,13 @@
       const previous = refreshLocale && state.previewData?.id === convId ? state.previewData : null;
       const requestId = ++previewRequestId;
       previewOverrides = {};
+      resetDetailStats();
       state.selectedId = convId;
       state.previewData = null;
       if (!state.pendingBatch || (state.pendingDeleteId && state.pendingDeleteId !== convId)) closeDeleteModal();
       if (previous && $('pvTitleInput').style.display !== 'none') $('pvRenameBtn').textContent = t('save');
       else exitTitleEdit();
+      updatePreviewTabs();
       setPreviewControlsReady(false);
       showDataStatus('pvSource', '');
       if (!refreshLocale) $('mainSplit').classList.add('show-preview');
@@ -3151,6 +3495,8 @@
         if (!previous || $('noteInput').value === (previous.note || '')) $('noteInput').value = data.note || '';
         setPreviewControlsReady(true);
         renderPreview();
+        updatePreviewTabs();
+        if (state.previewTab === 'stats') loadDetailStats();
       } catch (err) {
         if (requestId !== previewRequestId) return;
         state.previewData = null;
@@ -3233,9 +3579,9 @@
       const longBlocks = box.querySelectorAll('.msg-block.is-long');
       const btn = $('pvCollapseAllBtn');
       const hasMsgs = allBlocks.length > 0;
-      btn.disabled = !hasMsgs;
-      $('pvScrollTopBtn').disabled = !hasMsgs;
-      $('pvScrollBottomBtn').disabled = !hasMsgs;
+      btn.disabled = !hasMsgs || state.previewTab === 'stats';
+      $('pvScrollTopBtn').disabled = state.previewTab === 'stats' ? !state.previewData : !hasMsgs;
+      $('pvScrollBottomBtn').disabled = $('pvScrollTopBtn').disabled;
       if (!hasMsgs) {
         btn.textContent = t('expandAll');
         btn.title = t('expandAllHelp');
@@ -3798,32 +4144,339 @@
     function showSurface(surface) {
       state.surface = surface;
       const settings = surface === 'settings';
-      $('libraryTools').hidden = settings;
-      $('mainSplit').hidden = settings;
+      const library = surface === 'library';
+      if ($('tagsPane')) $('tagsPane').hidden = surface !== 'tags';
+      $('tagsBtn')?.setAttribute('aria-pressed', surface === 'tags');
+      $('libraryTools').hidden = !library;
+      $('mainSplit').hidden = !library;
       $('settingsPane').hidden = !settings;
-      $('libraryBtn').setAttribute('aria-pressed', !settings);
+      $('libraryBtn').setAttribute('aria-pressed', library);
       $('settingsBtn').setAttribute('aria-pressed', settings);
-      $('listWarning').hidden = settings || !$('listWarning').textContent;
-      $('batchReport').hidden = settings || !state.deleteReport;
-      if (settings) {
+      $('listWarning').hidden = !library || !$('listWarning').textContent;
+      $('batchReport').hidden = !library || !state.deleteReport;
+      if (!library) {
         statsSurfaceId++;
         pendingStats.clear();
         visibleStats.clear();
         statsObserver?.disconnect?.();
         syncAllGliders();
-        return loadSettings();
+        return settings ? loadSettings() : loadTagsSurface();
       } else {
         if (state.listReady) renderList();
+        if (state.previewTab === 'stats' && state.previewData) loadDetailStats();
         if (state.previewMatchIndex < 0) stepPreviewMatch(1);
         syncAllGliders();
       }
     }
 
+    function previewScrollBox() {
+      return $(state.previewTab === 'stats' ? 'pvStatsView' : 'pvMessages');
+    }
+
+    function updatePreviewTabs() {
+      const stats = state.previewTab === 'stats';
+      for (const [id, active] of [['pvStatsTabBtn', stats], ['pvContentTabBtn', !stats]]) {
+        const btn = $(id);
+        btn?.setAttribute('aria-selected', active);
+        btn?.setAttribute('aria-pressed', active);
+        btn?.setAttribute('tabindex', active ? '0' : '-1');
+      }
+      $('pvStatsView').hidden = !stats;
+      $('pvContentView').hidden = stats;
+      $('pvMsgBadge').textContent = state.previewData ? number(state.previewData.messages?.length ?? 0) : '';
+      $('pvRawBtn').disabled = stats || !state.previewData;
+      syncCollapseAllBtn();
+      syncAllGliders();
+    }
+
+    function selectPreviewTab(tab) {
+      state.previewTab = tab;
+      updatePreviewTabs();
+      if (tab === 'stats') return loadDetailStats();
+      if (state.previewMatchIndex < 0 && state.query) stepPreviewMatch(1);
+    }
+
+    function invalidateDetailCache() {
+      detailStatsCache.clear();
+      resetDetailStats();
+      if (state.surface === 'library' && state.previewTab === 'stats' && state.previewData) loadDetailStats();
+    }
+
+    function resetDetailStats() {
+      detailStatsRequestId++;
+      state.detailStats = null;
+      state.detailError = '';
+      state.detailStatus = 'idle';
+      state.fileKind = 'all';
+      $('pvStatsView').textContent = t('loading');
+    }
+
+    async function loadDetailStats() {
+      const id = state.selectedId;
+      if (!id || !state.previewData || state.previewTab !== 'stats' || state.detailStatus === 'loading') return;
+      if (detailStatsCache.has(id)) {
+        state.detailStats = detailStatsCache.get(id);
+        state.detailStatus = 'ready';
+        return renderDetailStats();
+      }
+      const request = ++detailStatsRequestId;
+      state.detailStatus = 'loading';
+      renderDetailStats();
+      try {
+        const data = await apiPost('/api/conversation-detail-stats', { conversationId: id });
+        if (request !== detailStatsRequestId || state.selectedId !== id) return;
+        if (data.conversationId !== id) throw new Error(t('previewMismatch'));
+        detailStatsCache.set(id, data);
+        state.detailStats = data;
+        state.detailStatus = 'ready';
+      } catch (error) {
+        if (request !== detailStatsRequestId || state.selectedId !== id) return;
+        state.detailError = error.message;
+        state.detailStatus = 'error';
+      }
+      renderDetailStats();
+    }
+
+    const safe = value => escapeHtml(String(value ?? ''));
+    function metric(label, value) {
+      return '<div><span>' + safe(t(label)) + '</span><strong>' + safe(value) + '</strong></div>';
+    }
+
+    function sectionHtml(title, body) {
+      return '<section class="settings-card"><h3>' + safe(title) + '</h3>' + body + '</section>';
+    }
+
+    function barRow(label, count, total) {
+      const ratio = total > 0 ? Math.min(1, Math.max(0, count / total)) : 0;
+      return '<div class="stat-row">' + safe(label) + ' <progress max="1" value="' + safe(ratio) + '"></progress> ' +
+        safe(number(count)) + ' · ' + safe(number(Math.round(ratio * 100))) + '%</div>';
+    }
+
+    function telemetryHtml(telemetry) {
+      if (!telemetry || !['usage-monitor', 'transcript'].includes(telemetry.source)) return '';
+      const enhanced = telemetry.source === 'usage-monitor';
+      const source = enhanced ? 'Usage Monitor' : t('transcriptLabel');
+      let body = '<span class="pill" title="' + safe(enhanced ? t('ledgerLabel') : source) + '">' + safe(source) + '</span><div class="stats-grid">';
+      for (const key of ['totalTokens', 'inputTokens', 'cacheReadTokens', 'outputTokens', 'cacheHitRate', 'avgTokPerSec', 'avgTtftSec', 'peakContextTokens', 'contextLimitTokens', 'compactionCount', 'revertedStepCount']) {
+        if (Number.isFinite(telemetry[key])) body += metric(key, key === 'cacheHitRate' ? number(telemetry[key] * 100) + '%' : number(telemetry[key]));
+      }
+      body += '</div>';
+      for (const key of ['thinkingTokens', 'responseTokens']) {
+        if (Number.isFinite(telemetry[key])) body += barRow(t(key), telemetry[key], telemetry.outputTokens);
+      }
+      if (telemetry.contextLimitTokens > 0 && Number.isFinite(telemetry.peakContextTokens)) body += barRow(t('peakContextTokens'), telemetry.peakContextTokens, telemetry.contextLimitTokens);
+      for (const model of telemetry.models || []) {
+        body += barRow(model.name + ' · ' + number(model.steps) + ' ' + t('statSteps'), model.totalTokens, telemetry.totalTokens);
+      }
+      return sectionHtml(t('detailTokens'), body);
+    }
+
+    function renderDetailStats() {
+      const view = $('pvStatsView');
+      const d = state.detailStats;
+      if (!d) {
+        view.textContent = state.detailStatus === 'error' ? state.detailError : t('loading');
+        if (state.detailStatus === 'error') {
+          const retry = document.createElement('button');
+          retry.className = 'btn btn-sm';
+          retry.textContent = t('detailRetry');
+          retry.addEventListener('click', loadDetailStats);
+          view.appendChild(retry);
+        }
+        return;
+      }
+      const o = d.overview || {};
+      const warnings = [...(d.status === 'partial' ? [t('detailPartial')] : []), ...(d.warnings || [])];
+      let markup = warnings.length ? '<p class="data-status">' + safe(warnings.join(' · ')) + '</p>' : '';
+      const metrics = ['userTurns','assistantReplies','userChars','assistantChars','plannerSteps','errorSteps','activeSpanMs','fileCount','sizeBytes'];
+      markup += sectionHtml(t('detailOverview'), '<div class="stats-grid">' + metrics.filter(key => o[key] != null).map(key => {
+        const value = key === 'activeSpanMs' ? number(o[key] / 60000) + ' min' : key === 'sizeBytes' ? number(o[key] / 1024) + ' KiB' : number(o[key]);
+        return metric(key, value);
+      }).join('') + '</div>');
+      markup += telemetryHtml(d.telemetry);
+      const tools = d.tools || {};
+      const total = tools.totalCalls || 0;
+      let rows = [...(tools.categories || [])].sort((a,b) => b.count-a.count).map(row =>
+        barRow(row.key === 'mcp' ? 'MCP' : t(row.key === 'search' ? 'searchCategory' : row.key), row.count, total)).join('');
+      rows += '<details><summary>' + safe(t('toolNames')) + '</summary>' + (tools.byName || []).map(row =>
+        '<div class="stat-row">' + safe(row.name) + ' · ' + safe(number(row.count)) + '</div>').join('') + '</details>';
+      markup += sectionHtml(t('detailTools') + ' · ' + number(total), rows);
+      const files = d.files || {};
+      const kinds = ['all','workspace','artifact','scratch'];
+      let fileRows = '<div class="tags-controls">' + kinds.map(k => '<button type="button" class="btn btn-sm" data-kind="' + k + '" aria-pressed="' + (state.fileKind === k) + '">' + safe(t(k === 'all' ? 'allFiles' : k)) + ' ' + safe(number((k === 'all' ? files.totalUnique : files[k + 'Count']) ?? 0)) + '</button>').join('') + '</div>';
+      for (const [i, item] of (files.items || []).entries()) {
+        if (state.fileKind !== 'all' && state.fileKind !== item.kind) continue;
+        fileRows += '<div class="file-row"><strong>' + safe(item.name) + '</strong><div>' + safe(item.path) + '</div>' +
+          safe(t('writes')) + ' ×' + safe(number(item.writes)) + ' · ' + safe(t('edits')) + ' ×' + safe(number(item.edits)) + ' ';
+        if (item.exists === true) fileRows += '<button class="btn btn-sm" data-reveal="' + i + '">' + safe(t('revealFile')) + '</button>';
+        if (item.exists === false) fileRows += '<button class="btn btn-sm" disabled>' + safe(t('missingFile')) + '</button>';
+        fileRows += '</div>';
+      }
+      view.innerHTML = markup + sectionHtml(t('detailFiles') + ' · ' + number(files.totalUnique ?? 0), fileRows);
+    }
+
+    $('pvStatsView')?.addEventListener('click', async event => {
+      const kind = event.target.closest?.('[data-kind]')?.dataset.kind;
+      if (kind) { state.fileKind = kind; renderDetailStats(); return; }
+      const index = event.target.closest?.('[data-reveal]')?.dataset.reveal;
+      if (index == null) return;
+      const item = state.detailStats?.files?.items?.[index];
+      if (item?.exists !== true || !item.path) return;
+      try { await apiPost('/api/reveal-file', { path: item.path, isFile: true }); }
+      catch (error) { showToast(() => error.message); }
+    });
+    $('pvStatsTabBtn')?.addEventListener('click', () => selectPreviewTab('stats'));
+    $('pvContentTabBtn')?.addEventListener('click', () => selectPreviewTab('content'));
+    $('pvViewNav')?.addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const stats = event.key === 'End' || (event.key !== 'Home' && state.previewTab === 'content');
+      selectPreviewTab(stats ? 'stats' : 'content');
+      $(stats ? 'pvStatsTabBtn' : 'pvContentTabBtn')?.focus();
+    });
+
+    async function loadTagsSurface({ refresh = false } = {}) {
+      const request = ++tagsRequestId;
+      $('tagsSummary').textContent = t('loading');
+      try {
+        const inventory = await apiPost('/api/tags', { refresh, snapshotId: refresh ? null : state.snapshotId });
+        if (request !== tagsRequestId) return;
+        state.tagInventory = inventory;
+        renderTagsInventory();
+      } catch (error) {
+        if (request !== tagsRequestId) return;
+        state.tagInventory = null;
+        $('tagsGrid').textContent = '';
+        $('tagsConflict').hidden = true;
+        $('tagsSummary').textContent = error.message;
+      }
+    }
+
+    function renderTagsInventory() {
+      const inventory = state.tagInventory;
+      if (!inventory) return;
+      const s = inventory.summary || {};
+      $('tagsSummary').textContent = t('tagsTitle') + ' ' + number(s.totalTags ?? 0) + ' · ' + t('tagged') + ' ' +
+        number(s.taggedCount ?? 0) + ' / ' + number(s.totalCount ?? 0) + ' · ' + t('untagged') + ' ' + number(s.untaggedCount ?? 0);
+      $('tagsConflict').hidden = !s.conflictSessions;
+      $('tagsConflict').textContent = t('tagConflicts') + ' · ' + number(s.conflictSessions || 0);
+      const query = ($('tagsSearchInput').value || '').trim().toLocaleLowerCase(state.locale);
+      const sort = $('tagsSortSelect').value;
+      const tags = (inventory.tags || []).filter(tag => tag.name.toLocaleLowerCase(state.locale).includes(query)).sort((a,b) =>
+        (sort === 'recent' ? b.lastModifiedMs - a.lastModifiedMs : sort === 'name' ? 0 : b.totalCount - a.totalCount) ||
+        a.name.localeCompare(b.name,state.locale));
+      $('tagsGrid').innerHTML = tags.length ? tags.map(tag => {
+        const counts = [t('active') + ' ' + number(tag.activeCount), t('archived') + ' ' + number(tag.archivedCount),
+          t('starredTag') + ' ' + number(tag.starredCount)].join(' · ');
+        return '<article class="settings-card" data-tag="' + safe(tag.name) + '"><button type="button" class="tag-main" data-tag-action="select">' +
+          '<strong>#' + safe(tag.name) + ' · ' + safe(number(tag.totalCount)) + '</strong>' + safe(counts) +
+          '<div>' + safe(formatTimestamp(tag.lastModifiedMs)) + (tag.conflictCount ? ' ⚠ ' + safe(number(tag.conflictCount)) : '') + '</div></button>' +
+          '<button class="btn btn-sm" data-tag-action="rename">' + safe(t('tagRename')) + '</button> ' +
+          '<button class="btn btn-sm" data-tag-action="delete">' + safe(t('tagRemove')) + '</button></article>';
+      }).join('') : safe(t('tagEmpty'));
+    }
+
+    function selectInventoryTag(tag) {
+      clearTimeout(searchTimer);
+      state.query = '';
+      state.groupKey = '';
+      $('searchInput').value = '';
+      $('groupSelect').value = '';
+      $('clearSearchBtn').classList.remove('show');
+      const hits = { all: tag.totalCount, active: tag.activeCount, archived: tag.archivedCount, starred: tag.starredCount };
+      if (!(hits[state.tab] > 0)) switchTab('all', { reload: false });
+      state.snapshotId = state.tagInventory?.snapshotId ?? null;
+      state.openTaggedGroup = true;
+      state.tag = tag.name;
+      $('tagSelect').value = tag.name;
+      resetFilters();
+      showSurface('library');
+      if (state.previewData) renderPreview();
+      return loadList();
+    }
+
+    function tagDialogHint() {
+      const action = state.tagAction;
+      if (!action) return;
+      const target = $('tagDialogInput').value.trim();
+      const merge = target !== action.tag.name && state.tagInventory?.tags?.some(tag => tag.name === target);
+      $('tagDialogHint').textContent = action.type === 'delete' ? t('tagRemoveHint') + ' · ' + number(action.tag.totalCount) :
+        merge ? t('tagMerge') + ' #' + target + ' · ' + number(action.tag.totalCount) : '';
+      $('tagDialogSubmit').disabled = action.busy || (action.type === 'rename' && (!target || [...target].length > 64 || target === action.tag.name));
+    }
+
+    function openTagDialog(tag, type) {
+      state.tagAction = { tag, type, busy: false };
+      const label = t(type === 'rename' ? 'tagRename' : 'tagRemove');
+      $('tagDialogTitle').textContent = label + ' #' + tag.name;
+      $('tagDialogSubmit').textContent = label;
+      $('tagDialogInput').hidden = type === 'delete';
+      $('tagDialogInput').value = tag.name;
+      tagDialogHint();
+      $('tagDialog').showModal?.();
+      if (type === 'rename') { $('tagDialogInput').focus(); $('tagDialogInput').select?.(); }
+      else $('tagDialogCancel').focus();
+    }
+
+    async function submitTagAction(event) {
+      event.preventDefault();
+      const action = state.tagAction;
+      if (!action || action.busy || $('tagDialogSubmit').disabled) return;
+      const oldTag = action.tag.name;
+      const newTag = $('tagDialogInput').value.trim();
+      action.busy = true;
+      tagDialogHint();
+      try {
+        const rename = action.type === 'rename';
+        const r = await apiPost('/api/tags/' + action.type, rename ? { oldTag, newTag } : { tag: oldTag });
+        if (state.tag === oldTag) state.tag = rename ? (r.newTag ?? newTag) : '';
+        $('tagSelect').value = state.tag;
+        const report = $('tagsReport');
+        const lines = [];
+        for (const [key,label] of [['succeeded','tagSuccess'],['skipped','tagSkipped'],['failed','tagFailed']]) {
+          const entries = r[key] ?? [];
+          lines.push(t(label) + ' ' + number(Array.isArray(entries) ? entries.length : entries));
+          if (key !== 'succeeded' && Array.isArray(entries)) {
+            for (const item of entries) lines.push(typeof item === 'string' ? item : [item.title || item.id || item.conversationId, item.error || item.message || item.reason || item.code].filter(Boolean).join(' · '));
+          }
+        }
+        report.textContent = lines.join('\n');
+        report.hidden = false;
+        $('tagDialog').close?.();
+        state.tagAction = null;
+        state.snapshotId = null;
+        await Promise.all([loadList({ refresh: true }).then(() => loadTagsSurface()),
+          state.selectedId && openPreview(state.selectedId, { refreshLocale: true })]);
+      } catch (error) {
+        $('tagDialogHint').textContent = error.message;
+        $('tagDialogSubmit').disabled = false;
+      } finally { action.busy = false; }
+    }
+
+    $('tagsBtn')?.addEventListener('click', () => showSurface('tags'));
+    $('tagsGrid')?.addEventListener('click', event => {
+      const btn = event.target.closest?.('[data-tag-action]');
+      if (!btn) return;
+      event.stopPropagation();
+      const name = btn.closest('[data-tag]')?.dataset.tag;
+      const tag = state.tagInventory?.tags?.find(item => item.name === name);
+      if (!tag) return;
+      return btn.dataset.tagAction === 'select' ? selectInventoryTag(tag) : openTagDialog(tag, btn.dataset.tagAction);
+    });
+    $('tagsSearchInput')?.addEventListener('input', renderTagsInventory);
+    $('tagsSortSelect')?.addEventListener('change', renderTagsInventory);
+    $('tagsClearBtn')?.addEventListener('click', () => { $('tagsSearchInput').value = ''; renderTagsInventory(); $('tagsSearchInput').focus(); });
+    $('tagDialogInput')?.addEventListener('input', tagDialogHint);
+    $('tagDialog')?.addEventListener('submit', submitTagAction);
+    $('tagDialog')?.addEventListener('cancel', event => { if (state.tagAction?.busy) event.preventDefault(); });
+    $('tagDialogCancel')?.addEventListener('click', () => { if (!state.tagAction?.busy) $('tagDialog').close?.(); });
+
+
     $('libraryBtn').addEventListener('click', () => showSurface('library'));
     $('settingsBtn').addEventListener('click', () => showSurface('settings'));
 
     // Tabs & Filter events
-    function switchTab(tab) {
+    function switchTab(tab, { reload = true } = {}) {
       if (state.tab === tab) return;
       clearTimeout(searchTimer);
       state.tab = tab;
@@ -3836,7 +4489,7 @@
       });
       $('staleBar').classList.toggle('show', state.tab === 'stale');
       syncAllGliders();
-      return loadList();
+      if (reload) return loadList();
     }
 
     $('tabs').addEventListener('click', e => {
@@ -3889,6 +4542,8 @@
       const btn = $('refreshBtn');
       btn.classList.add('is-spinning');
       try {
+        if (state.surface !== 'library') invalidateDetailCache();
+        if (state.surface === 'tags') return await loadTagsSurface({ refresh: true });
         if (state.surface === 'settings') return await loadSettings();
         if (state.selectedId) openPreview(state.selectedId);
         if (await loadList({ refresh: true })) showToast('refreshed');
@@ -3975,16 +4630,16 @@
     window.addEventListener('keydown', event => {
       if (event.defaultPrevented || event.key !== 'F3' || event.ctrlKey || event.altKey || event.metaKey
         || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
-        || $('pvMatchNav').hidden || $('sweepDialog').open || state.pendingBatch
+        || state.surface !== 'library' || state.previewTab !== 'content' || $('pvMatchNav').hidden || $('sweepDialog').open || state.pendingBatch
         || $('previewPane').getClientRects?.().length === 0) return;
       if (stepPreviewMatch(event.shiftKey ? -1 : 1)) event.preventDefault();
     });
     $('pvCollapseAllBtn').addEventListener('click', toggleCollapseAllMessages);
     $('pvScrollTopBtn').addEventListener('click', () => {
-      $('pvMessages').scrollTo({ top: 0, behavior: 'smooth' });
+      previewScrollBox().scrollTo({ top: 0, behavior: 'smooth' });
     });
     $('pvScrollBottomBtn').addEventListener('click', () => {
-      const box = $('pvMessages');
+      const box = previewScrollBox();
       box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
     });
 
@@ -4051,6 +4706,7 @@
     }
 
     function clearPreview() {
+      resetDetailStats();
       ++previewRequestId;
       state.selectedId = null;
       state.previewData = null;

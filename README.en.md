@@ -86,6 +86,10 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 
 Workspace order follows the host when available, with unassigned sessions last. In a preview, use `F3` or `Shift+F3` to cycle through search matches and open folded messages. Use **Logs** to open the raw log folder.
 
+Switch the preview to **Details** to see turns, tool calls, and file changes recorded in the transcript. You can reveal files that still exist. Token data comes from the local Usage Monitor ledger when available, or from the recorded transcript counts.
+
+Open **Tags** to search or sort tags, see counts by conversation status, and jump to filtered conversations. Rename can merge into an existing tag. Removing a tag leaves its conversations in place. Bulk actions skip unresolved local tag conflicts.
+
 ## 🚀 Quick Start
 
 ### Option 1: Install scripts (recommended for most users)

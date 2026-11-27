@@ -16,7 +16,7 @@ after(() => {
   for (const dir of tempRoots) rmSync(dir, { recursive: true, force: true });
 });
 
-function makeSandbox(version = '2.3.3', { withGit = false, underInstalledDir = false } = {}) {
+function makeSandbox(version = '2.3.4', { withGit = false, underInstalledDir = false } = {}) {
   const base = mkdtempSync(join(tmpdir(), 'am-updater-'));
   tempRoots.push(base);
   const pluginRoot = underInstalledDir
@@ -35,11 +35,11 @@ function makeSandbox(version = '2.3.3', { withGit = false, underInstalledDir = f
 }
 
 test('compareSemver, isValidSemver, and URL trust filter handle edge cases strictly', () => {
-  assert.equal(isValidSemver('v2.3.3'), true);
+  assert.equal(isValidSemver('v2.3.4'), true);
   assert.equal(isValidSemver('2.5.0-beta.1'), true);
   assert.equal(isValidSemver('2.4'), false);
-  assert.ok(compareSemver('2.5.0', '2.3.3') > 0);
-  assert.ok(compareSemver('2.3.1', '2.3.3') < 0);
+  assert.ok(compareSemver('2.5.0', '2.3.4') > 0);
+  assert.ok(compareSemver('2.3.1', '2.3.4') < 0);
   assert.ok(compareSemver('2.5.0', '2.5.0-rc.1') > 0);
   assert.equal(isTrustedHttpsUrl('https://github.com/YukiKaguraA/agy-archive-manager/releases'), true);
   assert.equal(isTrustedHttpsUrl('https://objects.githubusercontent.com/file.tar.gz'), true);
@@ -48,7 +48,7 @@ test('compareSemver, isValidSemver, and URL trust filter handle edge cases stric
 });
 
 test('checkForUpdate uses GitHub release and prevents downgrade when local is newer than remote', async () => {
-  const { pluginRoot, dataDir } = makeSandbox('2.3.3');
+  const { pluginRoot, dataDir } = makeSandbox('2.3.4');
   const updater = createPluginUpdater({
     pluginRoot,
     dataDir,
@@ -60,14 +60,14 @@ test('checkForUpdate uses GitHub release and prevents downgrade when local is ne
   });
 
   const status = await updater.checkForUpdate({ force: true });
-  assert.equal(status.currentVersion, '2.3.3');
+  assert.equal(status.currentVersion, '2.3.4');
   assert.equal(status.latestVersion, '2.3.1');
   assert.equal(status.updateAvailable, false);
   assert.equal(status.installMode, 'archive');
 });
 
 test('checkForUpdate falls back to raw manifest when releases API fails', async () => {
-  const { pluginRoot, dataDir } = makeSandbox('2.3.3');
+  const { pluginRoot, dataDir } = makeSandbox('2.3.4');
   let calls = 0;
   const updater = createPluginUpdater({
     pluginRoot,
@@ -86,7 +86,7 @@ test('checkForUpdate falls back to raw manifest when releases API fails', async 
 });
 
 test('git update channel enforces dev-repo isolation, clean tree, main branch, and ff-only pull', async () => {
-  const devBox = makeSandbox('2.3.3', { withGit: true, underInstalledDir: false });
+  const devBox = makeSandbox('2.3.4', { withGit: true, underInstalledDir: false });
   const devUpdater = createPluginUpdater({
     pluginRoot: devBox.pluginRoot,
     dataDir: devBox.dataDir,
@@ -95,7 +95,7 @@ test('git update channel enforces dev-repo isolation, clean tree, main branch, a
   const autoSkipped = await devUpdater.applyUpdate({ isAuto: true });
   assert.equal(autoSkipped.reason, 'dev_repo_auto_disabled');
 
-  const instBox = makeSandbox('2.3.3', { withGit: true, underInstalledDir: true });
+  const instBox = makeSandbox('2.3.4', { withGit: true, underInstalledDir: true });
   let dirty = ' M plugin.json\n';
   let branch = 'feat/test';
   let restarted = 0;
@@ -129,7 +129,7 @@ test('git update channel enforces dev-repo isolation, clean tree, main branch, a
 });
 
 test('archive update channel unpacks tar.gz, prunes obsolete files, and triggers restart', async () => {
-  const { base, pluginRoot, dataDir } = makeSandbox('2.3.3');
+  const { base, pluginRoot, dataDir } = makeSandbox('2.3.4');
   writeFileSync(join(pluginRoot, 'legacy-obsolete.txt'), 'remove me');
 
   const pkgDir = join(base, 'pkg');

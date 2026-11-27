@@ -115,8 +115,8 @@ function mockScript() {
           trashSummary: { totalCount: 0, expiredCount: 0 },
         }),
         '/api/update-status': () => ({
-          currentVersion: '2.3.3',
-          latestVersion: '2.3.3',
+          currentVersion: '2.3.4',
+          latestVersion: '2.3.4',
           updateAvailable: false,
           installMode: 'archive',
           updateMode: 'manual',
@@ -127,8 +127,8 @@ function mockScript() {
           lastError: null,
         }),
         '/api/check-update': () => ({
-          currentVersion: '2.3.3',
-          latestVersion: '2.3.3',
+          currentVersion: '2.3.4',
+          latestVersion: '2.3.4',
           updateAvailable: false,
           installMode: 'archive',
           updateMode: 'manual',
@@ -163,6 +163,28 @@ function mockScript() {
             allTags: [...new Set(items.flatMap(item => item.tags))] };
         },
         '/api/preview': ({ conversationId }) => previews[conversationId],
+        '/api/conversation-detail-stats': ({ conversationId }) => ({
+          conversationId, status: 'complete', source: 'transcript_full', warnings: [],
+          overview: { userTurns: 8, assistantReplies: 12, plannerSteps: 15, errorSteps: 0,
+            userChars: 560, assistantChars: 10240, activeSpanMs: 1800000, ...stats[conversationId] },
+          tools: { totalCalls: 3, categories: [{ key: 'read', count: 2 }, { key: 'write', count: 1 }],
+            byName: [{ name: 'read_file', category: 'read', count: 2 }, { name: 'write_file', category: 'write', count: 1 }] },
+          files: { totalUnique: 0, workspaceCount: 0, artifactCount: 0, scratchCount: 0, items: [] },
+          telemetry: { source: 'transcript', stepCount: 15, inputTokens: 1400, cacheReadTokens: 2000,
+            outputTokens: 1200, totalTokens: 4600, cacheHitRate: 2000 / 3400, models: [] },
+        }),
+        '/api/tags': ({ snapshotId }) => {
+          const tags = [...new Set(items.flatMap(item => item.tags))].map(name => {
+            const matches = items.filter(item => item.tags.includes(name));
+            return { name, totalCount: matches.length, activeCount: matches.filter(it => !it.archived).length,
+              archivedCount: matches.filter(it => it.archived).length, starredCount: matches.filter(it => it.starred).length,
+              conflictCount: 0, lastModifiedMs: Math.max(...matches.map(it => it.lastModifiedMs)) };
+          });
+          const taggedCount = items.filter(item => item.tags.length).length;
+          return { snapshotId, tags, warnings: [],
+            summary: { totalTags: tags.length, taggedCount, untaggedCount: items.length - taggedCount,
+              totalCount: items.length, conflictSessions: 0 } };
+        },
         '/api/conversation-stats': ({ conversationIds }) => ({ stats: Object.fromEntries(conversationIds.map(id => [id, stats[id]])) }),
       };
       window.sidecar = { fetch: async (path, req) => {

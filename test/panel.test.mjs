@@ -28,6 +28,7 @@ function createPanel(fetch, language, { renderCards = false, IntersectionObserve
         return this.namedChildren.get(selector);
       },
       appendChild(child) { this.children.push(child); },
+      insertBefore(child, before) { const i = this.children.indexOf(before); this.children.splice(i < 0 ? this.children.length : i, 0, child); },
     };
   }
   function element(id) {
@@ -949,4 +950,102 @@ test('card tags move below actions, search input drops inner double outline, and
 
   await element('applyUpdateBtn').handlers.click();
   assert.match(element('updateStatusFeedback').textContent, /v2\.5\.0/);
+});
+
+test('statistics load lazily, discard superseded responses, remember the subview and reuse per-session results', async () => {
+  const requests = [];
+  const slow = deferred();
+  const { run, element, windowHandlers } = createPanel((path, { conversationId: id }) => {
+    requests.push([path, id]);
+    if (path === '/api/preview') return { id, title: id, messages: [] };
+    if (id === 'A') return slow.promise;
+    return { conversationId: id, telemetry: { source: 'none' }, files: { items: [] } };
+  });
+  await run("openPreview('A')");
+  assert.deepEqual(requests, [['/api/preview', 'A']]);
+  const pending = run("selectPreviewTab('stats')");
+  assert.equal(element('pvRawBtn').disabled, true);
+  assert.equal(element('pvCollapseAllBtn').disabled, true);
+  const key = { key: 'F3', target: {}, preventDefault() { throw Error('unexpected shortcut'); } };
+  element('pvMatchNav').hidden = false;
+  windowHandlers.keydown(key);
+  await run("openPreview('B')");
+  await new Promise(resolve => setImmediate(resolve));
+  slow.resolve({ conversationId: 'A' });
+  await pending;
+  assert.equal(run('state.detailStats.conversationId'), 'B');
+  assert.equal(run('state.previewTab'), 'stats');
+  await run("selectPreviewTab('content')");
+  assert.equal(element('pvRawBtn').disabled, false);
+  await run("selectPreviewTab('stats')");
+  assert.equal(requests.filter(([path,id]) => path.endsWith('detail-stats') && id === 'B').length, 1);
+  await run("invalidateDetailCache()");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests.filter(([path,id]) => path.endsWith('detail-stats') && id === 'B').length, 2);
+});
+
+test('tag navigation uses counts, clears incompatible filters and can select an archived-only tag', async () => {
+  const tag = { name: 'archive-only', activeCount: 0, archivedCount: 1, totalCount: 1, starredCount: 0 };
+  const { run, element } = createPanel((path, data) => {
+    if (path === '/api/tags') return { summary: {}, tags: [tag] };
+    if (path === '/api/conversations') return { items: [], allTags: [tag.name] };
+    throw Error(path);
+  });
+  await run("showSurface('tags')");
+  assert.equal(element('mainSplit').hidden, true);
+  assert.equal(element('tagsPane').hidden, false);
+  run("state.query='unrelated'; state.groupKey='other';");
+  await run("selectInventoryTag(state.tagInventory.tags[0])");
+  assert.equal(run('state.tab'), 'all');
+  assert.equal(run('state.query + state.groupKey'), '');
+  assert.equal(run('state.surface'), 'library');
+  assert.equal(element('tagSelect').value, tag.name);
+  run("state.tab='archived'");
+  await run("selectInventoryTag(state.tagInventory.tags[0])");
+  assert.equal(run('state.tab'), 'archived');
+});
+
+test('tag mutation keeps filter and preview synchronized and reports partial failures', async () => {
+  const calls = [];
+  let tag = 'first';
+  const { element, run } = createPanel((path, data) => {
+    calls.push([path, data]);
+    if (path === '/api/tags/rename' || path === '/api/tags/delete') {
+      tag = data.newTag || '';
+      return { succeeded: ['session'], skipped: [{ id: 'other', error: 'Conflict' }], failed: [] };
+    }
+    if (path === '/api/tags') return { tags: tag ? [{ name: tag, totalCount: 1 }] : [], summary: {} };
+    if (path === '/api/conversations') return { items: [], allTags: tag ? [tag] : [] };
+    if (path === '/api/preview') return { id: 'session', title: 'Session', tags: tag ? [tag] : [] };
+    throw Error(path);
+  });
+  await run("openPreview('session')");
+  await run("showSurface('tags')");
+  run("state.tag='first'; openTagDialog(state.tagInventory.tags[0], 'rename')");
+  element('tagDialogInput').value = 'second';
+  run('tagDialogHint()');
+  await run("submitTagAction({preventDefault(){}})");
+  assert.equal(run('state.tag'), 'second');
+  assert.equal(run('state.previewData.tags.join()'), 'second');
+  assert.match(element('tagsReport').textContent, /other · Conflict/);
+  run("openTagDialog(state.tagInventory.tags[0], 'delete')");
+  await run("submitTagAction({preventDefault(){}})");
+  assert.equal(run('state.tag'), '');
+  assert.equal(run('state.previewData.tags.length'), 0);
+  assert.equal(calls.filter(([p]) => p === '/api/preview').length, 3);
+});
+
+test('file reveal sends only confirmed file paths and renders untrusted tool and file labels as text', async () => {
+  const calls = [];
+  const { run, element } = createPanel((path,data) => { calls.push([path, data]); return {}; });
+  run("state.detailStats = {tools:{byName:[{name:'<script>',count:1}]}, files:{items:[{name:'<img>',path:'ok',exists:true},{path:'missing',exists:false},{path:'unknown',exists:null}]}}; renderDetailStats()");
+  assert.match(element('pvStatsView').innerHTML, /&lt;script&gt;/);
+  assert.match(element('pvStatsView').innerHTML, /&lt;img&gt;/);
+  for (const index of [0,1,2]) {
+    await element('pvStatsView').handlers.click({target:{closest: selector => selector === '[data-reveal]' ? {dataset:{reveal:String(index)}} : null}});
+  }
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], '/api/reveal-file');
+  assert.equal(calls[0][1].path, 'ok');
+  assert.equal(calls[0][1].isFile, true);
 });

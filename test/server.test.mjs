@@ -141,6 +141,74 @@ function mutationIds(method) {
   return requests.filter((request) => request.method === method).map((request) => request.input.conversationId);
 }
 
+test('tag inventory reuses the visible snapshot and excludes trashed conversations and subagents', async () => {
+  addConversation('one');
+  addConversation('two', { archived: true, starred: true });
+  addConversation('trash', { archived: true });
+  addConversation('child', { parentConversationId: 'one' });
+  addConversation('untagged');
+  for (const id of ['one', 'two', 'trash', 'child']) conversations.get(id).annotations.tags = ['tag'];
+  await call('trash', { conversationIds: ['trash'] });
+  const listing = await call('conversations', { tab: 'all', grouped: true });
+  const inventory = await call('tags', { snapshotId: listing.snapshotId });
+  assert.equal(inventory.snapshotId, listing.snapshotId);
+  assert.deepEqual(inventory.summary, { totalTags: 1, taggedCount: 2, untaggedCount: 1, totalCount: 3, conflictSessions: 0 });
+  assert.deepEqual(inventory.tags.map(row => [row.name, row.activeCount, row.archivedCount, row.starredCount]), [['tag', 1, 1, 1]]);
+  assert.equal(mutationIds('ListConversations').length, 1);
+});
+
+test('bulk tag operations check native reads, preserve local conflicts and merge tags without truncation', async () => {
+  for (const id of ['matching', 'conflict', 'too-many', 'ignored', 'changed']) addConversation(id, { archived: true });
+  for (const conv of conversations.values()) conv.annotations.tags = ['old', 'keep'];
+  conversations.get('matching').annotations.tags.push('target');
+  conversations.get('too-many').annotations.tags = ['old', ...Array.from({ length: 21 }, (_, i) => 'name-' + i)];
+  ignoredUpdates.add('ignored');
+  afterUpdate = () => { conversations.get('changed').annotations.tags = ['keep']; };
+  const stored = { conversations: { matching: { tags: ['old', 'keep', 'target'], note: 'preserve' }, conflict: { tags: ['old'] } } };
+  writeFileSync(metaFile, JSON.stringify(stored));
+  const result = await call('tags/rename', { oldTag: ' #old ', newTag: '#target' });
+  assert.equal(result.merged, true);
+  assert.deepEqual(result.succeeded, ['matching']);
+  assert.deepEqual(result.unchanged, ['changed']);
+  assert.deepEqual(result.skipped.map(({ code }) => code), ['tag_conflict']);
+  assert.deepEqual(result.failed.map(({ id }) => id), ['too-many', 'ignored']);
+  assert.deepEqual(conversations.get('matching').annotations.tags, ['target', 'keep']);
+  assert.deepEqual(JSON.parse(readFileSync(metaFile)).conversations, {
+    matching: { note: 'preserve' }, conflict: stored.conversations.conflict,
+  });
+  const deletion = await call('tags/delete', { tag: 'target' });
+  assert.deepEqual(deletion.succeeded, ['matching']);
+  assert.deepEqual(conversations.get('matching').annotations.tags, ['keep']);
+  assert.equal(conversations.get('matching').annotations.archived, true);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('bulk tag rename reconciles a lost write reply only when the host confirms the new tag', async () => {
+  addConversation('lost-reply');
+  conversations.get('lost-reply').annotations.tags = ['old'];
+  writeFileSync(metaFile, JSON.stringify({ conversations: { 'lost-reply': { tags: ['old'], note: 'preserve' } } }));
+  afterUpdate = () => { throw new Error('lost response'); };
+  const result = await call('tags/rename', { oldTag: 'old', newTag: 'replacement' });
+  assert.deepEqual(result.succeeded, ['lost-reply']);
+  assert.deepEqual(JSON.parse(readFileSync(metaFile)).conversations['lost-reply'], { note: 'preserve' });
+});
+
+test('detail statistics target one verified conversation and reject unsafe identifiers', async () => {
+  addConversation('detail-stats');
+  const logs = join(agyDir, 'brain', 'detail-stats', '.system_generated', 'logs');
+  mkdirSync(logs, { recursive: true });
+  writeFileSync(join(logs, 'transcript_full.jsonl'), JSON.stringify({
+    type: 'PLANNER_RESPONSE', content: 'test', input_tokens: 21, output_tokens: 9,
+  }) + '\n');
+  const detail = await call('conversation-detail-stats', { conversationId: 'detail-stats' });
+  assert.equal(detail.telemetry.source, 'transcript');
+  assert.equal(detail.telemetry.totalTokens, 30);
+  assert.deepEqual(mutationIds('GetConversation'), ['detail-stats']);
+  assert.deepEqual(mutationIds('ListConversations'), []);
+  await assert.rejects(call('conversation-detail-stats', { conversationId: '../foo' }));
+  await assert.rejects(call('conversation-detail-stats', { conversationId: 'CON' }));
+});
+
 test('delete sends idle conversations to the recycle bin and restores their original archive state', async () => {
   addConversation('active', { starred: true, pinned: true });
   addConversation('archived', { archived: true });
