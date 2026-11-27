@@ -37,8 +37,10 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 
 ## ✨ Highlights
 
-- **Five views at a glance**: Active, Archived, Starred, Idle, and All, each with a count. The panel opens on Active.
-- **Find anything**: Search titles, projects, message bodies, tags, and notes at once, with highlighted matches.
+- **Workspace browsing**. Library contains Active, Archived, Starred, All, Idle, and Trash. Active opens first and expands the most recently updated workspace. Load up to 50 sessions at a time per workspace.
+- **Combined search field**. Type your query and use the dropdown on its right to switch between Exact text and Keywords. Filter by host group or tag and see highlighted matches.
+- **Session statistics**. Cards show user turns, steps, file count, and session storage size.
+- **Trash**. Moving a session to Trash archives it. Restoring brings back its previous archive status. Sessions are eligible for automatic cleanup after seven full days and can be restored until cleanup runs.
 - **Read without restoring**: Preview past conversations directly. Long replies collapse automatically, and you can switch between formatted and raw views.
 - **Changed your mind? Undo**: Archive or restore in batches, archive idle conversations by days inactive, and undo the result.
 - **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
@@ -50,12 +52,12 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 
 ## 🖼️ Screenshots
 
-### 1. Main panel and long-reply collapsing
+### 1. Workspace list and conversation preview
 
 In the Active view, the amber **Archive** button is always within reach. Replies taller than 450px collapse with a fade overlay and an **Expand / Collapse** toggle.
 
 <p align="center">
-  <img src="docs/screenshots/preview-main.png" width="100%" alt="Main panel with auto-collapsed long replies" />
+  <img src="docs/screenshots/preview-main.png" width="100%" alt="Active sessions grouped by workspace with statistics on each card" />
 </p>
 
 ### 2. Archived view and search highlighting
@@ -70,9 +72,10 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 
 | Task | Action | Where |
 | :--- | :--- | :--- |
-| Find an old conversation | Exact text or Keywords search, filter by project / group / tag, and sort | Top of the panel |
+| Find an old conversation | Exact text or Keywords search, expandable workspaces, group / tag filters, and sorting | Top of the panel |
 | Archive / restore | Amber **Archive** / green **Restore**, with undo | Cards, preview toolbar |
-| Work in bulk | Select chats to archive or restore. Archived chats can also be permanently deleted after confirmation | **Batch** button |
+| Work in bulk | Select chats to archive or restore. Archived chats can also be moved to Trash | **Batch** button |
+| Restore or delete permanently | Select one or more conversations in Trash. Permanent deletion requires confirmation | Trash |
 | Clean up idle conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Idle view |
 | Read long conversations | Expand All / Collapse All, ⬆ Top, ⬇ Bottom, Formatted / Raw | Preview toolbar |
 | Organize | Pin, star, rename, `#tags`, notes | Cards and preview |

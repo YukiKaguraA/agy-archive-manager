@@ -6,6 +6,15 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
+## 2.4.0 - 2026-11-28（内部版 / Internal build）
+
+- 会话库按工作区折叠浏览，每组单独分页。新增设置页入口，合并搜索输入与模式选择。
+- 会话卡片显示用户轮次、步数、会话文件数和存储占用。
+- 普通删除移入回收站。可恢复原有归档状态或确认彻底删除。自动清理至少保留七天。
+- The session library groups conversations by workspace and pages each group independently. Added a Settings entry and combined the search field and mode selector.
+- Session cards show user turns, steps, file count, and storage size.
+- Deleting a session moves it to Trash. Restore its previous archive state or confirm permanent deletion. Automatic cleanup keeps sessions for at least seven days.
+
 ## [2.3.1] - 2026-11-27
 
 ### 变更 / Changed

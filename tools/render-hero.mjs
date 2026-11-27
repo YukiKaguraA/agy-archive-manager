@@ -4,7 +4,7 @@
 // and Antigravity host theme variables are emulated per theme.
 //
 // Usage: node tools/render-hero.mjs [--browser <path-to-chrome-or-edge>]
-// Output: docs/screenshots/hero-light.png, docs/screenshots/hero-dark.png
+// Output: hero and panel screenshots in docs/screenshots.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -54,7 +54,7 @@ function mockScript() {
   const now = Date.now();
   const h = 3600_000;
   const item = (id, title, project, hoursAgo, steps, extra = {}) => ({
-    id, title, project, projectLabel: project, stepCount: steps,
+    id, title, project, projectKey: 'project:' + project, projectLabel: project, stepCount: steps,
     lastModifiedMs: now - hoursAgo * h, lastModified: new Date(now - hoursAgo * h).toISOString(),
     archived: false, pinned: false, starred: false, isRunning: false, tags: [], note: '', summary: '', matchSnippet: '',
     ...extra,
@@ -62,10 +62,12 @@ function mockScript() {
   const items = [
     item('c1', 'Antigravity Sidecar 架构与 API 调研', 'demo-workspace', 2, 42,
       { pinned: true, starred: true, tags: ['架构', 'Sidecar'], note: '已确认官方 ConversationService Connect API 调用规范' }),
-    item('c2', 'Multi-Agent Task Orchestration Pipeline', 'agent-sdk', 0.25, 86, { pinned: true, isRunning: true, tags: ['Workflow'] }),
+    item('c2', 'Multi-Agent Task Orchestration Pipeline', 'agent-sdk', 3, 86, { pinned: true, isRunning: true, tags: ['Workflow'] }),
     item('c3', 'TypeScript AST Refactoring Helper', 'demo-workspace', 6, 64, { starred: true, tags: ['TypeScript'] }),
     item('c4', 'Docker Compose Local Dev Environment', 'infra-kit', 26, 29, { tags: ['Docker'] }),
     item('c5', 'README 美化与双主题主图', 'archive-manager', 30, 18, { tags: ['Docs'] }),
+    item('c6', 'Sidecar 安装与自定义端口笔记', 'demo-workspace', 96, 33, { archived: true, tags: ['Sidecar'] }),
+    item('c7', 'Sidecar 导出目录验证', 'archive-manager', 120, 19, { archived: true, tags: ['Sidecar'] }),
   ];
   const messages = [
     { role: 'user', timestamp: '2026-11-26 15:10:12',
@@ -90,23 +92,33 @@ function mockScript() {
       '- 原生标签写入后读回核对，个人备注在 Sidecar 数据目录原子保存。',
     ].join('\n') },
   ];
-  const counts = { archived: 3, active: items.length, starred: 2, stale: 0, all: items.length + 3 };
-  const list = {
-    items, counts, warnings: [],
-    projectOptions: [...new Set(items.map(x => x.project))].map(label => ({ key: 'project:' + label, label })),
-    groupOptions: [], page: 1, total: items.length,
-    allTags: [...new Set(items.flatMap((x) => x.tags))],
-  };
+  const stats = Object.fromEntries(items.map((item, i) => [item.id, {
+    turnCount: 8 + i, turnStatus: 'complete', fileCount: 3 + i, sizeBytes: 230000 * (i + 1), storageStatus: 'complete',
+  }]));
   const previews = Object.fromEntries(items.map((x) => [x.id,
     { ...x, source: 'transcript_full', warnings: [], messageCount: messages.length, messages }]));
   return `<script>
     (() => {
-      const list = ${JSON.stringify(list)};
+      const items = ${JSON.stringify(items)};
       const previews = ${JSON.stringify(previews)};
+      const stats = ${JSON.stringify(stats)};
+      const counts = { archived: 2, active: 5, starred: 2, stale: 0, all: items.length, trash: 0 };
       const api = {
         '/api/preferences': () => ({ language: 'zh-CN' }),
-        '/api/conversations': () => list,
+        '/api/conversations': ({ tab, query, projectKey }) => {
+          const filtered = items.filter(item => item.archived === (tab === 'archived') &&
+            (!query || item.title.toLowerCase().includes(query.toLowerCase())));
+          const scoped = projectKey ? filtered.filter(item => item.projectKey === projectKey) : filtered;
+          const workspaces = [...new Map(filtered.map(item => [item.projectKey, item])).values()];
+          const groups = workspaces.map(item => ({ key: item.projectKey, label: item.projectLabel,
+            total: filtered.filter(candidate => candidate.projectKey === item.projectKey).length,
+            lastModified: item.lastModified }));
+          return { items: projectKey ? scoped : [], groups, counts, warnings: [], snapshotId: tab + ':' + (query || ''),
+            groupOptions: [], page: 1, pageSize: 50, total: scoped.length,
+            allTags: [...new Set(items.flatMap(item => item.tags))] };
+        },
         '/api/preview': ({ conversationId }) => previews[conversationId],
+        '/api/conversation-stats': ({ conversationIds }) => ({ stats: Object.fromEntries(conversationIds.map(id => [id, stats[id]])) }),
       };
       window.sidecar = { fetch: async (path, req) => {
         const data = api[path] ? api[path](JSON.parse(req?.body || '{}')) : { ok: true };
@@ -115,10 +127,23 @@ function mockScript() {
     })();
   </script>`;
 }
-function buildPage(theme) {
+function buildPage(theme, view) {
   const vars = Object.entries(themes[theme]).map(([k, v]) => `${k}: ${v};`).join(' ');
   const head = `<style>:root { ${vars} } *, *::before, *::after { transition: none !important; animation: none !important; }</style>${mockScript()}`;
-  const autoOpen = `<script>setTimeout(() => openPreview('c1'), 200);</script>`;
+  const autoOpen = view === 'archived' ? `<script>
+    setTimeout(() => document.querySelector('[data-tab=archived]').click(), 250);
+    setTimeout(() => {
+      const search = document.querySelector('#searchInput');
+      search.value = 'Sidecar';
+      search.dispatchEvent(new Event('input'));
+    }, 550);
+    setTimeout(() => openPreview('c6'), 1150);
+  </script>` : `<script>
+    if (${view === 'workspaces'}) {
+      setTimeout(() => document.querySelector('.workspace-toggle[aria-expanded=false]')?.click(), 250);
+    }
+    setTimeout(() => openPreview('c1'), 450);
+  </script>`;
   return panelHtml
     .replace('<script src="/preload.js"></script>', head)
     .replace(/<\/body>/i, `${autoOpen}</body>`);
@@ -127,10 +152,14 @@ function buildPage(theme) {
 const browser = findBrowser();
 const work = mkdtempSync(join(tmpdir(), 'am-hero-'));
 try {
-  for (const theme of Object.keys(themes)) {
-    const page = join(work, `${theme}.html`);
-    writeFileSync(page, buildPage(theme));
-    const out = join(outDir, `hero-${theme}.png`);
+  const screenshots = [
+    ['hero-light', 'light', 'active'], ['hero-dark', 'dark', 'active'],
+    ['preview-main', 'light', 'workspaces'], ['preview-archived', 'light', 'archived'],
+  ];
+  for (const [name, theme, view] of screenshots) {
+    const page = join(work, `${name}.html`);
+    writeFileSync(page, buildPage(theme, view));
+    const out = join(outDir, `${name}.png`);
     execFileSync(browser, [
       '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
       `--user-data-dir=${join(work, 'profile')}`,

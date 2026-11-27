@@ -806,6 +806,31 @@
       font-size: 11.5px;
       cursor: pointer;
     }
+    .primary-nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    .primary-nav button[aria-pressed="true"] { color: var(--am-accent); border-color: var(--am-accent); }
+    .search-box { min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg); }
+    .search-box:focus-within { border-color: var(--am-accent); }
+    .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; }
+    .search-box .search-clear { position: static; order: 1; flex-shrink: 0; }
+    .search-box select { flex-shrink: 0; max-width: 49%; border: 0; border-radius: 0; border-inline-start: 1px solid var(--am-border); background-color: transparent; }
+    .search-box input:focus-visible, .search-box select:focus-visible, .workspace-toggle:focus-visible {
+      outline: 2px solid var(--am-accent); outline-offset: -2px;
+    }
+    .workspace { flex-shrink: 0; border: 1px solid var(--am-border); border-radius: 8px; }
+    .workspace-toggle {
+      width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0;
+      border-radius: 7px; text-align: start; font: inherit; font-weight: 600; color: var(--am-fg);
+      background: var(--am-card); cursor: pointer;
+    }
+    .workspace-toggle:hover { background: var(--am-tag-bg); }
+    .workspace-toggle .workspace-label { flex: 1; overflow-wrap: anywhere; min-width: 0; }
+    .workspace-count, .card-storage { color: var(--am-muted); font-size: 11px; }
+    .workspace-content { padding: 6px; }
+    .workspace-content .conv-card:last-child { margin-bottom: 0; }
+    .card-storage { margin-top: 3px; }
+    .card-title-button { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+    #libraryTools { display: flex; flex-direction: column; gap: 8px; }
+    @media (max-width: 480px) { .search-box { flex-basis: 100%; } }
   </style>
 </head>
 <body>
@@ -822,94 +847,94 @@
             <span data-i18n="brand">会话管理</span>
             <span class="api-pill" data-i18n="nativeApi" data-i18n-title="nativeApiHelp">原生 API</span>
           </div>
+          <nav class="primary-nav" data-i18n-label="brand">
+            <button type="button" id="libraryBtn" class="btn btn-sm" data-i18n="library" aria-pressed="true" aria-controls="mainSplit">会话库</button>
+            <button type="button" id="settingsBtn" class="btn btn-sm" data-i18n="settings" aria-pressed="false" aria-controls="settingsPane">设置</button>
+          </nav>
+        </div>
+        <div class="header-actions">
           <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
             <option value="zh-CN" lang="zh-CN">简体中文</option>
             <option value="en" lang="en">English</option>
             <option value="zh-TW" lang="zh-TW">繁體中文</option>
             <option value="ja" lang="ja">日本語</option>
           </select>
-        </div>
-        <div class="header-actions">
-          <button id="batchToggleBtn" class="btn btn-sm" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
-          <button id="openExportDirBtn" class="btn btn-sm" data-i18n="exportDir" data-i18n-title="exportDirHelp">📂 导出目录</button>
           <button id="refreshBtn" class="btn btn-sm" data-i18n="refresh" data-i18n-title="refreshHelp">↻ 刷新</button>
         </div>
       </div>
       <div id="languageStatus" role="status" hidden></div>
 
-      <div class="tabs" id="tabs">
-        <button class="tab-btn active" data-tab="active"><span data-i18n="activeTab">💬 活跃</span><span class="tab-count" id="cnt-active">0</span></button>
-        <button class="tab-btn" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
-        <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
-        <button class="tab-btn" data-tab="stale"><span data-i18n="staleTab">🧹 闲置</span><span class="tab-count" id="cnt-stale">0</span></button>
-        <button class="tab-btn" data-tab="all"><span data-i18n="allTab">📚 全部</span><span class="tab-count" id="cnt-all">0</span></button>
-      </div>
+      <div id="libraryTools">
+        <nav class="tabs" id="tabs" data-i18n-label="library">
+          <button class="tab-btn active" data-tab="active" aria-current="true"><span data-i18n="activeTab">💬 活跃</span><span class="tab-count" id="cnt-active">0</span></button>
+          <button class="tab-btn" data-tab="archived"><span data-i18n="archivedTab">📦 已归档</span><span class="tab-count" id="cnt-archived">0</span></button>
+          <button class="tab-btn" data-tab="starred"><span data-i18n="starredTab">⭐ 收藏</span><span class="tab-count" id="cnt-starred">0</span></button>
+          <button class="tab-btn" data-tab="all"><span data-i18n="allTab">📚 全部</span><span class="tab-count" id="cnt-all">0</span></button>
+          <button class="tab-btn" data-tab="stale"><span data-i18n="staleTab">🧹 闲置</span><span class="tab-count" id="cnt-stale">0</span></button>
+          <button class="tab-btn" data-tab="trash"><span data-i18n="trashTab">回收站</span><span class="tab-count" id="cnt-trash">0</span></button>
+        </nav>
 
-      <div class="filters-bar">
-        <div class="search-box">
-          <span class="search-icon">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input id="searchInput" type="text" data-i18n-placeholder="searchPlaceholder" data-i18n-label="search" placeholder="全文搜索标题、项目、消息正文或标签..." />
-          <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
-        </div>
-        <select id="searchModeSelect" class="ctrl-select" data-i18n-label="searchMode" data-i18n-title="searchMode">
-          <option value="literal" data-i18n="literal">原文片段</option>
-          <option value="keywords" data-i18n="keywords">多关键词</option>
-        </select>
-        <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup" hidden>
-          <option value="" data-i18n="allGroups">全部分组</option>
-        </select>
-        <select id="projectSelect" class="ctrl-select" data-i18n-title="filterProject" data-i18n-label="filterProject">
-          <option value="" data-i18n="allProjects">全部项目</option>
-        </select>
-        <select id="tagSelect" class="ctrl-select" data-i18n-title="filterTag" data-i18n-label="filterTag">
-          <option value="" data-i18n="allTags">全部标签</option>
-        </select>
-        <select id="sortSelect" class="ctrl-select" data-i18n-title="sortBy" data-i18n-label="sortBy">
-          <option value="updated" data-i18n="recent">最近更新</option>
-          <option value="steps" data-i18n="mostSteps">步数最多</option>
-          <option value="title" data-i18n="byTitle">按标题</option>
-        </select>
-      </div>
-
-      <!-- Stale quick cleanup bar -->
-      <div id="staleBar" class="sub-bar">
-        <div class="sub-bar-left">
-          <span data-i18n="idleFor">闲置超过</span>
-          <select id="staleDaysSelect" class="ctrl-select" data-i18n-label="idleThreshold">
-            <option value="3">3 天</option>
-            <option value="7" selected>7 天</option>
-            <option value="14">14 天</option>
-            <option value="30">30 天</option>
+        <div class="filters-bar">
+          <div class="search-box">
+            <span class="search-icon">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input id="searchInput" type="text" data-i18n-placeholder="searchPlaceholder" data-i18n-label="search" placeholder="全文搜索标题、项目、消息正文或标签..." />
+            <select id="searchModeSelect" class="ctrl-select" data-i18n-label="searchMode" data-i18n-title="searchMode">
+              <option value="literal" data-i18n="literal">原文片段</option>
+              <option value="keywords" data-i18n="keywords">关键词</option>
+            </select>
+            <button id="clearSearchBtn" class="search-clear" data-i18n-title="clearSearch" data-i18n-label="clearSearch">×</button>
+          </div>
+          <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup" hidden>
+            <option value="" data-i18n="allGroups">全部分组</option>
           </select>
-          <span style="color:var(--am-muted);" data-i18n="idleHelp">（自动跳过运行中/已置顶/已收藏）</span>
+          <select id="tagSelect" class="ctrl-select" data-i18n-title="filterTag" data-i18n-label="filterTag">
+            <option value="" data-i18n="allTags">全部标签</option>
+          </select>
+          <select id="sortSelect" class="ctrl-select" data-i18n-title="sortBy" data-i18n-label="sortBy">
+            <option value="updated" data-i18n="recent">最近更新</option>
+            <option value="steps" data-i18n="mostSteps">步数最多</option>
+            <option value="title" data-i18n="byTitle">按标题</option>
+          </select>
+          <button id="batchToggleBtn" class="btn btn-sm" data-i18n="batch" data-i18n-title="batchHelp">☑ 批量</button>
+          <button id="openExportDirBtn" class="btn btn-sm" data-i18n="exportDir" data-i18n-title="exportDirHelp">📂 导出目录</button>
         </div>
-        <div class="sub-bar-right">
-          <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary" data-i18n="archiveIdle" disabled>📦 一键归档当前闲置</button>
-        </div>
-      </div>
 
-      <!-- Batch selection bar -->
-      <div id="batchBar" class="sub-bar">
-        <div class="sub-bar-left">
-          <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectAll">全选本页</button>
-          <span id="batchCountText">已选 0 条</span>
+        <!-- Stale quick cleanup bar -->
+        <div id="staleBar" class="sub-bar">
+          <div class="sub-bar-left">
+            <span data-i18n="idleFor">闲置超过</span>
+            <select id="staleDaysSelect" class="ctrl-select" data-i18n-label="idleThreshold">
+              <option value="3">3 天</option>
+              <option value="7" selected>7 天</option>
+              <option value="14">14 天</option>
+              <option value="30">30 天</option>
+            </select>
+            <span style="color:var(--am-muted);" data-i18n="idleHelp">（自动跳过运行中/已置顶/已收藏）</span>
+          </div>
+          <div class="sub-bar-right">
+            <button id="archiveAllStaleBtn" class="btn btn-sm btn-primary" data-i18n="archiveIdle" disabled>📦 一键归档当前闲置</button>
+          </div>
         </div>
-        <div class="sub-bar-right">
-          <button id="batchRestoreBtn" class="btn btn-sm btn-restore" data-i18n="restoreAll">♻️ 批量恢复</button>
-          <button id="batchArchiveBtn" class="btn btn-sm btn-archive" data-i18n="archiveAll">📦 批量归档</button>
-          <button id="batchDeleteBtn" class="btn btn-sm btn-danger" data-i18n="deleteSelected" hidden disabled>永久删除所选</button>
-          <button id="batchExitBtn" class="btn btn-sm" data-i18n="done">完成</button>
+
+        <!-- Batch selection bar -->
+        <div id="batchBar" class="sub-bar">
+          <div class="sub-bar-left">
+            <button id="selectAllBtn" class="btn btn-sm" data-i18n="selectVisible">选择已加载会话</button>
+            <span id="batchCountText" role="status">已选 0 条</span>
+          </div>
+          <div class="sub-bar-right">
+            <button id="batchRestoreBtn" class="btn btn-sm btn-restore" data-i18n="restoreAll">♻️ 批量恢复</button>
+            <button id="batchArchiveBtn" class="btn btn-sm btn-archive" data-i18n="archiveAll">📦 批量归档</button>
+            <button id="batchDeleteBtn" class="btn btn-sm btn-danger" hidden disabled>移入回收站</button>
+            <button id="batchExitBtn" class="btn btn-sm" data-i18n="done">完成</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <nav id="pager" class="pager" data-i18n-label="pages" hidden>
-      <button id="prevPageBtn" class="btn btn-sm" data-i18n="prevPage">上一页</button>
-      <span id="pageStatus" role="status"></span>
-      <button id="nextPageBtn" class="btn btn-sm" data-i18n="nextPage">下一页</button>
-    </nav>
+    <section id="settingsPane" aria-labelledby="settingsBtn" hidden></section>
     <details id="batchReport" class="batch-report" hidden><summary id="batchSummary"></summary><div id="batchDetails"></div></details>
     <div id="listWarning" class="data-status" role="status" hidden></div>
     <div id="mainSplit" class="main">
@@ -939,7 +964,7 @@
               <button id="pvCollapseAllBtn" class="btn btn-sm" disabled>⊞ 展开全部</button>
               <button id="pvScrollTopBtn" class="btn btn-sm" data-i18n="top" data-i18n-title="topHelp" disabled>⬆ 顶部</button>
               <button id="pvScrollBottomBtn" class="btn btn-sm" data-i18n="bottom" data-i18n-title="bottomHelp" disabled>⬇ 底部</button>
-              <button id="pvDeleteBtn" class="btn btn-sm btn-danger" data-i18n="delete" data-i18n-title="deleteHelp">🗑️ 删除</button>
+              <button id="pvDeleteBtn" class="btn btn-sm btn-danger" disabled>移入回收站</button>
             </div>
           </div>
 
@@ -955,6 +980,7 @@
             <input id="noteInput" class="inline-input" style="width:100%;" data-i18n-placeholder="notePlaceholder" data-i18n-label="note" />
           </div>
 
+          <div id="pvTrashInfo" class="data-status" hidden></div>
           <div id="pvSource" class="data-status" role="status" hidden></div>
           <div id="pvMessages" class="messages-scroll"></div>
         </div>
@@ -962,15 +988,15 @@
     </div>
   </div>
 
-  <!-- Double-confirm modal for permanent delete -->
+  <!-- Confirmation for moving chats to trash or permanently deleting them -->
   <div id="deleteModal" class="modal-backdrop">
     <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
-      <div id="deleteModalTitle" class="modal-title" data-i18n="deleteHeading">⚠️ 永久删除会话（不可撤销）</div>
+      <div id="deleteModalTitle" class="modal-title">移入回收站</div>
       <div id="deleteModalDesc" class="modal-desc"></div>
       <ol id="deleteTargets" class="delete-targets" hidden></ol>
       <div class="modal-actions">
         <button id="deleteCancelBtn" class="btn" data-i18n="cancel">取消</button>
-        <button id="deleteConfirmBtn" class="btn btn-danger" data-i18n="confirmDelete">确认永久删除</button>
+        <button id="deleteConfirmBtn" class="btn btn-danger">移入回收站</button>
       </div>
     </div>
   </div>
@@ -983,6 +1009,14 @@
   <script>
     const messages = {
       'zh-CN': {
+        library: "会话库", settings: "设置", trashTab: "回收站", noTrash: "回收站为空",
+        trashMove: "移入回收站", trashRestore: "从回收站恢复", trashPurge: "彻底删除", trashedAt: "移入时间",
+        purgeAt: "自动清理时间", originalProject: "原工作区", storageLabel: "会话占用", statsPartial: "部分统计",
+        bytes: "字节", storageScope: "会话独有的数据、注解、附件、scratch 和日志", selectVisible: "选择已加载会话",
+        trashConfirm: n => `确定将以下 ${number(n)} 条会话移入回收站？`,
+        purgeConfirm: n => `确定彻底删除以下 ${number(n)} 条会话及其历史消息？此操作无法撤销。`,
+        turns: n => `${number(n)} 轮`, atLeastTurns: n => `至少 ${t("turns", n)}`, files: n => `${number(n)} 个文件`,
+        trashResult: (d, f) => `成功 ${number(d)} · 失败 ${number(f)}`,
         brand: '会话管理', nativeApi: '原生 API', language: '界面语言',
         nativeApiHelp: '通过 Antigravity 的 ConversationService 管理会话',
         batch: '☑ 批量', batchHelp: '开启或关闭多选批量操作',
@@ -991,19 +1025,16 @@
         archivedTab: '📦 已归档', activeTab: '💬 活跃', starredTab: '⭐ 收藏',
         staleTab: '🧹 闲置', allTab: '📚 全部',
         search: '搜索会话', searchPlaceholder: '搜索标题、项目、正文或标签…', clearSearch: '清空搜索',
-        allProjects: '全部项目', filterProject: '按项目筛选', allTags: '全部标签', filterTag: '按标签筛选',
+        allTags: '全部标签', filterTag: '按标签筛选',
         sortBy: '排序方式', recent: '最近更新', mostSteps: '步数最多', byTitle: '按标题',
         idleFor: '闲置超过', idleThreshold: '闲置天数', idleHelp: '（跳过运行中、置顶和收藏的会话）',
         days: (n) => `${number(n)} 天`, archiveIdle: '📦 归档当前闲置',
-        searchMode: '搜索模式', literal: '原文片段', keywords: '多关键词', filterGroup: '按原生分组筛选', allGroups: '全部分组',
+        searchMode: '搜索模式', literal: '原文片段', keywords: '关键词', filterGroup: '按原生分组筛选', allGroups: '全部分组',
         pages: '会话分页', prevPage: '上一页', nextPage: '下一页', pageOf: (p, pages, total) => `第 ${p} / ${pages} 页 · ${number(total)} 个会话`,
-        deletedItem: title => `已删除 · ${title}`, skippedItem: (title, reason) => `跳过 · ${title} · ${reason}`,
         failedItem: (title, reason) => `失败 · ${title} · ${reason}`,
-        deleteSelected: '永久删除所选', batchConfirm: n => `永久删除以下 ${number(n)} 个已归档会话及其历史消息？此操作无法撤回。`,
-        deleteResult: (d,s,f) => `已删除 ${d} · 已跳过 ${s} · 失败 ${f}`,
         useNative: '采用宿主标签', useLocal: '将本地标签同步到宿主', emptyTags: '无',
         conflictLabels: (local, native) => `旧本地标签：${local}。宿主标签：${native}。`,
-        selectAll: '全选本页', selected: (n) => `已选 ${number(n)} 条`,
+        selected: (n) => `已选 ${number(n)} 条`,
         restoreAll: '♻️ 批量恢复', archiveAll: '📦 批量归档', done: '完成',
         connecting: '正在连接 ConversationService…',
         previewHint: '选择会话以预览正文、重命名、添加标签或导出 Markdown。',
@@ -1014,11 +1045,9 @@
         expandLongHelp: '展开全部超长消息', foldLongHelp: '折叠全部超长消息',
         expandAllHelp: '展开全部消息', foldAllHelp: '折叠全部消息正文',
         top: '⬆ 顶部', topHelp: '回到会话顶部', bottom: '⬇ 底部', bottomHelp: '跳到会话底部',
-        delete: '🗑️ 删除', deleteHelp: '永久删除此会话',
         addTag: '添加标签', tagPlaceholder: '+ 添加标签后回车', removeTag: (tag) => `移除标签 #${tag}`,
         note: '个人备注', notePlaceholder: '添加个人备注（自动保存）…',
-        deleteHeading: '⚠️ 永久删除会话（不可撤销）', cancel: '取消', confirmDelete: '确认永久删除',
-        deleteConfirm: (title) => `确定要永久删除会话「${title}」吗？对话记录将被彻底删除。只想隐藏时，可以使用「归档」。`,
+        cancel: '取消',
         justNow: '刚刚', unknownTime: '未知时间', loadFailed: (error) => `加载失败 · ${error}`,
         noMatches: (query) => `没有找到包含「${query}」的会话`, noArchived: '当前没有已归档会话',
         noStarred: '还没有收藏的会话，点击卡片上的 ☆ 即可收藏',
@@ -1045,10 +1074,18 @@
         exported: (filename) => `已导出 · ${filename}`, revealFile: '定位文件',
         revealFailed: (error) => `无法定位导出文件 · ${error}`, exportFailed: (error) => `导出失败 · ${error}`,
         refreshed: '已刷新会话列表', noExports: '尚未导出过文件，请先导出任意会话',
-        renamed: '已重命名会话', deleted: '已永久删除该会话', deleteFailed: (error) => `删除失败 · ${error}`,
+        renamed: '已重命名会话',
         languageFailed: '未能保存界面语言，请重试。',
       },
       en: {
+        library: "Library", settings: "Settings", trashTab: "Trash", noTrash: "Trash is empty",
+        trashMove: "Move to Trash", trashRestore: "Restore from Trash", trashPurge: "Delete permanently", trashedAt: "Moved to Trash",
+        purgeAt: "Automatic cleanup", originalProject: "Original workspace", storageLabel: "Session storage", statsPartial: "Partial statistics",
+        bytes: "bytes", storageScope: "Session-specific database or legacy data, WAL, annotations, attachments, scratch files, and logs", selectVisible: "Select loaded chats",
+        trashConfirm: n => `Move these ${number(n)} chats to Trash?`,
+        purgeConfirm: n => `Permanently delete these ${number(n)} chats and their message history? This cannot be undone.`,
+        turns: n => plural(n, 'turn'), atLeastTurns: n => `At least ${t("turns", n)}`, files: n => plural(n, 'file'),
+        trashResult: (d, f) => `Succeeded ${number(d)} · Failed ${number(f)}`,
         brand: 'Session Manager', nativeApi: 'Native API', language: 'Display language',
         nativeApiHelp: 'Manages chats through Antigravity’s ConversationService',
         batch: '☑ Batch', batchHelp: 'Toggle batch selection',
@@ -1057,19 +1094,16 @@
         archivedTab: '📦 Archived', activeTab: '💬 Active', starredTab: '⭐ Starred',
         staleTab: '🧹 Idle', allTab: '📚 All',
         search: 'Search conversations', searchPlaceholder: 'Search title, project, text, or tags…', clearSearch: 'Clear search',
-        allProjects: 'All projects', filterProject: 'Filter by project', allTags: 'All tags', filterTag: 'Filter by tag',
+        allTags: 'All tags', filterTag: 'Filter by tag',
         sortBy: 'Sort by', recent: 'Recent', mostSteps: 'Most steps', byTitle: 'Title',
         idleFor: 'Idle for over', idleThreshold: 'Days idle', idleHelp: '(Skips running, pinned, and starred chats)',
         days: (n) => plural(n, 'day'), archiveIdle: '📦 Archive idle chats',
         searchMode: 'Search mode', literal: 'Exact text', keywords: 'Keywords', filterGroup: 'Filter by native group', allGroups: 'All groups',
         pages: 'Conversation pages', prevPage: 'Previous', nextPage: 'Next', pageOf: (p, pages, total) => `Page ${p} / ${pages} · ${plural(total, 'chat')}`,
-        deletedItem: title => `Deleted · ${title}`, skippedItem: (title, reason) => `Skipped · ${title} · ${reason}`,
         failedItem: (title, reason) => `Failed · ${title} · ${reason}`,
-        deleteSelected: 'Delete selected permanently', batchConfirm: n => `Permanently delete these ${plural(n, 'archived chat')} and their messages? This cannot be undone.`,
-        deleteResult: (d,s,f) => `Deleted ${d} · Skipped ${s} · Failed ${f}`,
         useNative: 'Use host tags', useLocal: 'Sync local tags to host', emptyTags: 'None',
         conflictLabels: (local, native) => `Saved local tags: ${local}. Host tags: ${native}.`,
-        selectAll: 'Select page', selected: (n) => `${number(n)} selected`,
+        selected: (n) => `${number(n)} selected`,
         restoreAll: '♻️ Restore selected', archiveAll: '📦 Archive selected', done: 'Done',
         connecting: 'Connecting to ConversationService…',
         previewHint: 'Select a chat to preview, rename, tag, or export it as Markdown.',
@@ -1080,11 +1114,9 @@
         expandLongHelp: 'Expand all long messages', foldLongHelp: 'Collapse all long messages',
         expandAllHelp: 'Expand all messages', foldAllHelp: 'Collapse all message bodies',
         top: '⬆ Top', topHelp: 'Go to the top of the chat', bottom: '⬇ Bottom', bottomHelp: 'Go to the bottom of the chat',
-        delete: '🗑️ Delete', deleteHelp: 'Permanently delete this chat',
         addTag: 'Add a tag', tagPlaceholder: '+ Tag, then Enter', removeTag: (tag) => `Remove tag #${tag}`,
         note: 'Personal note', notePlaceholder: 'Add a personal note (autosaved)…',
-        deleteHeading: '⚠️ Permanently delete chat?', cancel: 'Cancel', confirmDelete: 'Delete permanently',
-        deleteConfirm: (title) => `Delete “${title}” and its message history permanently? You can archive it to hide it.`,
+        cancel: 'Cancel',
         justNow: 'Just now', unknownTime: 'Unknown time', loadFailed: (error) => `Loading failed · ${error}`,
         noMatches: (query) => `No chats match “${query}”`, noArchived: 'No archived chats',
         noStarred: 'No starred chats yet. Click ☆ on a chat to star it.',
@@ -1111,10 +1143,18 @@
         exported: (filename) => `Exported · ${filename}`, revealFile: 'Show file',
         revealFailed: (error) => `Could not show the exported file · ${error}`, exportFailed: (error) => `Export failed · ${error}`,
         refreshed: 'Conversation list refreshed', noExports: 'Export a chat to create the export folder.',
-        renamed: 'Chat renamed', deleted: 'Chat permanently deleted', deleteFailed: (error) => `Deletion failed · ${error}`,
+        renamed: 'Chat renamed',
         languageFailed: 'Could not save the display language. Please try again.',
       },
       'zh-TW': {
+        library: "會話庫", settings: "設定", trashTab: "資源回收筒", noTrash: "資源回收筒是空的",
+        trashMove: "移入資源回收筒", trashRestore: "從資源回收筒還原", trashPurge: "永久刪除", trashedAt: "移入時間",
+        purgeAt: "自動清理時間", originalProject: "原工作區", storageLabel: "會話儲存用量", statsPartial: "部分統計",
+        bytes: "位元組", storageScope: "會話專用資料、註解、附件、scratch 和記錄", selectVisible: "選取已載入會話",
+        trashConfirm: n => `確定將以下 ${number(n)} 個會話移入資源回收筒？`,
+        purgeConfirm: n => `確定永久刪除以下 ${number(n)} 個會話及其歷史訊息？此操作無法復原。`,
+        turns: n => `${number(n)} 輪`, atLeastTurns: n => `至少 ${t("turns", n)}`, files: n => `${number(n)} 個檔案`,
+        trashResult: (d, f) => `成功 ${number(d)} · 失敗 ${number(f)}`,
         brand: '會話管理', nativeApi: '原生 API', language: '介面語言',
         nativeApiHelp: '透過 Antigravity 的 ConversationService 管理會話',
         batch: '☑ 批次', batchHelp: '開啟或關閉批次選取',
@@ -1123,19 +1163,16 @@
         archivedTab: '📦 已封存', activeTab: '💬 活躍', starredTab: '⭐ 收藏',
         staleTab: '🧹 閒置', allTab: '📚 全部',
         search: '搜尋會話', searchPlaceholder: '搜尋標題、專案、內文或標籤…', clearSearch: '清除搜尋',
-        allProjects: '所有專案', filterProject: '依專案篩選', allTags: '所有標籤', filterTag: '依標籤篩選',
+        allTags: '所有標籤', filterTag: '依標籤篩選',
         sortBy: '排序方式', recent: '最近更新', mostSteps: '步驟最多', byTitle: '依標題',
         idleFor: '閒置超過', idleThreshold: '閒置天數', idleHelp: '（略過執行中、置頂和收藏的會話）',
         days: (n) => `${number(n)} 天`, archiveIdle: '📦 封存閒置會話',
-        searchMode: '搜尋模式', literal: '原文片段', keywords: '多關鍵字', filterGroup: '依原生群組篩選', allGroups: '所有群組',
+        searchMode: '搜尋模式', literal: '原文片段', keywords: '關鍵字', filterGroup: '依原生群組篩選', allGroups: '所有群組',
         pages: '會話分頁', prevPage: '上一頁', nextPage: '下一頁', pageOf: (p, pages, total) => `第 ${number(p)} / ${number(pages)} 頁 · ${number(total)} 個會話`,
-        deletedItem: title => `已刪除 · ${title}`, skippedItem: (title, reason) => `已略過 · ${title} · ${reason}`,
         failedItem: (title, reason) => `失敗 · ${title} · ${reason}`,
-        deleteSelected: '永久刪除所選會話', batchConfirm: n => `確定要永久刪除以下 ${number(n)} 個已封存會話及其歷史訊息嗎？此操作無法復原。`,
-        deleteResult: (d, s, f) => `已刪除 ${number(d)} · 已略過 ${number(s)} · 失敗 ${number(f)}`,
         useNative: '採用 Antigravity 標籤', useLocal: '將本機標籤同步至 Antigravity', emptyTags: '無',
         conflictLabels: (local, native) => `原本的本機標籤為 ${local}。Antigravity 標籤為 ${native}。`,
-        selectAll: '選取本頁全部', selected: (n) => `已選取 ${number(n)} 個`,
+        selected: (n) => `已選取 ${number(n)} 個`,
         restoreAll: '♻️ 批次還原', archiveAll: '📦 批次封存', done: '完成',
         connecting: '正在連線至 ConversationService…',
         previewHint: '選取會話即可預覽內文、重新命名、新增標籤或匯出 Markdown。',
@@ -1146,11 +1183,9 @@
         expandLongHelp: '展開所有長訊息', foldLongHelp: '收合所有長訊息',
         expandAllHelp: '展開所有訊息', foldAllHelp: '收合所有訊息內文',
         top: '⬆ 頂端', topHelp: '移至會話頂端', bottom: '⬇ 底端', bottomHelp: '移至會話底端',
-        delete: '🗑️ 刪除', deleteHelp: '永久刪除這個會話',
         addTag: '新增標籤', tagPlaceholder: '+ 輸入標籤後按 Enter', removeTag: tag => `移除標籤 #${tag}`,
         note: '個人備註', notePlaceholder: '新增個人備註（自動儲存）…',
-        deleteHeading: '⚠️ 永久刪除會話（無法復原）', cancel: '取消', confirmDelete: '確認永久刪除',
-        deleteConfirm: title => `確定要永久刪除「${title}」及其歷史訊息嗎？若只想隱藏這個會話，可以封存。`,
+        cancel: '取消',
         justNow: '剛剛', unknownTime: '時間不明', loadFailed: error => `載入失敗 · ${error}`,
         noMatches: query => `找不到符合「${query}」的會話`, noArchived: '目前沒有已封存的會話',
         noStarred: '目前沒有收藏的會話，點選卡片上的 ☆ 即可收藏',
@@ -1177,10 +1212,18 @@
         exported: filename => `已匯出 · ${filename}`, revealFile: '顯示檔案',
         revealFailed: error => `無法顯示匯出的檔案 · ${error}`, exportFailed: error => `匯出失敗 · ${error}`,
         refreshed: '已重新整理會話清單', noExports: '先匯出一個會話以建立匯出資料夾。',
-        renamed: '已重新命名會話', deleted: '已永久刪除會話', deleteFailed: error => `刪除失敗 · ${error}`,
+        renamed: '已重新命名會話',
         languageFailed: '無法儲存介面語言，請再試一次。',
       },
       ja: {
+        library: "会話ライブラリ", settings: "設定", trashTab: "ごみ箱", noTrash: "ごみ箱は空です",
+        trashMove: "ごみ箱に移動", trashRestore: "ごみ箱から復元", trashPurge: "完全に削除", trashedAt: "ごみ箱への移動日時",
+        purgeAt: "自動削除日時", originalProject: "元のワークスペース", storageLabel: "会話の使用容量", statsPartial: "一部のみ集計",
+        bytes: "バイト", storageScope: "会話専用データ、注釈、添付ファイル、scratch、ログ", selectVisible: "読み込み済みの会話を選択",
+        trashConfirm: n => `以下の会話${number(n)}件をごみ箱に移動しますか？`,
+        purgeConfirm: n => `以下の会話${number(n)}件を履歴ごと完全に削除しますか？この操作は取り消せません。`,
+        turns: n => `${number(n)} ターン`, atLeastTurns: n => `少なくとも${t("turns", n)}`, files: n => `ファイル ${number(n)} 件`,
+        trashResult: (d, f) => `成功 ${number(d)} · 失敗 ${number(f)}`,
         brand: '会話管理', nativeApi: 'ネイティブ API', language: '表示言語',
         nativeApiHelp: 'Antigravity の ConversationService で会話を管理します',
         batch: '☑ 一括操作', batchHelp: '複数選択のオンとオフを切り替える',
@@ -1189,19 +1232,16 @@
         archivedTab: '📦 アーカイブ済み', activeTab: '💬 アクティブ', starredTab: '⭐ お気に入り',
         staleTab: '🧹 長期未使用', allTab: '📚 すべて',
         search: '会話を検索', searchPlaceholder: 'タイトル、プロジェクト、本文、タグを検索…', clearSearch: '検索をクリア',
-        allProjects: 'すべてのプロジェクト', filterProject: 'プロジェクトで絞り込む', allTags: 'すべてのタグ', filterTag: 'タグで絞り込む',
+        allTags: 'すべてのタグ', filterTag: 'タグで絞り込む',
         sortBy: '並び順', recent: '更新日時順', mostSteps: 'ステップ数の多い順', byTitle: 'タイトル順',
         idleFor: '未使用期間', idleThreshold: '未使用とみなす日数', idleHelp: '（実行中、ピン留め済み、お気に入りの会話を除く）',
         days: n => `${number(n)} 日`, archiveIdle: '📦 長期未使用の会話をアーカイブ',
         searchMode: '検索モード', literal: '文字列検索', keywords: 'キーワード検索', filterGroup: '会話グループで絞り込む', allGroups: 'すべてのグループ',
         pages: '会話一覧のページ', prevPage: '前へ', nextPage: '次へ', pageOf: (p, pages, total) => `${number(p)} / ${number(pages)} ページ · ${number(total)} 件`,
-        deletedItem: title => `削除済み · ${title}`, skippedItem: (title, reason) => `スキップ · ${title} · ${reason}`,
         failedItem: (title, reason) => `失敗 · ${title} · ${reason}`,
-        deleteSelected: '選択した会話を完全に削除', batchConfirm: n => `以下のアーカイブ済みの会話 ${number(n)} 件を履歴ごと完全に削除しますか？この操作は取り消せません。`,
-        deleteResult: (d, s, f) => `削除 ${number(d)} 件 · スキップ ${number(s)} 件 · 失敗 ${number(f)} 件`,
         useNative: 'Antigravity のタグを使用', useLocal: 'ローカルタグを Antigravity に同期', emptyTags: 'なし',
         conflictLabels: (local, native) => `保存済みのローカルタグは「${local}」、Antigravity のタグは「${native}」です。`,
-        selectAll: 'このページをすべて選択', selected: n => `${number(n)} 件を選択中`,
+        selected: n => `${number(n)} 件を選択中`,
         restoreAll: '♻️ 選択した会話を復元', archiveAll: '📦 選択した会話をアーカイブ', done: '完了',
         connecting: 'ConversationService に接続中…',
         previewHint: '会話を選択すると、プレビュー、名前の変更、タグの追加、Markdown のエクスポートができます。',
@@ -1212,11 +1252,9 @@
         expandLongHelp: '長いメッセージをすべて展開する', foldLongHelp: '長いメッセージをすべて折りたたむ',
         expandAllHelp: 'すべてのメッセージを展開する', foldAllHelp: 'すべてのメッセージ本文を折りたたむ',
         top: '⬆ 先頭', topHelp: '会話の先頭へ移動する', bottom: '⬇ 末尾', bottomHelp: '会話の末尾へ移動する',
-        delete: '🗑️ 削除', deleteHelp: 'この会話を完全に削除する',
         addTag: 'タグを追加', tagPlaceholder: '+ タグを入力して Enter', removeTag: tag => `タグ #${tag} を削除する`,
         note: '個人メモ', notePlaceholder: '個人メモを追加（自動保存）…',
-        deleteHeading: '⚠️ 会話を完全に削除しますか？', cancel: 'キャンセル', confirmDelete: '完全に削除する',
-        deleteConfirm: title => `「${title}」とそのメッセージ履歴を完全に削除しますか？一覧から隠す場合はアーカイブできます。`,
+        cancel: 'キャンセル',
         justNow: 'たった今', unknownTime: '日時不明', loadFailed: error => `読み込みに失敗しました · ${error}`,
         noMatches: query => `「${query}」に一致する会話がありません`, noArchived: 'アーカイブ済みの会話がありません',
         noStarred: 'お気に入りの会話がありません。カードの ☆ を選択すると追加できます。',
@@ -1244,7 +1282,7 @@
         exported: filename => `エクスポートしました · ${filename}`, revealFile: 'ファイルを表示',
         revealFailed: error => `エクスポートしたファイルを表示できませんでした · ${error}`, exportFailed: error => `エクスポートに失敗しました · ${error}`,
         refreshed: '会話一覧を更新しました', noExports: '会話をエクスポートすると保存先のフォルダーが作成されます。',
-        renamed: '会話の名前を変更しました', deleted: '会話を完全に削除しました', deleteFailed: error => `削除に失敗しました · ${error}`,
+        renamed: '会話の名前を変更しました',
         languageFailed: '表示言語を保存できませんでした。もう一度お試しください。',
       },
     };
@@ -1268,12 +1306,14 @@
       locale: defaultLocale,
       tab: 'active',
       query: '',
-      projectKey: '',
+      surface: 'library',
+      groups: [],
+      openedByTab: new Map(),
+      searchOpened: new Map(),
+      groupPages: new Map(),
       groupKey: '',
       searchMode: 'literal',
-      page: 1,
       pageSize: 50,
-      total: 0,
       snapshotId: null,
       staleIds: [],
       selectedTitles: new Map(),
@@ -1292,6 +1332,7 @@
       batchMode: false,
       checkedIds: new Set(),
       pendingDeleteId: null,
+      pendingDeleteAction: null,
     };
 
     const MSG_COLLAPSE_THRESHOLD = 450;
@@ -1305,6 +1346,22 @@
     let previewRequestId = 0;
     let previewOverrides = {};
     const deletingIds = new Set();
+    const cardStats = new Map();
+    const pendingStats = new Set();
+    const observedCards = new Map();
+    const visibleStats = new Set();
+    let statsQueued = false;
+    let statsSurfaceId = 0;
+    let deleteTrigger = null;
+    const statsObserver = typeof IntersectionObserver === 'function' && new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && observedCards.has(entry.target)) {
+          visibleStats.add(observedCards.get(entry.target).id);
+          statsObserver.unobserve(entry.target);
+        }
+      }
+      queueStats();
+    }, { root: $('listPane') });
 
     const dateFormats = new Map();
     function t(key, ...args) {
@@ -1520,22 +1577,24 @@
       $('batchToggleBtn').classList.toggle('btn-primary', state.batchMode);
       const count = state.checkedIds.size;
       const canApply = state.listReady && !state.archivePending && !state.deleteBusy;
-      const pageCount = Math.max(1, Math.ceil(state.total / state.pageSize));
-      $('pager').hidden = pageCount <= 1;
-      $('pageStatus').textContent = t('pageOf', state.page, pageCount, state.total);
-      $('prevPageBtn').disabled = !state.listReady || state.page <= 1;
-      $('nextPageBtn').disabled = !state.listReady || state.page >= pageCount;
-      $('batchDeleteBtn').hidden = state.tab !== 'archived' || !state.batchMode;
+      const trash = state.tab === 'trash';
+      $('batchDeleteBtn').hidden = (!trash && state.tab !== 'archived') || !state.batchMode;
+      $('batchDeleteBtn').textContent = t(trash ? 'trashPurge' : 'trashMove');
       $('batchDeleteBtn').disabled = !canApply || count === 0;
+      $('batchRestoreBtn').textContent = t(trash ? 'trashRestore' : 'restoreAll');
+      $('batchArchiveBtn').hidden = trash;
       $('batchCountText').textContent = t('selected', count);
       $('selectAllBtn').disabled = !canApply || state.items.length === 0;
       $('batchRestoreBtn').disabled = !canApply || count === 0;
       $('batchArchiveBtn').disabled = !canApply || count === 0;
-      $('archiveAllStaleBtn').disabled = !canApply || state.tab !== 'stale' || state.items.length === 0;
+      $('archiveAllStaleBtn').disabled = !canApply || state.tab !== 'stale' || state.staleIds.length === 0;
     }
 
     function invalidateList() {
       state.listReady = false;
+      cardStats.clear();
+      pendingStats.clear();
+      visibleStats.clear();
       updateBatchBar();
       return ++listRequestId;
     }
@@ -1543,42 +1602,39 @@
     function showDataStatus(id, text) {
       const status = $(id);
       status.textContent = text;
-      status.hidden = !text;
+      status.hidden = !text || (id === 'listWarning' && state.surface !== 'library');
     }
 
-    async function loadList({ refresh = false } = {}) {
+    function listOptions() {
+      return {
+        grouped: true,
+        tab: state.tab,
+        query: state.query,
+        groupKey: state.groupKey,
+        searchMode: state.searchMode,
+        pageSize: state.pageSize,
+        tag: state.tag,
+        sort: state.sort,
+        staleDays: state.staleDays,
+      };
+    }
+
+    async function loadList({ refresh = false, retrySnapshot = true } = {}) {
       const requestId = invalidateList();
       try {
         const data = await apiPost('/api/conversations', {
-          tab: state.tab,
-          query: state.query,
-          projectKey: state.projectKey,
-          groupKey: state.groupKey,
-          searchMode: state.searchMode,
-          page: state.page,
-          pageSize: state.pageSize,
-          snapshotId: refresh ? null : state.snapshotId,
-          searchClientId, searchSequence: requestId,
-          includeMatchingIds: state.tab === 'stale',
-          tag: state.tag,
-          sort: state.sort,
-          staleDays: state.staleDays,
+          ...listOptions(), page: 1, snapshotId: refresh ? null : state.snapshotId,
+          searchClientId, searchSequence: requestId, includeMatchingIds: state.tab === 'stale',
         });
-        if (requestId !== listRequestId) return false;
-        if (data.cancelled) return false;
-        state.items = data.items || [];
-        state.page = data.page ?? 1;
-        state.total = data.total ?? state.items.length;
+        if (requestId !== listRequestId || data.cancelled) return false;
+        state.groups = data.groups ?? [];
+        state.groupPages.clear();
         state.snapshotId = data.snapshotId ?? null;
-        state.staleIds = data.matchingIds ?? (state.tab === 'stale' ? state.items.map(item => item.id) : []);
+        state.staleIds = data.matchingIds ?? (state.tab === 'stale' ? (data.items || []).map(item => item.id) : []);
+        state.items = data.items || [];
         showDataStatus('listWarning', (data.warnings || []).join(t('noticeSeparator')));
 
-        // Keep explicitly selected chats from other pages.
-        for (const item of state.items) {
-          if (state.checkedIds.has(item.id)) state.selectedTitles.set(item.id, item.title);
-        }
-
-        for (const key of ['archived', 'active', 'starred', 'stale', 'all']) {
+        for (const key of ['archived', 'active', 'starred', 'stale', 'all', 'trash']) {
           const el = $(`cnt-${key}`);
           if (el) el.textContent = number(data.counts?.[key] ?? 0);
         }
@@ -1586,7 +1642,6 @@
         const groupOptions = data.groupOptions || [];
         const hasNativeGroups = groupOptions.some((opt) => typeof opt.key === 'string' && opt.key.startsWith('group:'));
         $('groupSelect').hidden = !hasNativeGroups && !state.groupKey;
-        fillSelect('projectSelect', 'allProjects', data.projectOptions || [], state.projectKey);
         fillSelect('groupSelect', 'allGroups', groupOptions, state.groupKey);
 
         const tagSel = $('tagSelect');
@@ -1609,13 +1664,27 @@
         }
         tagSel.value = curTag;
 
+        if (state.groups.length && !state.query && !state.openedByTab.has(state.tab)) {
+          const latest = state.groups.reduce((a, b) =>
+            (Date.parse(b.lastModified) || 0) > (Date.parse(a.lastModified) || 0) ? b : a);
+          state.openedByTab.set(state.tab, new Set([latest.key]));
+        }
         state.listReady = true;
         updateBatchBar();
         renderList();
-        return true;
+        const opened = state.groups.filter(group => groupIsOpen(group.key));
+        // Large searches can open many workspaces. Leave capacity for input and preview requests.
+        for (let start = 0; start < opened.length && requestId === listRequestId; start += 6) {
+          const loaded = await Promise.all(opened.slice(start, start + 6)
+            .map(group => loadGroup(group.key, 1, { retrySnapshot })));
+          if (loaded.includes('resynced')) return state.listReady;
+        }
+        return requestId === listRequestId;
       } catch (err) {
         if (requestId !== listRequestId) return false;
         state.items = [];
+        state.groups = [];
+        state.groupPages.clear();
         resetSelection();
         state.listReady = false;
         showDataStatus('listWarning', '');
@@ -1661,109 +1730,354 @@
 
     function resetFilters() {
       resetSelection();
-      state.page = 1;
+      state.searchOpened.clear();
       state.deleteReport = null;
       renderDeleteReport();
     }
 
+    function groupIsOpen(key) {
+      return state.query
+        ? state.searchOpened.get(key) !== false
+        : Boolean(state.openedByTab.get(state.tab)?.has(key));
+    }
+
+    function syncGroupItems() {
+      state.items = state.groups.flatMap(({ key }) => groupIsOpen(key) ? state.groupPages.get(key)?.items ?? [] : []);
+      for (const item of state.items) {
+        if (state.checkedIds.has(item.id)) state.selectedTitles.set(item.id, item.title || item.id);
+      }
+      updateBatchBar();
+    }
+
+    async function loadGroup(key, page = 1, { retrySnapshot = true } = {}) {
+      if (!state.listReady || !groupIsOpen(key)) return;
+      const requestId = listRequestId;
+      const snapshotId = state.snapshotId;
+      const request = { page, items: [], loading: true };
+      state.groupPages.set(key, request);
+      syncGroupItems();
+      renderWorkspace(key);
+      try {
+        const data = await apiPost('/api/conversations', {
+          ...listOptions(), projectKey: key, page, snapshotId,
+        });
+        if (requestId !== listRequestId || state.groupPages.get(key) !== request) return;
+        if (data.snapshotId && snapshotId && data.snapshotId !== snapshotId) {
+          if (!retrySnapshot) throw new Error(t('refreshHelp'));
+          await loadList({ refresh: true, retrySnapshot: false });
+          return 'resynced';
+        }
+        if (data.cancelled) throw new Error(t('refreshHelp'));
+        Object.assign(request, { items: data.items ?? [], page: data.page ?? page, total: data.total });
+      } catch (err) {
+        if (requestId !== listRequestId || state.groupPages.get(key) !== request) return;
+        request.error = err.message;
+      }
+      request.loading = false;
+      syncGroupItems();
+      renderWorkspace(key);
+    }
+
+    function makePager(group, page) {
+      const node = document.createElement('nav');
+      node.className = 'pager';
+      node.setAttribute('aria-label', `${t('pages')} · ${group.label}`);
+      const pageCount = Math.max(1, Math.ceil((page.total ?? group.total) / state.pageSize));
+      for (const [label, delta] of [['prevPage', -1], ['pageOf', 0], ['nextPage', 1]]) {
+        const child = document.createElement(delta ? 'button' : 'span');
+        if (delta) {
+          child.type = 'button';
+          child.className = 'btn btn-sm';
+          child.textContent = t(label);
+          child.disabled = page.page + delta < 1 || page.page + delta > pageCount;
+          child.addEventListener('click', () => {
+            workspaceNodes.get(group.key)?.toggle.focus();
+            return loadGroup(group.key, page.page + delta);
+          });
+        } else {
+          child.textContent = t(label, page.page, pageCount, page.total ?? group.total);
+          child.setAttribute('role', 'status');
+        }
+        node.appendChild(child);
+      }
+      return node;
+    }
+
+    const workspaceNodes = new Map();
+    function renderWorkspace(key) {
+      const nodes = workspaceNodes.get(key);
+      if (!nodes) return;
+      const { group, toggle, content, marker, cards } = nodes;
+      for (const card of cards) {
+        statsObserver?.unobserve?.(card);
+        observedCards.delete(card);
+      }
+      cards.length = 0;
+      const expanded = groupIsOpen(key);
+      toggle.setAttribute('aria-expanded', expanded);
+      marker.textContent = expanded ? '▾' : '▸';
+      content.hidden = !expanded;
+      content.innerHTML = '';
+      if (!expanded) return;
+      const page = state.groupPages.get(key);
+      if (!page || page.loading || page.error) {
+        const status = document.createElement('div');
+        status.className = 'data-status';
+        status.setAttribute('role', 'status');
+        status.textContent = page?.error ? t('loadFailed', page.error) : t('loading');
+        content.appendChild(status);
+        if (page?.error) {
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'btn btn-sm';
+          retry.textContent = t('refresh');
+          retry.addEventListener('click', () => {
+            toggle.focus();
+            return loadGroup(key, page.page);
+          });
+          content.appendChild(retry);
+        }
+        return;
+      }
+      for (const item of page.items) cards.push(renderCard(content, item));
+      if ((page.total ?? group.total) > state.pageSize) content.appendChild(makePager(group, page));
+    }
+
     function renderList() {
       const pane = $('listPane');
-      if (!state.items.length) {
-        const hints = { archived: 'noArchived', starred: 'noStarred', stale: 'noStale' };
+      const focusedKey = [...workspaceNodes].find(([, { toggle }]) => toggle === document.activeElement)?.[0];
+      workspaceNodes.clear();
+      statsObserver?.disconnect?.();
+      observedCards.clear();
+      if (!state.groups.length && !state.items.length) {
+        const hints = { archived: 'noArchived', starred: 'noStarred', stale: 'noStale', trash: 'noTrash' };
         const hint = state.query ? t('noMatches', state.query) : t(hints[state.tab] ?? 'noSessions', state.staleDays);
-        pane.innerHTML = `<div class="empty-state"><div style="font-size:24px;">📭</div><div>${escapeHtml(hint)}</div></div>`;
+        pane.innerHTML = `<div class="empty-state"><div>${escapeHtml(hint)}</div></div>`;
         return;
       }
 
       pane.innerHTML = '';
-      for (const item of state.items) {
-        const card = document.createElement('div');
-        card.className = 'conv-card' + (item.id === state.selectedId ? ' selected' : '');
-
-        const statusBadge = item.isRunning
-          ? `<span class="pill pill-run"><span class="run-dot"></span>${escapeHtml(t('running'))}</span>`
-          : item.archived
-            ? `<span class="pill pill-archived">${escapeHtml(t('archived'))}</span>`
-            : `<span class="pill pill-active">${escapeHtml(t('active'))}</span>`;
-
-        const tagsHtml = (item.tags || [])
-          .map((t) => `<span class="pill pill-tag">#${escapeHtml(t)}</span>`)
-          .join('');
-        const snippetHtml = item.matchSnippet
-          ? `<div class="card-snippet">${highlightText(escapeHtml(item.matchSnippet), state.query)}</div>`
-          : '';
-        const noteHtml = item.note
-          ? `<div class="card-note">📝 ${highlightText(escapeHtml(item.note), state.query)}</div>`
-          : '';
-
-        const stepText = item.stepCount > 0 ? `<span>${escapeHtml(t('steps', item.stepCount))}</span><span>·</span>` : '';
-        const archiveAction = item.archived ? 'restore' : 'archive';
-        const archiveHelp = item.archived ? 'restoreHelp' : item.isRunning ? 'runningHelp' : 'archiveHelp';
-        const pinLabel = escapeHtml(t(item.pinned ? 'unpin' : 'pin'));
-        const starLabel = escapeHtml(t(item.starred ? 'unstar' : 'star'));
-
-        card.innerHTML = `
-          <div class="card-top">
-            <div class="card-top-left">
-              <input type="checkbox" class="card-check" aria-label="${escapeHtml(t('selectChat', item.title))}" ${state.checkedIds.has(item.id) ? 'checked' : ''} />
-              <div class="card-title">${highlightText(escapeHtml(item.title), state.query)}</div>
-            </div>
-            <div class="icon-toggles">
-              <button class="icon-btn js-pin ${item.pinned ? 'pinned' : ''}" title="${pinLabel}" aria-label="${pinLabel}">📌</button>
-              <button class="icon-btn js-star ${item.starred ? 'starred' : ''}" title="${starLabel}" aria-label="${starLabel}">${item.starred ? '★' : '☆'}</button>
-            </div>
-          </div>
-          <div class="card-meta">
-            ${statusBadge}
-            <span class="pill pill-proj">${escapeHtml(item.projectLabel ?? item.project)}</span>
-            ${item.groupId ? `<span class="pill">${escapeHtml(item.groupId)}</span>` : ''}
-            ${stepText}
-            <span>${escapeHtml(formatTime(item.lastModifiedMs, item.lastModified))}</span>
-            ${tagsHtml}
-          </div>
-          ${noteHtml}
-          ${snippetHtml}
-          <div class="card-actions">
-            <button class="btn btn-sm js-open">${escapeHtml(t('openChat'))}</button>
-            <button class="btn btn-sm btn-${archiveAction} js-toggle-archive" title="${escapeHtml(t(archiveHelp))}" ${item.isRunning && !item.archived ? 'disabled' : ''}>${escapeHtml(t(`${archiveAction}Button`))}</button>
-          </div>
-        `;
-
-        card.addEventListener('click', () => {
-          if (state.batchMode) {
-            selectItem(item, !state.checkedIds.has(item.id));
-            updateBatchBar();
-            renderList();
-            return;
-          }
-          openPreview(item.id);
-        });
-
-        card.querySelector('.card-check').addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectItem(item, e.target.checked);
-          updateBatchBar();
-        });
-
-        card.querySelector('.js-pin').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await updateNativeAnnotation(item.id, { pinned: !item.pinned }, item.pinned ? 'unpinned' : 'pinned');
-        });
-        card.querySelector('.js-star').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await updateNativeAnnotation(item.id, { starred: !item.starred }, item.starred ? 'unstarred' : 'starred');
-        });
-        card.querySelector('.js-open').addEventListener('click', (e) => {
-          e.stopPropagation();
-          openConversationInHost(item.id);
-        });
-        card.querySelector('.js-toggle-archive').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await setConversationsArchived([item.id], !item.archived, e.currentTarget);
-        });
-
-        pane.appendChild(card);
+      if (!state.groups.length) {
+        for (const item of state.items) renderCard(pane, item);
+        return;
       }
+      for (const [index, group] of state.groups.entries()) {
+        const section = document.createElement('section');
+        section.className = 'workspace';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'workspace-toggle';
+        const marker = document.createElement('span');
+        marker.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.className = 'workspace-label';
+        label.textContent = group.label;
+        const count = document.createElement('span');
+        count.className = 'workspace-count';
+        count.textContent = number(group.total);
+        const content = document.createElement('div');
+        content.className = 'workspace-content';
+        content.id = `workspace-content-${index}`;
+        toggle.setAttribute('aria-controls', content.id);
+        toggle.appendChild(marker);
+        toggle.appendChild(label);
+        toggle.appendChild(count);
+        toggle.addEventListener('click', () => {
+          if (!state.listReady) return;
+          const next = !groupIsOpen(group.key);
+          if (state.query) state.searchOpened.set(group.key, next);
+          else {
+            const open = state.openedByTab.get(state.tab);
+            if (next) open.add(group.key);
+            else open.delete(group.key);
+          }
+          if (next && !state.groupPages.get(group.key)?.items.length) {
+            const page = state.groupPages.get(group.key);
+            if (!page?.loading) return loadGroup(group.key, page?.page);
+          }
+          syncGroupItems();
+          renderWorkspace(group.key);
+        });
+        section.appendChild(toggle);
+        section.appendChild(content);
+        pane.appendChild(section);
+        workspaceNodes.set(group.key, { group, toggle, content, marker, cards: [] });
+        renderWorkspace(group.key);
+        if (focusedKey === group.key) toggle.focus();
+      }
+    }
+
+    function renderCard(pane, item) {
+      const card = document.createElement('div');
+      card.className = 'conv-card' + (item.id === state.selectedId ? ' selected' : '');
+      const trash = state.tab === 'trash';
+
+      const statusBadge = trash
+        ? `<span class="pill pill-archived">${escapeHtml(t('trashTab'))}</span>`
+        : item.isRunning
+        ? `<span class="pill pill-run"><span class="run-dot"></span>${escapeHtml(t('running'))}</span>`
+        : item.archived
+          ? `<span class="pill pill-archived">${escapeHtml(t('archived'))}</span>`
+          : `<span class="pill pill-active">${escapeHtml(t('active'))}</span>`;
+
+      const tagsHtml = (item.tags || [])
+        .map((t) => `<span class="pill pill-tag">#${escapeHtml(t)}</span>`)
+        .join('');
+      const snippetHtml = item.matchSnippet
+        ? `<div class="card-snippet">${highlightText(escapeHtml(item.matchSnippet), state.query)}</div>`
+        : '';
+      const noteHtml = item.note
+        ? `<div class="card-note">📝 ${highlightText(escapeHtml(item.note), state.query)}</div>`
+        : '';
+
+      const stepText = Number.isFinite(item.stepCount) ? `<span>·</span><span>${escapeHtml(t('steps', item.stepCount))}</span>` : '';
+      const archiveAction = trash || item.archived ? 'restore' : 'archive';
+      const archiveHelp = item.archived ? 'restoreHelp' : item.isRunning ? 'runningHelp' : 'archiveHelp';
+      const pinLabel = escapeHtml(t(item.pinned ? 'unpin' : 'pin'));
+      const starLabel = escapeHtml(t(item.starred ? 'unstar' : 'star'));
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-top-left">
+            <input type="checkbox" class="card-check" aria-label="${escapeHtml(t('selectChat', item.title))}" ${state.checkedIds.has(item.id) ? 'checked' : ''} />
+            <button type="button" class="card-title card-title-button">${highlightText(escapeHtml(item.title), state.query)}</button>
+          </div>
+          <div class="icon-toggles" ${trash ? 'hidden' : ''}>
+            <button class="icon-btn js-pin ${item.pinned ? 'pinned' : ''}" title="${pinLabel}" aria-label="${pinLabel}">📌</button>
+            <button class="icon-btn js-star ${item.starred ? 'starred' : ''}" title="${starLabel}" aria-label="${starLabel}">${item.starred ? '★' : '☆'}</button>
+          </div>
+        </div>
+        <div class="card-meta">
+          ${statusBadge}
+          <span>·</span><span class="card-turns">—</span>
+          ${stepText}
+          <span>·</span><span>${escapeHtml(formatTime(item.lastModifiedMs, item.lastModified))}</span>
+          ${item.groupId ? `<span class="pill">${escapeHtml(item.groupId)}</span>` : ''}
+          ${tagsHtml}
+        </div>
+        <div class="card-storage"></div>
+        ${trash ? `<div class="card-storage">${escapeHtml(formatTrashInfo(item))}</div>` : ''}
+        ${noteHtml}
+        ${snippetHtml}
+        <div class="card-actions">
+          <button class="btn btn-sm js-open" ${trash ? 'hidden' : ''}>${escapeHtml(t('openChat'))}</button>
+          <button class="btn btn-sm btn-${archiveAction} js-toggle-archive" title="${escapeHtml(t(archiveHelp))}" ${item.isRunning && !item.archived ? 'disabled' : ''}>${escapeHtml(t(trash ? 'trashRestore' : `${archiveAction}Button`))}</button>
+          ${trash ? `<button class="btn btn-sm btn-danger js-purge" ${item.isRunning ? 'disabled' : ''}>${escapeHtml(t('trashPurge'))}</button>` : ''}
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (state.batchMode) {
+          selectItem(item, !state.checkedIds.has(item.id));
+          updateBatchBar();
+          card.querySelector('.card-check').checked = state.checkedIds.has(item.id);
+          return;
+        }
+        openPreview(item.id);
+      });
+
+      card.querySelector('.card-check').addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectItem(item, e.target.checked);
+        updateBatchBar();
+      });
+
+      card.querySelector('.js-pin').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await updateNativeAnnotation(item.id, { pinned: !item.pinned }, item.pinned ? 'unpinned' : 'pinned');
+      });
+      card.querySelector('.js-star').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await updateNativeAnnotation(item.id, { starred: !item.starred }, item.starred ? 'unstarred' : 'starred');
+      });
+      card.querySelector('.js-open').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openConversationInHost(item.id);
+      });
+      card.querySelector('.js-toggle-archive').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (trash) await performTrashAction('restore-trash', [item]);
+        else await setConversationsArchived([item.id], !item.archived, e.currentTarget);
+      });
+      card.querySelector('.js-purge')?.addEventListener('click', e => {
+        e.stopPropagation();
+        confirmTrashAction('purge-trash', [item]);
+      });
+
+      pane.appendChild(card);
+      observedCards.set(card, { id: item.id });
+      paintStats(card, cardStats.get(item.id));
+      if (statsObserver && state.surface === 'library' && !cardStats.has(item.id)) statsObserver.observe(card);
+      return card;
+    }
+
+    function formatTurns(stats) {
+      if (!Number.isFinite(stats?.turnCount) || stats.turnStatus === 'unavailable') return '—';
+      return t(stats.turnStatus === 'partial' ? 'atLeastTurns' : 'turns', stats.turnCount);
+    }
+
+    function formatStorage(stats) {
+      const bytes = stats?.sizeBytes;
+      const partial = stats?.storageStatus === 'partial' ? ` · ${t('statsPartial')}` : '';
+      if (!Number.isFinite(bytes) || !Number.isFinite(stats?.fileCount) || stats.storageStatus === 'unavailable') {
+        return { label: `${t('storageLabel')} —${partial}`, title: t('storageScope') };
+      }
+      const units = [t('bytes'), 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+      }
+      const size = value.toLocaleString(state.locale, { maximumFractionDigits: 1 });
+      return {
+        label: `${t('storageLabel')} ${t('files', stats.fileCount)} · ${size} ${units[unit]}${partial}`,
+        title: `${number(bytes)} ${t('bytes')} · ${t('storageScope')}${partial}`,
+      };
+    }
+
+    function paintStats(card, stats) {
+      card.querySelector('.card-turns').textContent = formatTurns(stats);
+      const storage = card.querySelector('.card-storage');
+      const { label, title } = formatStorage(stats);
+      storage.textContent = label;
+      storage.title = title;
+    }
+
+    function queueStats() {
+      if (statsQueued || !state.listReady || state.surface !== 'library') return;
+      statsQueued = true;
+      queueMicrotask(() => {
+        statsQueued = false;
+        if (!state.listReady || state.surface !== 'library') return;
+        const requestId = listRequestId;
+        const surfaceId = statsSurfaceId;
+        const snapshotId = state.snapshotId;
+        const cardIds = new Set([...observedCards.values()].map(card => card.id));
+        const ids = [...visibleStats].filter(id => cardIds.has(id) && !cardStats.has(id) && !pendingStats.has(id));
+        visibleStats.clear();
+        for (let start = 0; start < ids.length; start += 50) {
+          const conversationIds = ids.slice(start, start + 50);
+          for (const id of conversationIds) pendingStats.add(id);
+          apiPost('/api/conversation-stats', { conversationIds, snapshotId }).then(
+            data => data.stats ?? {}, () => ({}),
+          ).then(stats => {
+            if (requestId !== listRequestId || surfaceId !== statsSurfaceId) return;
+            for (const id of conversationIds) {
+              pendingStats.delete(id);
+              cardStats.set(id, stats[id] ?? null);
+            }
+            for (const [card, { id }] of observedCards) {
+              if (conversationIds.includes(id)) paintStats(card, cardStats.get(id));
+            }
+          });
+        }
+      });
+    }
+
+    function formatTrashInfo(item) {
+      const at = value => Number.isFinite(value) ? getDateFormats().timestamp.format(value) : '—';
+      return `${t('originalProject')} · ${item.projectLabel ?? item.project ?? '—'} | ${t('trashedAt')} · ${at(item.trashedAt)} | ${t('purgeAt')} · ${at(item.purgeAt)}`;
     }
 
     function openConversationInHost(convId) {
@@ -1800,7 +2114,7 @@
     }
 
     async function applyArchiveChange(request, verb, triggerBtn) {
-      if (state.archivePending) return;
+      if (state.archivePending || state.deleteBusy) return;
       state.archivePending = true;
       const toastAction = $('toastAction');
       if (toastAction.dataset.action === 'undo') toastAction.disabled = true;
@@ -1862,8 +2176,11 @@
     function closeDeleteModal() {
       state.pendingDeleteId = null;
       state.pendingBatch = null;
+      state.pendingDeleteAction = null;
       $('deleteTargets').hidden = true;
       $('deleteModal').classList.remove('show');
+      deleteTrigger?.focus();
+      deleteTrigger = null;
     }
 
     async function openPreview(convId, { refreshLocale = false } = {}) {
@@ -1873,7 +2190,7 @@
       previewOverrides = {};
       state.selectedId = convId;
       state.previewData = null;
-      if (!state.pendingBatch) closeDeleteModal();
+      if (!state.pendingBatch || (state.pendingDeleteId && state.pendingDeleteId !== convId)) closeDeleteModal();
       if (previous && $('pvTitleInput').style.display !== 'none') $('pvRenameBtn').textContent = t('save');
       else exitTitleEdit();
       setPreviewControlsReady(false);
@@ -1884,13 +2201,14 @@
       $('pvTitle').textContent = t('loading');
       $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(t('loadingMessages'))}</div>`;
       syncCollapseAllBtn();
-      if (state.listReady) renderList();
+      for (const [card, { id }] of observedCards) card.classList.toggle('selected', id === convId);
 
       try {
         const data = await apiPost('/api/preview', { conversationId: convId });
         if (requestId !== previewRequestId) return;
         if (data.id !== convId) throw new Error(t('previewMismatch'));
-        state.previewData = Object.assign(data, previewOverrides);
+        const item = state.items.find(item => item.id === convId);
+        state.previewData = Object.assign({}, item, data, previewOverrides);
         if (!previous) $('tagInput').value = '';
         if (!previous || $('noteInput').value === (previous.note || '')) $('noteInput').value = data.note || '';
         setPreviewControlsReady(true);
@@ -1916,10 +2234,11 @@
       const archBtn = $('pvArchiveToggleBtn');
       const d = state.previewData;
       const pending = archBtn.dataset.pendingAction;
-      const action = d?.archived ? 'restore' : 'archive';
+      const trash = d && (d.trashedAt != null || state.tab === 'trash');
+      const action = trash || d?.archived ? 'restore' : 'archive';
       archBtn.disabled = Boolean(!d || pending || (d.isRunning && !d.archived));
-      archBtn.textContent = pending ? t('working', t(pending)) : t(`${action}Button`);
-      archBtn.title = t(d?.isRunning && !d.archived ? 'runningHelp' : `${action}Help`);
+      archBtn.textContent = pending ? t('working', t(pending)) : t(trash ? 'trashRestore' : `${action}Button`);
+      archBtn.title = t(trash ? 'trashRestore' : d?.isRunning && !d.archived ? 'runningHelp' : `${action}Help`);
       archBtn.classList.toggle('btn-restore', Boolean(d?.archived));
       archBtn.classList.toggle('btn-archive', !d?.archived);
     }
@@ -1930,7 +2249,11 @@
       $('pvTitle').textContent = d.title;
       updatePreviewArchiveButton();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
-      $('pvDeleteBtn').disabled = Boolean(d.isRunning);
+      const trash = d.trashedAt != null || state.tab === 'trash';
+      $('pvDeleteBtn').disabled = Boolean(d.isRunning || state.deleteBusy);
+      $('pvDeleteBtn').textContent = t(trash ? 'trashPurge' : 'trashMove');
+      for (const id of ['pvRenameBtn', 'pvOpenBtn', 'pvMetaEditor']) $(id).hidden = trash;
+      showDataStatus('pvTrashInfo', trash ? formatTrashInfo(d) : '');
       const sourceLabels = {
         transcript_full: 'fullLog',
         transcript: 'compactLog',
@@ -2150,13 +2473,43 @@
       await Promise.all([list, preview]);
     });
 
+    function showSurface(surface) {
+      state.surface = surface;
+      const settings = surface === 'settings';
+      $('libraryTools').hidden = settings;
+      $('mainSplit').hidden = settings;
+      $('settingsPane').hidden = !settings;
+      $('libraryBtn').setAttribute('aria-pressed', !settings);
+      $('settingsBtn').setAttribute('aria-pressed', settings);
+      $('listWarning').hidden = settings || !$('listWarning').textContent;
+      $('batchReport').hidden = settings || !state.deleteReport;
+      if (settings) {
+        statsSurfaceId++;
+        pendingStats.clear();
+        visibleStats.clear();
+        statsObserver?.disconnect?.();
+      } else if (state.listReady) {
+        renderList();
+      }
+    }
+
+    $('libraryBtn').addEventListener('click', () => showSurface('library'));
+    $('settingsBtn').addEventListener('click', () => showSurface('settings'));
+
     // Tabs & Filter events
     $('tabs').addEventListener('click', (e) => {
       const btn = e.target.closest('.tab-btn');
       if (!btn) return;
+      if (state.tab === btn.dataset.tab) return;
+      clearTimeout(searchTimer);
       state.tab = btn.dataset.tab;
+      clearPreview();
       resetFilters();
-      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+        if (b === btn) b.setAttribute('aria-current', 'true');
+        else b.removeAttribute('aria-current');
+      });
       $('staleBar').classList.toggle('show', state.tab === 'stale');
       loadList();
     });
@@ -2184,22 +2537,15 @@
       if (state.previewData) renderPreview();
     });
 
-    for (const [id, key] of [['projectSelect', 'projectKey'], ['groupSelect', 'groupKey'], ['searchModeSelect', 'searchMode'],
+    for (const [id, key] of [['groupSelect', 'groupKey'], ['searchModeSelect', 'searchMode'],
       ['tagSelect', 'tag'], ['sortSelect', 'sort'], ['staleDaysSelect', 'staleDays']]) {
       $(id).addEventListener('change', e => {
+        clearTimeout(searchTimer);
         state[key] = key === 'staleDays' ? Number(e.target.value) || 7 : e.target.value;
         resetFilters();
         const req = loadList();
         if (key === 'searchMode' && state.previewData) renderPreview();
         return req;
-      });
-    }
-
-    for (const [id, delta] of [['prevPageBtn', -1], ['nextPageBtn', 1]]) {
-      $(id).addEventListener('click', () => {
-        if ($(id).disabled) return;
-        state.page += delta;
-        return loadList();
       });
     }
 
@@ -2238,7 +2584,9 @@
       renderList();
     });
     $('batchRestoreBtn').addEventListener('click', (e) => {
-      if (state.listReady) return setConversationsArchived([...state.checkedIds], false, e.currentTarget);
+      if (!state.listReady) return;
+      if (state.tab === 'trash') return performTrashAction('restore-trash', selectedBatch());
+      return setConversationsArchived([...state.checkedIds], false, e.currentTarget);
     });
     $('batchArchiveBtn').addEventListener('click', (e) => {
       if (state.listReady) return setConversationsArchived([...state.checkedIds], true, e.currentTarget);
@@ -2249,12 +2597,19 @@
     });
 
     // Preview toolbar events
-    $('backBtn').addEventListener('click', () => $('mainSplit').classList.remove('show-preview'));
+    $('backBtn').addEventListener('click', () => {
+      $('mainSplit').classList.remove('show-preview');
+      for (const [card, { id }] of observedCards) {
+        if (id === state.selectedId) card.querySelector('.card-title-button').focus();
+      }
+    });
     $('pvOpenBtn').addEventListener('click', () => {
       if (state.previewData) openConversationInHost(state.previewData.id);
     });
     $('pvArchiveToggleBtn').addEventListener('click', (e) => {
-      if (state.previewData) setConversationsArchived([state.previewData.id], !state.previewData.archived, e.currentTarget);
+      if (!state.previewData) return;
+      if (state.previewData.trashedAt != null || state.tab === 'trash') return performTrashAction('restore-trash', [state.previewData]);
+      return setConversationsArchived([state.previewData.id], !state.previewData.archived, e.currentTarget);
     });
     $('pvExportFileBtn').addEventListener('click', () => {
       if (state.previewData) exportConversationToFile(state.previewData.id);
@@ -2304,35 +2659,34 @@
 
     function updateDeleteDialog() {
       const batch = state.pendingBatch;
-      if (batch) {
-        $('deleteModalDesc').textContent = t('batchConfirm', batch.length);
-        const list = $('deleteTargets');
-        list.innerHTML = '';
-        for (const { id, title } of batch) {
-          const entry = document.createElement('li');
-          entry.textContent = title === id ? id : `${title} (${id})`;
-          list.appendChild(entry);
-        }
-        list.hidden = false;
-      } else if (state.pendingDeleteId && state.previewData) {
-        $('deleteModalDesc').textContent = t('deleteConfirm', state.previewData.title);
+      if (!batch) return;
+      const purge = state.pendingDeleteAction === 'purge-trash';
+      const label = t(purge ? 'trashPurge' : 'trashMove');
+      $('deleteModalTitle').textContent = label;
+      $('deleteConfirmBtn').textContent = label;
+      $('deleteModalDesc').textContent = t(purge ? 'purgeConfirm' : 'trashConfirm', batch.length);
+      const list = $('deleteTargets');
+      list.innerHTML = '';
+      for (const { id, title } of batch) {
+        const entry = document.createElement('li');
+        entry.textContent = title === id ? id : `${title} (${id})`;
+        list.appendChild(entry);
       }
+      list.hidden = false;
     }
 
     function renderDeleteReport() {
       const report = state.deleteReport;
-      $('batchReport').hidden = !report;
+      $('batchReport').hidden = !report || state.surface !== 'library';
       if (!report) return;
-      const { deleted, skipped, failed, warnings, titles } = report;
-      $('batchSummary').textContent = t('deleteResult', deleted.length, skipped.length, failed.length);
+      const { action, succeeded, failed, warnings, titles } = report;
+      $('batchSummary').textContent = `${trashActionLabel(action)} · ${t('trashResult', succeeded.length, failed.length)}`;
       const describe = id => titles.get(id) || id;
-      const lines = [
-        ...deleted.map(id => t('deletedItem', describe(id))),
-        ...skipped.map(row => t('skippedItem', describe(row.id), row.reason)),
-        ...failed.map(row => t('failedItem', describe(row.id), row.reason)),
+      $('batchDetails').textContent = [
+        ...succeeded.map(describe),
+        ...failed.map(row => t('failedItem', describe(row.id), row.error ?? row.reason)),
         ...warnings,
-      ];
-      $('batchDetails').textContent = lines.join('\n');
+      ].join('\n');
     }
 
     function clearPreview() {
@@ -2344,96 +2698,82 @@
       $('mainSplit').classList.remove('show-preview');
     }
 
-    async function deleteBatch(batch) {
-      if (state.deleteBusy || !batch.length) return;
+    function trashActionLabel(action) {
+      const keys = { trash: 'trashMove', 'restore-trash': 'trashRestore', 'purge-trash': 'trashPurge' };
+      return t(keys[action]);
+    }
+
+    function selectedBatch() {
+      return [...state.checkedIds].map(id => ({ id, title: state.selectedTitles.get(id) || id }));
+    }
+
+    function confirmTrashAction(action, batch, fromPreview = false) {
+      if (state.deleteBusy || state.archivePending || !batch.length) return;
+      state.pendingDeleteId = fromPreview ? batch[0].id : null;
+      state.pendingBatch = batch.map(({ id, title }) => ({ id, title: title || id }));
+      state.pendingDeleteAction = action;
+      updateDeleteDialog();
+      deleteTrigger = document.activeElement;
+      $('deleteModal').classList.add('show');
+      $('deleteCancelBtn').focus?.();
+    }
+
+    async function performTrashAction(action, batch) {
+      if (state.deleteBusy || state.archivePending || !batch.length) return;
       state.deleteBusy = true;
-      const titles = new Map(batch.map(({ id, title }) => [id, title]));
+      const titles = new Map(batch.map(({ id, title }) => [id, title || id]));
       for (const id of titles.keys()) deletingIds.add(id);
+      if (titles.has(state.selectedId)) {
+        ++previewRequestId;
+        state.previewData = null;
+        setPreviewControlsReady(false);
+      }
       updateBatchBar();
       try {
-        const result = await apiPost('/api/delete-batch', { conversationIds: [...titles.keys()] });
-        const { deleted, skipped, failed, warnings = [] } = result;
-        const retryable = new Set(failed.filter(row => row.retryable).map(row => row.id));
-        for (const id of titles.keys()) {
-          if (!retryable.has(id)) {
-            state.checkedIds.delete(id);
-            state.selectedTitles.delete(id);
-          }
+        const { succeeded = [], failed = [], warnings = [] } = await apiPost(`/api/${action}`, { conversationIds: [...titles.keys()] });
+        for (const id of succeeded) {
+          state.checkedIds.delete(id);
+          state.selectedTitles.delete(id);
         }
-        state.deleteReport = { deleted, skipped, failed, warnings, titles };
+        state.deleteReport = { action, succeeded, failed, warnings, titles };
         renderDeleteReport();
-        $('batchReport').open = Boolean(skipped.length || failed.length || warnings.length);
-        if (deleted.includes(state.selectedId) || skipped.some(row => row.id === state.selectedId && row.code === 'already_gone')) clearPreview();
+        $('batchReport').open = Boolean(failed.length || warnings.length);
+        if (succeeded.includes(state.selectedId)) clearPreview();
       } catch (err) {
-        resetSelection();
-        showToast(() => t('deleteFailed', err.message));
+        showToast(() => t('archiveError', trashActionLabel(action), err.message));
       } finally {
         state.deleteBusy = false;
         for (const id of titles.keys()) deletingIds.delete(id);
         await loadList({ refresh: true });
-        if (titles.has(state.selectedId)) await openPreview(state.selectedId);
+        if (titles.has(state.selectedId)) await openPreview(state.selectedId, { refreshLocale: true });
         updateBatchBar();
       }
     }
 
     $('batchDeleteBtn').addEventListener('click', () => {
-      if (state.tab !== 'archived' || !state.batchMode || !state.listReady || state.deleteBusy || state.archivePending) return;
-      const batch = [...state.checkedIds].map(id => ({ id, title: state.selectedTitles.get(id) || id }));
-      if (!batch.length) return;
-      state.pendingDeleteId = null;
-      state.pendingBatch = batch;
-      updateDeleteDialog();
-      $('deleteModal').classList.add('show');
-      $('deleteCancelBtn').focus?.();
+      if (!['archived', 'trash'].includes(state.tab) || !state.batchMode || !state.listReady || state.archivePending) return;
+      confirmTrashAction(state.tab === 'trash' ? 'purge-trash' : 'trash', selectedBatch());
     });
     $('deleteModal').addEventListener('keydown', event => {
       if (event.key === 'Escape') closeDeleteModal();
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const confirm = $('deleteConfirmBtn');
+        const cancel = $('deleteCancelBtn');
+        (document.activeElement === cancel ? confirm : cancel).focus();
+      }
     });
-
-    // Safe delete modal
     $('pvDeleteBtn').addEventListener('click', () => {
-      if (!state.previewData || state.previewData.isRunning || state.deleteBusy) return;
-      state.pendingBatch = null;
-      state.pendingDeleteId = state.previewData.id;
-      $('deleteModalDesc').textContent = t('deleteConfirm', state.previewData.title);
-      $('deleteModal').classList.add('show');
-      $('deleteCancelBtn').focus?.();
+      const preview = state.previewData;
+      if (!preview || preview.isRunning) return;
+      confirmTrashAction(preview.trashedAt != null || state.tab === 'trash' ? 'purge-trash' : 'trash', [preview], true);
     });
     $('deleteCancelBtn').addEventListener('click', closeDeleteModal);
-    $('deleteConfirmBtn').addEventListener('click', async () => {
-      const batch = state.pendingBatch;
-      const id = state.pendingDeleteId;
+    $('deleteConfirmBtn').addEventListener('click', () => {
+      const { pendingBatch: batch, pendingDeleteId: id, pendingDeleteAction: action } = state;
       closeDeleteModal();
-      if (batch) return deleteBatch(batch);
-      if (!id || id !== state.previewData?.id || deletingIds.has(id)) return;
-      const preview = state.previewData;
-      const requestId = previewRequestId;
-      const requestLocale = state.locale;
-      let reloadPreview = false;
-      deletingIds.add(id);
-      state.previewData = null;
-      setPreviewControlsReady(false);
-      try {
-        const result = await apiPost('/api/delete', { conversationId: id });
-        if (state.selectedId === id) {
-          clearPreview();
-        }
-        showToast(() => [t('deleted'), ...(result.warnings || [])].join(t('noticeSeparator')));
-        await loadList();
-      } catch (err) {
-        if (state.selectedId === id && !state.previewData && previewRequestId === requestId) {
-          reloadPreview = requestLocale !== state.locale;
-          if (!reloadPreview) {
-            state.previewData = preview;
-            setPreviewControlsReady(true);
-            renderPreview();
-          }
-        }
-        showToast(() => t('deleteFailed', err.message));
-      } finally {
-        deletingIds.delete(id);
-      }
-      if (reloadPreview) await openPreview(id, { refreshLocale: true });
+      if (!batch || (id && id !== state.previewData?.id)) return;
+      return performTrashAction(action, batch);
     });
 
     for (const [id, resolution] of [['useNativeTags', 'native'], ['useLocalTags', 'local']]) {

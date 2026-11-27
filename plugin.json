@@ -1,8 +1,8 @@
 {
   "name": "archive-manager",
   "displayName": "会话管理 (Session Manager)",
-  "version": "2.3.1",
-  "description": "Antigravity 会话管理插件，支持分类浏览、全文检索、免恢复预览、归档与恢复（含撤回）、批量归档闲置会话、置顶、星标、重命名、删除、标签与备注，以及 Markdown 导出。 Archive, restore, search, preview, and export Antigravity sessions in Simplified Chinese, English, Traditional Chinese, or Japanese.",
+  "version": "2.4.0",
+  "description": "Antigravity 会话管理插件，支持按工作区浏览、全文检索、会话统计、归档、七天回收站与 Markdown 导出。 Browse Antigravity sessions by workspace, search and preview conversations, and manage archives and Trash in four languages.",
   "author": {
     "name": "YukiKagura",
     "url": "https://github.com/YukiKaguraA"

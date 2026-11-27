@@ -83,7 +83,7 @@ globalThis.fetch = async (url, request) => {
 for (const key of ['HOME', 'USERPROFILE', 'ANTIGRAVITY_EXECUTABLE_DATA_DIR']) {
   process.env[key] = key === 'ANTIGRAVITY_EXECUTABLE_DATA_DIR' ? dataDir : home;
 }
-await import('../sidecars/archive_manager/server.mjs');
+const server = await import('../sidecars/archive_manager/server.mjs');
 hooks.deregister();
 
 beforeEach(() => {
@@ -123,6 +123,149 @@ function call(path, input) {
 function mutationIds(method) {
   return requests.filter((request) => request.method === method).map((request) => request.input.conversationId);
 }
+
+test('delete sends idle conversations to the recycle bin and restores their original archive state', async () => {
+  addConversation('active', { starred: true, pinned: true });
+  addConversation('archived', { archived: true });
+  writeFileSync(metaFile, JSON.stringify({ conversations: { active: { note: 'keep', tags: ['keep'] } } }));
+  assert.equal((await call('delete', { conversationId: 'active' })).ok, true);
+  assert.deepEqual((await call('delete-batch', { conversationIds: ['archived'] })).succeeded, ['archived']);
+  const original = JSON.parse(readFileSync(metaFile)).conversations;
+  assert.equal(original.active.trash.previousArchived, false);
+  assert.equal(original.archived.trash.previousArchived, true);
+  assert.deepEqual((await call('trash', { conversationIds: ['active'] })).succeeded, ['active']);
+  assert.deepEqual(JSON.parse(readFileSync(metaFile)).conversations, original);
+  const visible = await call('conversations', { tab: 'all' });
+  assert.equal(visible.total, 0);
+  assert.equal(visible.counts.trash, 2);
+  assert.equal(await archivedCount(), 0);
+  const bin = await call('conversations', { tab: 'trash' });
+  assert.equal(bin.items.find(({ id }) => id === 'active').purgeAt, original.active.trash.trashedAt + 7 * 86400000);
+  assert.deepEqual((await call('restore-trash', { conversationIds: ['active', 'archived'] })).succeeded, ['active', 'archived']);
+  assert.equal(conversations.get('active').annotations.archived, false);
+  assert.equal(conversations.get('archived').annotations.archived, true);
+  assert.deepEqual(JSON.parse(readFileSync(metaFile)).conversations.active, { note: 'keep', tags: ['keep'] });
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('automatic cleanup waits 168 hours, skips changed state, and shares the restore queue', async () => {
+  for (const id of ['expired', 'fresh', 'active', 'running', 'restored']) addConversation(id, { archived: true });
+  await call('trash', { conversationIds: [...conversations.keys()] });
+  conversations.get('active').annotations.archived = false;
+  conversations.get('running').state.runState = 'RUN_STATE_RUNNING';
+  const store = JSON.parse(readFileSync(metaFile));
+  const expiry = store.conversations.expired.trash.trashedAt + 7 * 86400000;
+  store.conversations.fresh.trash.trashedAt += 86400000;
+  store.conversations.restored.trash.trashedAt -= 86400000;
+  writeFileSync(metaFile, JSON.stringify(store));
+  const restore = call('restore-trash', { conversationIds: ['restored'] });
+  const early = server.sweepTrash(expiry - 1);
+  await Promise.all([restore, early]);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+  await server.sweepTrash(expiry + 3600000);
+  assert.deepEqual(mutationIds('DeleteConversation'), ['expired']);
+  assert.equal(conversations.has('restored'), true);
+  assert.ok(JSON.parse(readFileSync(metaFile)).conversations.active.trash);
+});
+
+test('a lost archive confirmation can be reconciled without prematurely purging the conversation', async () => {
+  addConversation('journal');
+  afterUpdate = id => {
+    failures.add(`GetConversation:${id}`);
+    sparseUpdates.add(id);
+  };
+  assert.deepEqual((await call('trash', { conversationIds: ['journal'] })).succeeded, []);
+  const pending = JSON.parse(readFileSync(metaFile)).conversations.journal.trash;
+  assert.equal(pending.phase, 'moving');
+  failures.clear();
+  afterUpdate = null;
+  await server.sweepTrash(Date.now());
+  const committed = JSON.parse(readFileSync(metaFile)).conversations.journal.trash;
+  assert.equal(committed.phase, undefined);
+  assert.equal(committed.previousArchived, false);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('permanent deletion requires a committed trash marker and verified host metadata', async () => {
+  addConversation('ordinary-archive', { archived: true });
+  addConversation('malformed', { archived: true });
+  await call('trash', { conversationIds: ['malformed'] });
+  conversations.get('malformed').metadata = [];
+  const result = await call('purge-trash', { conversationIds: ['ordinary-archive', 'malformed'] });
+  assert.deepEqual(result.succeeded, []);
+  assert.equal(result.failed[0].code, 'not_in_trash');
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('the sweep clears obsolete pending operations only on explicit native absence', async () => {
+  const pending = phase => ({ note: 'keep', trash: { previousArchived: false, trashedAt: Date.now(), phase } });
+  writeFileSync(metaFile, JSON.stringify({ conversations: { gone: pending('moving'), unknown: pending('restoring') } }));
+  getReply = id => id === 'gone' ? Response.json({ code: 'not_found' }, { status: 404 }) : Response.json({}, { status: 404 });
+  await server.sweepTrash();
+  const { conversations: entries } = JSON.parse(readFileSync(metaFile));
+  assert.deepEqual(entries.gone, { note: 'keep' });
+  assert.equal(entries.unknown.trash.phase, 'restoring');
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+});
+
+test('an interrupted restore remains recoverable after its original deadline', async () => {
+  addConversation('pending-restore');
+  const request = { conversationIds: ['pending-restore'] };
+  await call('trash', request);
+  const data = JSON.parse(readFileSync(metaFile));
+  const marker = data.conversations['pending-restore'].trash;
+  marker.trashedAt -= 8 * 86400000;
+  writeFileSync(metaFile, JSON.stringify(data));
+  afterUpdate = id => {
+    sparseUpdates.add(id);
+    failures.add(`GetConversation:${id}`);
+  };
+  assert.equal((await call('restore-trash', request)).ok, false);
+  assert.equal(JSON.parse(readFileSync(metaFile)).conversations['pending-restore'].trash.phase, 'restoring');
+  await server.sweepTrash();
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+  failures.clear();
+  await server.sweepTrash();
+  assert.equal(conversations.get('pending-restore').annotations.archived, false);
+  assert.equal(Object.hasOwn(JSON.parse(readFileSync(metaFile)).conversations, 'pending-restore'), false);
+});
+
+test('grouped lists count the full filtered result before loading pages for one workspace', async () => {
+  for (let i = 0; i < 54; i++) {
+    addConversation(`needle-${i}`, { days: i });
+    conversations.get(`needle-${i}`).metadata.projectId = i < 53 ? 'A' : 'B';
+  }
+  addConversation('outside');
+  const input = { tab: 'active', grouped: true, pageSize: 50, query: 'needle', searchClientId: 'grouped' };
+  const first = await call('conversations', { ...input, searchSequence: 1 });
+  assert.deepEqual(first.items, []);
+  assert.deepEqual(first.groups.map(({ key, total }) => [key, total]), [['project:A', 53], ['project:B', 1]]);
+  const pages = [];
+  for (const page of [1, 2]) {
+    const response = await call('conversations', {
+      ...input, projectKey: 'project:A', snapshotId: first.snapshotId, page, searchSequence: page + 1,
+    });
+    pages.push(response.items);
+  }
+  assert.deepEqual(pages.map(page => page.length), [50, 3]);
+  assert.equal(new Set(pages.flat().map(({ id }) => id)).size, 53);
+  assert.equal(mutationIds('ListConversations').length, 1);
+});
+
+test('statistics use the conversation snapshot and only inspect recognized IDs', async () => {
+  addConversation('sized');
+  const logs = join(agyDir, 'brain', 'sized', '.system_generated', 'logs');
+  mkdirSync(logs, { recursive: true });
+  const transcript = JSON.stringify({ type: 'USER_INPUT', source: 'USER_EXPLICIT', step_index: 0, content: 'test' }) + '\n';
+  writeFileSync(join(logs, 'transcript_full.jsonl'), transcript);
+  const listing = await call('conversations', { grouped: true });
+  const { stats } = await call('conversation-stats', { snapshotId: listing.snapshotId, conversationIds: ['sized', '../outside'] });
+  assert.equal(stats.sized.turnCount, 1);
+  assert.equal(stats.sized.fileCount, 1);
+  assert.equal(stats.sized.sizeBytes, Buffer.byteLength(transcript));
+  assert.equal(Object.hasOwn(stats, '../outside'), false);
+  assert.equal(mutationIds('ListConversations').length, 1);
+});
 
 test('language preference persists in a separate file and rejects unsupported values', async () => {
   const existingNotes = JSON.stringify({ conversations: { 'note-id': { note: '保留备注' } } });
@@ -377,11 +520,11 @@ test('delete only accepts an explicit idle state in either existing native respo
   }
   assert.equal((await call('delete', { conversationId: 'idle' })).ok, true);
   assert.equal((await call('delete', { conversationId: 'top-level' })).ok, true);
-  assert.deepEqual(mutationIds('DeleteConversation'), ['idle', 'top-level']);
-  assert.equal(invalidations, 2);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
+  assert.deepEqual(mutationIds('UpdateConversation'), ['idle', 'top-level']);
 });
 
-test('damaged metadata stays on disk and surfaces a warning on reads and successful deletes', async () => {
+test('damaged metadata stays on disk and prevents moving or purging a session', async () => {
   addConversation('damaged');
   const damaged = '{"conversations": {"damaged": {"tags": [1]}}}';
   writeFileSync(metaFile, damaged);
@@ -392,9 +535,9 @@ test('damaged metadata stays on disk and surfaces a warning on reads and success
   await assert.rejects(call('meta/update', { conversationId: 'damaged', note: 'new' }), /meta\.json/);
   const updated = await call('meta/update', { conversationId: 'damaged', pinned: true });
   assert.equal(updated.ok, true);
-  const deleted = await call('delete', { conversationId: 'damaged' });
-  assert.equal(deleted.ok, true);
-  assert.ok(deleted.warnings.some((warning) => /meta\.json/.test(warning)));
+  await assert.rejects(call('delete', { conversationId: 'damaged' }), /meta\.json/);
+  assert.equal((await call('purge-trash', { conversationIds: ['damaged'] })).ok, false);
+  assert.deepEqual(mutationIds('DeleteConversation'), []);
   assert.equal(readFileSync(metaFile, 'utf8'), damaged);
 });
 
@@ -717,19 +860,24 @@ test('batch deletion rechecks each archived ordinary idle ID and distinguishes u
   for (const id of ['a','changed','remains','ambiguous','lost-reply','child']) addConversation(id, { archived: true });
   conversations.get('child').metadata.parentConversationId = 'a';
   addConversation('active');
+  const marked = Object.fromEntries([...conversations.keys(), 'missing'].map(id => [
+    id, { trash: { previousArchived: true, trashedAt: Date.now() } },
+  ]));
+  writeFileSync(metaFile, JSON.stringify({ conversations: marked }));
   deleteReply = id => {
     if (id === 'a') conversations.get('changed').state.runState = 'RUN_STATE_RUNNING';
     if (id !== 'remains') conversations.delete(id);
     if (id === 'ambiguous') failures.add('GetConversation:ambiguous');
     return id === 'lost-reply' || id === 'remains' ? Response.json({message:'lost'}, {status:500}) : Response.json({});
   };
-  const result = await call('delete-batch', {conversationIds:['a','missing','changed','active','child','remains','ambiguous','lost-reply','a']});
-  assert.deepEqual(result.deleted, ['a','lost-reply']);
-  assert.deepEqual(result.skipped.map(x => x.code), ['already_gone','running','not_archived','subagent']);
-  assert.deepEqual(result.failed.map(x => [x.id,x.code,x.retryable]), [['remains','delete_failed',true],['ambiguous','unknown_outcome',false]]);
+  const result = await call('purge-trash', {conversationIds:['a','missing','changed','active','child','remains','ambiguous','lost-reply','a']});
+  assert.deepEqual(result.succeeded, ['a','missing','lost-reply']);
+  assert.deepEqual(result.failed.map(x => [x.id,x.code]), [
+    ['changed','operation_failed'],['active','not_archived'],['child','subagent'],['remains','delete_failed'],['ambiguous','unknown_outcome'],
+  ]);
   assert.ok(result.warnings.length);
   assert.deepEqual(mutationIds('DeleteConversation'), ['a','remains','ambiguous','lost-reply']);
-  await assert.rejects(call('delete-batch', { tab: 'archived' }));
+  await assert.rejects(call('purge-trash', { tab: 'archived' }));
 });
 
 test('a newer request can interrupt a running literal scan for just its panel', async () => {
@@ -801,9 +949,10 @@ test('generic HTTP 404 and a malformed success response do not confirm a deletio
     seen.add(id);
     return Response.json(conversations.get(id));
   };
-  writeFileSync(metaFile,JSON.stringify({ conversations:{ 'route-404':{note:'keep'}, 'malformed-reply':{note:'keep'} } }));
-  const result = await call('delete-batch',{conversationIds:[...conversations.keys()]});
-  assert.deepEqual(result.deleted,[]);
+  const entry = { note:'keep', trash: { previousArchived: true, trashedAt: Date.now() } };
+  writeFileSync(metaFile,JSON.stringify({ conversations:{ 'route-404':entry, 'malformed-reply':entry } }));
+  const result = await call('purge-trash',{conversationIds:[...conversations.keys()]});
+  assert.deepEqual(result.succeeded,[]);
   assert.deepEqual(result.failed.map(entry=>entry.code),['unknown_outcome','unknown_outcome']);
   assert.equal(Object.keys(JSON.parse(readFileSync(metaFile)).conversations).length,2);
 });
@@ -826,14 +975,16 @@ test('accept host tags rejects sparse and malformed readbacks without dropping a
 
 test('top-level ID-less targeted replies still support legacy preview, export and single delete', async () => {
   addConversation('legacy-shape');
-  const native = {annotations:{title:'Legacy title'}, metadata:{}, state:{runState:'RUN_STATE_IDLE'}};
+  const native = {annotations:conversations.get('legacy-shape').annotations, metadata:{}, state:{runState:'RUN_STATE_IDLE'}};
+  native.annotations.title = 'Legacy title';
   getReply = id => conversations.has(id) ? Response.json(native) : Response.json({code:'not_found'},{status:404});
   const preview = await call('preview',{conversationId:'legacy-shape'});
   assert.equal(preview.id,'legacy-shape');
   assert.equal(preview.title,'Legacy title');
   assert.match((await call('export',{conversationId:'legacy-shape'})).markdown,/legacy-shape/);
   assert.equal((await call('delete',{conversationId:'legacy-shape'})).deletedId,'legacy-shape');
-  assert.deepEqual(mutationIds('DeleteConversation'),['legacy-shape']);
+  assert.deepEqual(mutationIds('UpdateConversation'),['legacy-shape']);
+  assert.deepEqual(mutationIds('DeleteConversation'),[]);
 });
 
 test('keyword search falls back to streamed chunks when the FTS5 index lacks column query support', async () => {

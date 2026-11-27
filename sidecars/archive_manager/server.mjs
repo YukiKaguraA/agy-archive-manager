@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import { SidecarApp } from 'sidecar_sdk';
 import { DEFAULT_LANGUAGE, getRequestLanguage, isSupportedLanguage, t, UNASSIGNED_PROJECT, withRequestLocale } from './server-locale.mjs';
 import { filterSearch, beginSearch } from './search.mjs';
+import { createConversationStats } from './conversation-stats.mjs';
 import { startSidebarInjector } from './sidebar_injector.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -24,6 +25,9 @@ const DATA_DIR =
 const META_FILE = join(DATA_DIR, 'meta.json');
 const PREFERENCES_FILE = join(DATA_DIR, 'preferences.json');
 const EXPORT_DIR = join(HOME, 'Documents', 'Antigravity-Exports');
+const TRASH_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const TRASH_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const inspectConversation = createConversationStats(AGY_DIR);
 
 const LS_ADDRESS = process.env.ANTIGRAVITY_LS_ADDRESS || 'localhost:5387';
 const CSRF_TOKEN = process.env.ANTIGRAVITY_CSRF_TOKEN || '';
@@ -95,6 +99,17 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function validTrashRecord(trash) {
+  return isRecord(trash) && typeof trash.previousArchived === 'boolean' &&
+    Number.isSafeInteger(trash.trashedAt) && trash.trashedAt > 0 &&
+    trash.trashedAt <= 8640000000000000 - TRASH_RETENTION_MS &&
+    [undefined, 'moving', 'restoring'].includes(trash.phase);
+}
+
+function inTrash(entry) {
+  return Boolean(entry?.trash && entry.trash.phase !== 'moving');
+}
+
 function readMetaStore() {
   let raw;
   try {
@@ -110,7 +125,8 @@ function readMetaStore() {
     for (const entry of Object.values(store.conversations)) {
       if (!isRecord(entry) ||
           (Object.hasOwn(entry, 'tags') && (!Array.isArray(entry.tags) || entry.tags.some((tag) => typeof tag !== 'string'))) ||
-          (Object.hasOwn(entry, 'note') && typeof entry.note !== 'string')) {
+          (Object.hasOwn(entry, 'note') && typeof entry.note !== 'string') ||
+          (Object.hasOwn(entry, 'trash') && !validTrashRecord(entry.trash))) {
         throw new Error(t('metaInvalidEntry'));
       }
     }
@@ -313,6 +329,7 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
     .find(id => typeof id === 'string' && id.trim())?.trim() || '';
   const nativeTags = nativeTagsOf(c);
   const localTags = Array.isArray(localMeta.tags) ? normalizeTags(localMeta.tags) : null;
+  const trashedAt = inTrash(localMeta) ? localMeta.trash.trashedAt : null;
   return {
     id: c.id,
     title: (ann.title || st.summary || dbInfo.preview || t('untitled')).trim(),
@@ -329,6 +346,8 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
     nativeTags, localTags,
     tagConflict: localTags !== null && !sameTags(localTags, nativeTags),
     note: localMeta.note || '',
+    trashedAt,
+    purgeAt: trashedAt === null ? null : trashedAt + TRASH_RETENTION_MS,
   };
 }
 
@@ -357,7 +376,8 @@ async function loadSnapshot(data, paged) {
   if (paged && !data.refresh && prior?.locale === locale) return prior;
   const generation = snapshotGeneration;
   const { items, warnings } = await loadConversationData();
-  const snapshot = { id: randomUUID(), locale, items: items.filter(c => !c.isSubagent), warnings, results: new Map() };
+  const visible = items.filter(c => !c.isSubagent);
+  const snapshot = { id: randomUUID(), locale, items: visible, ids: new Set(visible.map(c => c.id)), warnings, results: new Map() };
   if (paged && generation === snapshotGeneration) {
     snapshots.set(snapshot.id, snapshot);
     if (snapshots.size > 6) snapshots.delete(snapshots.keys().next().value);
@@ -367,7 +387,9 @@ async function loadSnapshot(data, paged) {
 
 async function getArchivedCount() {
   const all = await listAllNativeConversations();
-  return all.filter((c) => c.annotations?.archived === true && !c.metadata?.parentConversationId).length;
+  const { store } = readMetaForDisplay();
+  return all.filter(c => c.annotations?.archived === true && !c.metadata?.parentConversationId &&
+    !inTrash(store.conversations[c.id])).length;
 }
 
 function readTranscript(logsDir, source, warnings) {
@@ -630,40 +652,64 @@ function sortedItems(items, tab, sort, collator) {
   });
 }
 
+function groupByWorkspace(items, collator) {
+  const groups = new Map();
+  const labels = new Map(optionsOf(items, 'projectKey', 'projectLabel', collator)
+    .map(({ key, label }) => [key, label]));
+  for (const item of items) {
+    const key = item.projectKey;
+    if (!groups.has(key)) groups.set(key, { key, label: labels.get(key), lastModifiedMs: 0, lastModified: '', items: [] });
+    const group = groups.get(key);
+    group.items.push(item);
+    if (item.lastModifiedMs > group.lastModifiedMs) {
+      group.lastModifiedMs = item.lastModifiedMs;
+      group.lastModified = item.lastModified;
+    }
+  }
+  const summaries = [...groups.values()].sort((a, b) => b.lastModifiedMs - a.lastModifiedMs ||
+    collator.compare(a.label, b.label) || compareId(a.key, b.key))
+    .map(({ key, label, lastModified, items }) => ({ key, label, lastModified, total: items.length }));
+  return { groups, summaries };
+}
+
 registerApi('/api/conversations', async (data) => {
   const tab = String(data.tab || 'archived');
   const query = String(data.query || '').trim().toLowerCase();
   const searchMode = data.searchMode === 'keywords' ? 'keywords' : 'literal';
   const projectKey = String(data.projectKey || '');
+  const grouped = data.grouped === true;
+  const filterProjectKey = grouped ? '' : projectKey;
   const groupKey = String(data.groupKey || '');
   const project = String(data.project || '').trim();
   const tag = String(data.tag || '').trim();
   const sort = String(data.sort || 'updated');
   const staleDays = Math.max(1, Number(data.staleDays) || 7);
-  const paged = data.page !== undefined || data.pageSize !== undefined;
+  const paged = grouped || data.page !== undefined || data.pageSize !== undefined;
   const signal = beginSearch(data.searchClientId, data.searchSequence);
   const cancelled = { cancelled: true, items: [] };
   if (signal?.aborted) return cancelled;
   const snapshot = await loadSnapshot(data, paged);
   if (signal?.aborted) return cancelled;
-  const key = JSON.stringify([tab, query, searchMode, projectKey, groupKey, project, tag, sort, staleDays]);
+  const key = JSON.stringify([tab, query, searchMode, filterProjectKey, groupKey, project, tag, sort, staleDays, grouped]);
   let result = snapshot.results.get(key);
   if (!result) {
     const collator = new Intl.Collator(snapshot.locale);
-    const all = snapshot.items;
+    const recycled = snapshot.items.filter(c => c.trashedAt !== null);
+    const all = snapshot.items.filter(c => c.trashedAt === null);
+    const scope = tab === 'trash' ? recycled : all;
     const stale = all.filter(c => !getStaleExclusion(c, staleDays));
-    const counts = { all: all.length, archived: 0, active: 0, starred: 0, stale: stale.length };
+    const counts = { all: all.length, archived: 0, active: 0, starred: 0, stale: stale.length, trash: recycled.length };
     const projectLabels = new Map();
     const tags = new Set();
     for (const c of all) {
       counts[c.archived ? 'archived' : 'active']++;
       if (c.starred) counts.starred++;
       if (!projectLabels.has(c.project) || c.project === c.projectLabel) projectLabels.set(c.project, c.projectLabel);
-      for (const value of c.tags) tags.add(value);
     }
-    let filtered = (tab === 'stale' ? stale : all).filter(c =>
+    for (const c of scope) for (const value of c.tags) tags.add(value);
+    let filtered = (tab === 'stale' ? stale : scope).filter(c =>
       (tab !== 'archived' || c.archived) && (tab !== 'active' || !c.archived) && (tab !== 'starred' || c.starred) &&
-      (!projectKey || c.projectKey === projectKey) && (projectKey || !project || c.project === project) &&
+      (!filterProjectKey || c.projectKey === filterProjectKey) && (filterProjectKey || !project || c.project === project) &&
       (!groupKey || c.groupKey === groupKey) && (!tag || c.tags.includes(tag)));
     const warnings = [...snapshot.warnings];
     if (query) {
@@ -672,12 +718,14 @@ registerApi('/api/conversations', async (data) => {
       filtered = search.items;
       if (search.warning) warnings.push(t(search.warning));
     }
+    const items = sortedItems(filtered, tab, sort, collator);
     result = {
-      items: sortedItems(filtered, tab, sort, collator),
+      items,
+      workspace: grouped ? groupByWorkspace(items, collator) : null,
       counts, warnings, projectLabels: Object.fromEntries(projectLabels),
       projects: [...projectLabels.keys()].sort((a, b) => collator.compare(projectLabels.get(a), projectLabels.get(b))),
-      projectOptions: optionsOf(all, 'projectKey', 'projectLabel', collator),
-      groupOptions: optionsOf(all, 'groupKey', 'groupLabel', collator),
+      projectOptions: optionsOf(scope, 'projectKey', 'projectLabel', collator),
+      groupOptions: optionsOf(scope, 'groupKey', 'groupLabel', collator),
       allTags: [...tags].sort(collator.compare),
     };
     if (paged) {
@@ -686,14 +734,18 @@ registerApi('/api/conversations', async (data) => {
     }
   }
 
-  const total = result.items.length;
+  const { items, workspace, ...metadata } = result;
+  const pageItems = grouped ? workspace.groups.get(projectKey)?.items ?? [] : items;
+  const total = grouped && !projectKey ? items.length : pageItems.length;
   const pageSize = paged ? Math.max(1, Math.min(500, Math.floor(Number(data.pageSize)) || 50)) : total;
   const pageCount = paged ? Math.max(1, Math.ceil(total / pageSize)) : 1;
   const page = paged ? Math.min(pageCount, Math.max(1, Math.floor(Number(data.page)) || 1)) : 1;
   return {
-    ...result, page, pageSize, total, snapshotId: snapshot.id,
-    items: paged ? result.items.slice((page - 1) * pageSize, page * pageSize) : result.items,
-    ...(tab === 'stale' && data.includeMatchingIds === true ? { matchingIds: result.items.map(c => c.id) } : {}),
+    ...(grouped && projectKey ? {} : metadata),
+    page, pageSize, total, snapshotId: snapshot.id,
+    items: paged ? pageItems.slice((page - 1) * pageSize, page * pageSize) : pageItems,
+    ...(grouped && !projectKey ? { groups: workspace.summaries } : {}),
+    ...(tab === 'stale' && data.includeMatchingIds === true ? { matchingIds: (projectKey ? pageItems : items).map(c => c.id) } : {}),
   };
 });
 
@@ -701,6 +753,21 @@ registerApi('/api/preview', async (data) => {
   const id = String(data.conversationId || '').trim();
   if (!id) throw new Error(t('missingConversationId'));
   return loadConversationPreview(id);
+});
+
+registerApi('/api/conversation-stats', async (data) => {
+  if (!Array.isArray(data.conversationIds) || data.conversationIds.length > 50) {
+    throw new Error(t('invalidStatsRequest'));
+  }
+  const ids = data.conversationIds.length ? trashIds(data) : [];
+  if (!ids.length) return { stats: {} };
+  const snapshot = await loadSnapshot(data, true);
+  const stats = await Promise.all(ids.filter(id => snapshot.ids.has(id)).map(async id => [
+    id, await inspectConversation(id) ?? {
+      turnCount: null, turnStatus: 'unavailable', fileCount: null, sizeBytes: null, storageStatus: 'unavailable',
+    },
+  ]));
+  return { stats: Object.fromEntries(stats) };
 });
 
 function parseArchiveRequest(data) {
@@ -784,9 +851,11 @@ function requireIdle(status, operation) {
 registerApi('/api/set-archived', serializeMutation(async (data) => {
   const { ops, archived, staleDays } = parseArchiveRequest(data);
   const result = { ok: true, archived, succeeded: [], unchanged: [], failed: [], changes: [] };
+  const { conversations } = readMetaStore();
   for (const op of ops) {
     const { id, expectedArchived } = op;
     try {
+      if (conversations[id]?.trash) throw new Error(t('restoreFromTrash'));
       // Earlier operations in a batch may take time. Read each candidate just before its update.
       const current = await getNativeConversation(id);
       const previousArchived = getKnownArchiveState(current);
@@ -867,6 +936,7 @@ registerApi('/api/meta/update', serializeMutation(async (data) => {
     nativeAnn.tags = normalizeTags(data.tags).slice(0, 20);
   }
   if (typeof data.archived === 'boolean') {
+    if (prev.trash) throw new Error(t('restoreFromTrash'));
     const current = await getNativeConversation(id);
     if (getKnownArchiveState(current) !== data.archived) {
       if (data.archived) requireIdle(getConversationStatus(current), 'archive');
@@ -907,92 +977,179 @@ registerApi('/api/meta/update', serializeMutation(async (data) => {
   };
 }));
 
-function deleteIssue(id, code, reason, retryable = false) {
-  return { id, code, reason, retryable };
+function trashIds(data) {
+  const ids = data.conversationIds ?? [data.conversationId];
+  if (!Array.isArray(ids) || !ids.length || ids.some(id => typeof id !== 'string' || !id.trim())) {
+    throw new Error(t('missingConversationId'));
+  }
+  return [...new Set(ids.map(id => id.trim()))];
 }
 
-async function deleteOne(id, archivedOnly, result) {
-  let current;
-  try {
-    current = await getNativeConversation(id);
-    if (archivedOnly && current.id !== id) throw new Error(t('unknownConversation'));
-  } catch (err) {
-    if (err.notFound) result.skipped.push(deleteIssue(id, 'already_gone', t('alreadyGone')));
-    else result.failed.push(deleteIssue(id, 'read_failed', err.message, true));
-    return;
-  }
-
-  const status = getConversationStatus(current);
-  if (status.isSubagent) {
-    result.skipped.push(deleteIssue(id, 'subagent', t('deleteSubagent')));
-    return;
-  }
-  if (status.runState !== 'RUN_STATE_IDLE') {
-    result.skipped.push(deleteIssue(id, status.isRunning ? 'running' : 'unknown_state', t(status.isRunning ? 'runningDelete' : 'unknownDelete')));
-    return;
-  }
-  if (archivedOnly && !status.archived) {
-    result.skipped.push(deleteIssue(id, 'not_archived', t('deleteArchivedOnly')));
-    return;
-  }
-
-  let writeError;
-  try {
-    await callConversationService('DeleteConversation', { conversationId: id });
-  } catch (err) {
-    writeError = err;
-  }
+function invalidateTrashViews() {
   invalidateSnapshots();
+  invalidateCount();
+}
+
+function saveTrash(store, id, trash) {
+  const entry = { ...store.conversations[id] };
+  if (trash) entry.trash = trash;
+  else delete entry.trash;
+  if (Object.keys(entry).length) store.conversations[id] = entry;
+  else delete store.conversations[id];
+  writeMetaStore(store);
+  invalidateTrashViews();
+}
+
+function trashFailure(code, key, detail) {
+  const reason = t(key);
+  return Object.assign(new Error(detail ? reason + ' (' + detail + ')' : reason), { code });
+}
+
+async function checkedTrashConversation(id, requireIdentity = false) {
+  const current = await getNativeConversation(id);
+  const status = getConversationStatus(current);
+  const metadata = current.metadata;
+  if (requireIdentity && (current.id !== id || !isRecord(metadata) || !isRecord(current.annotations) ||
+      (metadata.parentConversationId !== undefined && typeof metadata.parentConversationId !== 'string'))) {
+    throw new Error(t('unknownConversation'));
+  }
+  if (status.isSubagent) throw trashFailure('subagent', 'deleteSubagent');
+  requireIdle(status, 'delete');
+  return getKnownArchiveState(current);
+}
+
+async function restoreTrashed(id) {
+  const store = readMetaStore();
+  const entry = store.conversations[id];
+  if (!inTrash(entry)) throw trashFailure('not_in_trash', 'notInTrash');
+  const archived = await checkedTrashConversation(id);
+  const { trashedAt, previousArchived } = entry.trash;
+  if (archived !== previousArchived) {
+    saveTrash(store, id, { trashedAt, previousArchived, phase: 'restoring' });
+    await updateNativeAnnotations(id, { archived: previousArchived });
+  }
+  saveTrash(store, id, null);
+}
+
+async function moveToTrash(id, archivedOnly) {
+  const store = readMetaStore();
+  const entry = store.conversations[id];
+  if (inTrash(entry)) {
+    if (entry.trash.phase === 'restoring') throw trashFailure('restore_pending', 'restoreFromTrash');
+    return;
+  }
+  const archived = await checkedTrashConversation(id);
+  if (archivedOnly && !archived) throw trashFailure('not_archived', 'deleteArchivedOnly');
+  const previousArchived = entry?.trash?.previousArchived ?? archived;
+  if (!archived) {
+    saveTrash(store, id, { previousArchived, trashedAt: Date.now(), phase: 'moving' });
+    await updateNativeAnnotations(id, { archived: true });
+  }
+  saveTrash(store, id, { previousArchived, trashedAt: Date.now() });
+}
+
+async function purgeTrashed(id, warnings) {
+  const store = readMetaStore();
+  const trash = store.conversations[id]?.trash;
+  if (!trash || trash.phase !== undefined) throw trashFailure('not_in_trash', 'notInTrash');
+
+  let present = true;
   try {
-    const present = await getNativeConversation(id);
-    if (!completeNativeIdentity(present, id)) throw new Error(t('unknownConversation'));
-    result.failed.push(deleteIssue(id, 'delete_failed', writeError?.message || t('deleteRemains'), true));
+    if (!await checkedTrashConversation(id, true)) throw trashFailure('not_archived', 'deleteArchivedOnly');
   } catch (err) {
-    if (!err.notFound) {
-      result.failed.push(deleteIssue(id, 'unknown_outcome', t('deleteUnknown') + ' (' + err.message + ')'));
-      return;
-    }
-    result.deleted.push(id);
-    if (writeError) result.warnings.push(t('deleteRecovered', id, writeError.message));
+    if (!err.notFound) throw err;
+    present = false;
   }
-}
 
-async function deleteConversations(ids, archivedOnly) {
-  const result = { deleted: [], skipped: [], failed: [], warnings: [] };
-  for (const id of ids) await deleteOne(id, archivedOnly, result);
-  if (result.deleted.length || result.failed.some(issue => issue.code === 'unknown_outcome')) invalidateCount();
-  if (result.deleted.length) {
+  if (present) {
+    let writeError;
     try {
-      const store = readMetaStore();
-      let changed = false;
-      for (const id of result.deleted) {
-        if (Object.hasOwn(store.conversations, id)) {
-          delete store.conversations[id];
-          changed = true;
-        }
-      }
-      if (changed) writeMetaStore(store);
+      await callConversationService('DeleteConversation', { conversationId: id });
     } catch (err) {
-      result.warnings.push(err.message);
+      writeError = err;
     }
+    invalidateTrashViews();
+    try {
+      const current = await getNativeConversation(id);
+      if (!completeNativeIdentity(current, id)) throw new Error(t('unknownConversation'));
+    } catch (err) {
+      if (!err.notFound) throw trashFailure('unknown_outcome', 'deleteUnknown', err.message);
+      if (writeError) warnings.push(t('deleteRecovered', id, writeError.message));
+      present = false;
+    }
+    if (present) throw trashFailure('delete_failed', 'deleteRemains', writeError?.message);
   }
-  return { ...result, ok: result.failed.length === 0 && result.skipped.length === 0 };
+
+  delete store.conversations[id];
+  writeMetaStore(store);
+  invalidateTrashViews();
 }
 
+async function applyTrashOperations(ids, operation) {
+  const result = { ok: true, succeeded: [], failed: [], warnings: [] };
+  for (const id of ids) {
+    try {
+      await operation(id, result.warnings);
+      result.succeeded.push(id);
+    } catch (err) {
+      result.failed.push({ id, error: err.message, code: err.code || (err.notFound ? 'already_gone' : 'operation_failed') });
+    }
+  }
+  result.ok = result.failed.length === 0;
+  return result;
+}
+
+registerApi('/api/trash', serializeMutation(data => applyTrashOperations(trashIds(data), id => moveToTrash(id, false))));
+registerApi('/api/restore-trash', serializeMutation(data => applyTrashOperations(trashIds(data), restoreTrashed)));
+registerApi('/api/purge-trash', serializeMutation(data => applyTrashOperations(trashIds(data), purgeTrashed)));
+
+// Keep old entry points reversible when a panel from an earlier version is still open.
 registerApi('/api/delete-batch', serializeMutation(async data => {
-  if (!Array.isArray(data.conversationIds) || !data.conversationIds.length ||
-      data.conversationIds.some(id => typeof id !== 'string' || !id.trim())) throw new Error(t('missingConversationId'));
-  return deleteConversations([...new Set(data.conversationIds.map(id => id.trim()))], true);
+  const result = await applyTrashOperations(trashIds(data), id => moveToTrash(id, true));
+  return { ...result, deleted: result.succeeded, skipped: [], failed: result.failed.map(issue => ({ ...issue, reason: issue.error })) };
 }));
 
 registerApi('/api/delete', serializeMutation(async data => {
-  const id = String(data.conversationId || '').trim();
-  if (!id) throw new Error(t('missingConversationId'));
-  // Existing individual delete also supports explicitly confirmed, idle active conversations.
-  const result = await deleteConversations([id], false);
-  if (!result.deleted.length) throw new Error((result.skipped[0] || result.failed[0]).reason);
-  return { ok: true, deletedId: id, warnings: result.warnings };
+  const [id] = trashIds({ conversationId: data.conversationId });
+  await moveToTrash(id, false);
+  return { ok: true, deletedId: id, warnings: [] };
 }));
+
+async function reconcileTrashMove(id) {
+  const store = readMetaStore();
+  const { previousArchived } = store.conversations[id].trash;
+  const archived = await checkedTrashConversation(id);
+  const trash = archived ? { previousArchived, trashedAt: Date.now() } : null;
+  saveTrash(store, id, trash);
+}
+
+export function sweepTrash(now = Date.now()) {
+  return enqueueTrashSweep(now);
+}
+
+const enqueueTrashSweep = serializeMutation(async now => {
+  const { conversations } = readMetaStore();
+  const pending = Object.entries(conversations).filter(([, entry]) => entry.trash?.phase);
+  const settled = await applyTrashOperations(pending.map(([id]) => id), async id => {
+    try {
+      if (conversations[id].trash.phase === 'moving') await reconcileTrashMove(id);
+      else await restoreTrashed(id);
+    } catch (err) {
+      if (!err.notFound) throw err;
+      saveTrash(readMetaStore(), id, null);
+    }
+  });
+  const expired = Object.entries(conversations).filter(([, { trash }]) =>
+    trash && !trash.phase && trash.trashedAt + TRASH_RETENTION_MS <= now);
+  const purged = await applyTrashOperations(expired.map(([id]) => id), purgeTrashed);
+  return { settled, purged };
+});
+
+function scheduleTrashSweep() {
+  sweepTrash()
+    .catch(err => console.warn('[archive-manager] ' + err.message))
+    .finally(() => setTimeout(scheduleTrashSweep, TRASH_SWEEP_INTERVAL_MS).unref());
+}
 
 registerApi('/api/export', async (data) => {
   const id = String(data.conversationId || '').trim();
@@ -1042,6 +1199,7 @@ function getSidebarLanguage() {
 }
 
 const { cleanup: cleanupSidebar, invalidateCount } = startSidebarInjector(getArchivedCount, getSidebarLanguage);
+scheduleTrashSweep();
 
 process.on('SIGTERM', async () => {
   await cleanupSidebar();
