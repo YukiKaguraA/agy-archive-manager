@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // Renders the README hero screenshots (light + dark) from the real panel source.
 // The panel runs against a mock `window.sidecar.fetch` with fictional demo data,
 // and Antigravity host theme variables are emulated per theme.

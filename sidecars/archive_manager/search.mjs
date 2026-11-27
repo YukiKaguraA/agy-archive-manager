@@ -20,6 +20,7 @@ export function beginSearch(client, sequence) {
 }
 
 function readBodies(data, signal) {
+  if (signal?.aborted) return Promise.resolve({ hits: [] });
   return new Promise(resolve => {
     const worker = new Worker(new URL('./search-worker.mjs', import.meta.url), { workerData: data });
     const finish = result => {

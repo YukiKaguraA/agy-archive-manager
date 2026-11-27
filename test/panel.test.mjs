@@ -439,3 +439,47 @@ test('idle cleanup includes all matching chats beyond the current page', async (
   await element('archiveAllStaleBtn').handlers.click({currentTarget:element('archiveAllStaleBtn')});
   assert.deepEqual(archived, ['A','B']);
 });
+
+test('keywords highlight matches multiple non-adjacent terms without corrupting HTML tags and updates preview on mode switch', async () => {
+  let renderPreviewCalls = 0;
+  const { element, run } = createPanel(() => ({ items: [] }));
+  run('renderPreview = () => { globalThis.__renderPreviewCalls = (globalThis.__renderPreviewCalls || 0) + 1; };');
+  run("state.searchMode = 'keywords';");
+  const highlighted = run(`highlightText('<span>alpha middle beta</span> <a href="https://example.com">beta link</a> <code>alpha</code>', 'alpha beta')`);
+  assert.equal(highlighted, '<span><mark>alpha</mark> middle <mark>beta</mark></span> <a href="https://example.com"><mark>beta</mark> link</a> <code><mark>alpha</mark></code>');
+  const tagSafe = run(`highlightText('<a href="https://example.com">href text</a>', 'href a')`);
+  assert.equal(tagSafe, '<a href="https://example.com"><mark>href</mark> text</a>');
+  run("state.previewData = { id: 'p1', messages: [] };");
+  await element('searchModeSelect').handlers.change({ target: { value: 'literal' } });
+  renderPreviewCalls = run('globalThis.__renderPreviewCalls');
+  assert.equal(renderPreviewCalls, 1);
+  assert.equal(run('state.searchMode'), 'literal');
+});
+
+test('groupSelect hides without native groups and vanished active filters keep fallback selections', async () => {
+  let payload = {
+    items: [],
+    projectOptions: [{ key: 'project:p1', label: 'P1' }],
+    groupOptions: [{ key: 'ungrouped', label: 'Ungrouped' }],
+    allTags: ['t1'],
+  };
+  const { element, run } = createPanel(() => payload);
+  await run('loadList()');
+  assert.equal(element('groupSelect').hidden, true);
+
+  payload = {
+    items: [],
+    projectOptions: [],
+    groupOptions: [{ key: 'group:eng', label: 'eng' }, { key: 'ungrouped', label: 'Ungrouped' }],
+    allTags: [],
+  };
+  run("state.projectKey = 'project:gone'; state.tag = 'goneTag'; state.groupKey = 'group:gone';");
+  await run('loadList()');
+  assert.equal(element('groupSelect').hidden, false);
+  assert.equal(element('projectSelect').value, 'project:gone');
+  assert.equal(element('projectSelect').children.at(-1).value, 'project:gone');
+  assert.equal(element('groupSelect').value, 'group:gone');
+  assert.equal(element('groupSelect').children.at(-1).value, 'group:gone');
+  assert.equal(element('tagSelect').value, 'goneTag');
+  assert.equal(element('tagSelect').children.at(-1).value, 'goneTag');
+});

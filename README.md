@@ -70,7 +70,7 @@
 
 | 场景 | 操作 | 入口 |
 | :--- | :--- | :--- |
-| 找旧会话 | 关键词检索，配合项目 / 标签筛选与排序 | 面板顶部 |
+| 找旧会话 | 原文片段 / 多关键词检索，配合项目 / 分组 / 标签筛选与排序 | 面板顶部 |
 | 归档 / 恢复 | 琥珀色「归档」/ 绿色「恢复」，可撤回 | 会话卡片、预览工具栏 |
 | 批量处理 | 多选后归档或恢复，在已归档视图可确认永久删除所选会话 | 「批量」按钮 |
 | 清理闲置 | 按 3 / 7 / 14 / 30 天批量归档闲置会话 | 闲置视图 |
@@ -208,6 +208,7 @@ agy-archive-manager/
 ├── CHANGELOG.md                        # 更新日志
 ├── LICENSE                             # MIT 开源协议
 ├── docs/
+│   ├── benchmark-v2.3.0.md             # v2.3.0 历史库基准测试报告
 │   └── screenshots/                    # 主图与界面预览截图
 ├── scripts/
 │   ├── install.ps1                     # Windows 一键安装 / 更新脚本
@@ -220,9 +221,12 @@ agy-archive-manager/
 │       ├── sidecar.json                # Sidecar 进程与面板入口配置
 │       ├── server.mjs                  # 本地 HTTP + ConversationService 后端
 │       ├── server-locale.mjs           # 后端提示与 Markdown 导出文案
+│       ├── search.mjs                  # 检索调度与取消控制
+│       ├── search-worker.mjs           # FTS5 / 流式正文检索工作线程
 │       ├── sidebar_injector.mjs        # 左侧栏快捷入口注入器（可选 CDP）
 │       └── index.html                  # 前端双栏管理面板
 ├── tools/
+│   ├── benchmark-history.mjs           # 万条历史库性能基准脚本
 │   └── render-hero.mjs                 # README 亮 / 暗主图渲染脚本
 └── test/                               # 本地回归测试套件
 ```

@@ -310,7 +310,7 @@ function conversationItem(c, projectMap, dbInfo, localMeta, nowMs) {
   const projectName = projectMap.get(projectId) || dbInfo.workspaceName || (assigned ? projectId : '');
   const projectKey = assigned ? 'project:' + projectId : dbInfo.workspaceUri ? 'workspace:' + dbInfo.workspaceUri : 'unassigned';
   const groupId = [ann.conversationGroupId, ann.groupId, md.conversationGroupId, md.groupId, c.groupId, dbInfo.groupId]
-    .find(id => typeof id === 'string') || '';
+    .find(id => typeof id === 'string' && id.trim())?.trim() || '';
   const nativeTags = nativeTagsOf(c);
   const localTags = Array.isArray(localMeta.tags) ? normalizeTags(localMeta.tags) : null;
   return {

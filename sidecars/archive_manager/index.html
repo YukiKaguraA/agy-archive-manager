@@ -855,7 +855,7 @@
           <option value="literal" data-i18n="literal">原文片段</option>
           <option value="keywords" data-i18n="keywords">多关键词</option>
         </select>
-        <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup">
+        <select id="groupSelect" class="ctrl-select" data-i18n-label="filterGroup" data-i18n-title="filterGroup" hidden>
           <option value="" data-i18n="allGroups">全部分组</option>
         </select>
         <select id="projectSelect" class="ctrl-select" data-i18n-title="filterProject" data-i18n-label="filterProject">
@@ -1202,10 +1202,18 @@
     }
 
     function highlightText(htmlSafe, q) {
-      if (!q) return htmlSafe;
-      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const trimmed = String(q || '').trim();
+      if (!trimmed) return htmlSafe;
+      const terms = state.searchMode === 'keywords'
+        ? [...new Set(trimmed.split(/\s+/u).filter(Boolean))].sort((a, b) => b.length - a.length)
+        : [trimmed];
+      if (!terms.length) return htmlSafe;
+      const pattern = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
       try {
-        return htmlSafe.replace(new RegExp(`(${escapedQ})`, 'gi'), '<mark>$1</mark>');
+        const re = new RegExp(`(${pattern})`, 'gi');
+        return htmlSafe.replace(/(<[^>]+>)|([^<]+)/g, (_, tag, text) => (
+          tag || text.replace(re, '<mark>$1</mark>')
+        ));
       } catch {
         return htmlSafe;
       }
@@ -1427,19 +1435,31 @@
           if (el) el.textContent = number(data.counts?.[key] ?? 0);
         }
 
+        const groupOptions = data.groupOptions || [];
+        const hasNativeGroups = groupOptions.some((opt) => typeof opt.key === 'string' && opt.key.startsWith('group:'));
+        $('groupSelect').hidden = !hasNativeGroups && !state.groupKey;
         fillSelect('projectSelect', 'allProjects', data.projectOptions || [], state.projectKey);
-        fillSelect('groupSelect', 'allGroups', data.groupOptions || [], state.groupKey);
+        fillSelect('groupSelect', 'allGroups', groupOptions, state.groupKey);
 
         const tagSel = $('tagSelect');
         const curTag = state.tag;
+        const allTags = data.allTags || [];
         tagSel.innerHTML = `<option value="" data-i18n="allTags">${escapeHtml(t('allTags'))}</option>`;
-        for (const t of data.allTags || []) {
+        for (const tagValue of allTags) {
           const opt = document.createElement('option');
-          opt.value = t;
-          opt.textContent = `#${t}`;
-          if (t === curTag) opt.selected = true;
+          opt.value = tagValue;
+          opt.textContent = `#${tagValue}`;
+          if (tagValue === curTag) opt.selected = true;
           tagSel.appendChild(opt);
         }
+        if (curTag && !allTags.includes(curTag)) {
+          const fallbackOpt = document.createElement('option');
+          fallbackOpt.value = curTag;
+          fallbackOpt.textContent = `#${curTag}`;
+          fallbackOpt.selected = true;
+          tagSel.appendChild(fallbackOpt);
+        }
+        tagSel.value = curTag;
 
         state.listReady = true;
         updateBatchBar();
@@ -1448,7 +1468,7 @@
       } catch (err) {
         if (requestId !== listRequestId) return false;
         state.items = [];
-        state.checkedIds.clear();
+        resetSelection();
         state.listReady = false;
         showDataStatus('listWarning', '');
         updateBatchBar();
@@ -1459,12 +1479,18 @@
 
     function fillSelect(id, allLabel, options, selected) {
       const select = $(id);
-      select.innerHTML = `<option value="">${escapeHtml(t(allLabel))}</option>`;
+      select.innerHTML = `<option value="" data-i18n="${allLabel}">${escapeHtml(t(allLabel))}</option>`;
       for (const { key, label } of options) {
         const option = document.createElement('option');
         option.value = key;
         option.textContent = label;
         select.appendChild(option);
+      }
+      if (selected && !options.some((opt) => opt.key === selected)) {
+        const fallback = document.createElement('option');
+        fallback.value = selected;
+        fallback.textContent = selected;
+        select.appendChild(fallback);
       }
       select.value = selected;
     }
@@ -1639,7 +1665,10 @@
       const requestLocale = state.locale;
       try {
         const { succeeded, unchanged, failed, changes } = await apiPost('/api/set-archived', request);
-        for (const id of [...succeeded, ...unchanged]) state.checkedIds.delete(id);
+        for (const id of [...succeeded, ...unchanged]) {
+          state.checkedIds.delete(id);
+          state.selectedTitles.delete(id);
+        }
         const selectedId = state.selectedId;
         const previewChange = changes.find((change) => change.id === selectedId);
         const archiveState = previewChange?.archived ?? (unchanged.includes(selectedId)
@@ -2012,7 +2041,9 @@
       $(id).addEventListener('change', e => {
         state[key] = key === 'staleDays' ? Number(e.target.value) || 7 : e.target.value;
         resetFilters();
-        return loadList();
+        const req = loadList();
+        if (key === 'searchMode' && state.previewData) renderPreview();
+        return req;
       });
     }
 

@@ -824,3 +824,48 @@ test('a malformed edit cannot silently clear native tags', async () => {
   assert.deepEqual(mutationIds('UpdateConversation'),[]);
   assert.deepEqual(conversations.get('typed').annotations.tags,['keep']);
 });
+
+test('hybrid keywords search matches CJK substrings, mixed chunks, and symbol tokens without false positives', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec("CREATE VIRTUAL TABLE conversations_fts USING fts5(conversation_id UNINDEXED, chunk_index UNINDEXED, title, user_body, agent_body, tokenize='unicode61 remove_diacritics 2')");
+  const add = db.prepare('INSERT INTO conversations_fts VALUES (?, ?, ?, ?, ?)');
+  for (const id of ['cjk-hit', 'mixed-hit', 'plain-c']) addConversation(id);
+  add.run('cjk-hit', 0, '', '请帮我把这些历史记录归档整理一下', '');
+  add.run('cjk-hit', 1, '', '', '好的，当前会话已经处理完毕');
+  add.run('mixed-hit', 0, '', 'Antigravity runtime setup', '');
+  add.run('mixed-hit', 1, '', '', '我的插件目录在这里');
+  add.run('plain-c', 0, '', 'We measured C performance benchmarks', '');
+  db.close();
+
+  const arch = await call('conversations', { tab: 'all', query: '归档', searchMode: 'keywords' });
+  assert.deepEqual(arch.items.map(x => x.id), ['cjk-hit']);
+  assert.deepEqual(arch.warnings, []);
+
+  const multiCjk = await call('conversations', { tab: 'all', query: '归档 会话', searchMode: 'keywords' });
+  assert.deepEqual(multiCjk.items.map(x => x.id), ['cjk-hit']);
+  assert.deepEqual(multiCjk.warnings, []);
+
+  const mixed = await call('conversations', { tab: 'all', query: 'antigravity 插件', searchMode: 'keywords' });
+  assert.deepEqual(mixed.items.map(x => x.id), ['mixed-hit']);
+  assert.deepEqual(mixed.warnings, []);
+
+  const cpp = await call('conversations', { tab: 'all', query: 'c++', searchMode: 'keywords' });
+  assert.deepEqual(cpp.items, []);
+  assert.deepEqual(cpp.warnings, []);
+});
+
+test('empty-string group annotations do not short-circuit sqlite group_id fallback', async () => {
+  mkdirSync(agyDir, { recursive: true });
+  const db = new DatabaseSync(dbFile);
+  db.exec('CREATE TABLE conversation_summaries (conversation_id, step_count, workspace_uris, preview, group_id)');
+  addConversation('empty-ann');
+  conversations.get('empty-ann').annotations.conversationGroupId = '';
+  conversations.get('empty-ann').metadata.groupId = '   ';
+  db.prepare('INSERT INTO conversation_summaries VALUES (?, 4, NULL, NULL, ?)').run('empty-ann', 'fallback-group');
+  db.close();
+
+  const res = await call('conversations', { tab: 'all', groupKey: 'group:fallback-group' });
+  assert.deepEqual(res.items.map(x => x.id), ['empty-ann']);
+  assert.equal(res.items[0].groupId, 'fallback-group');
+});

@@ -37,10 +37,10 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 
 ## ✨ Highlights
 
-- **Five views at a glance**: Archived, Active, Starred, Stale, and All, each with a live count.
+- **Five views at a glance**: Archived, Active, Starred, Idle, and All, each with a live count.
 - **Find anything**: Search titles, projects, message bodies, tags, and notes at once, with highlighted matches.
 - **Read without restoring**: Preview past conversations directly. Long replies collapse automatically, and you can switch between formatted and raw views.
-- **Changed your mind? Undo**: Archive or restore in batches, archive stale conversations by idle days, and undo the result.
+- **Changed your mind? Undo**: Archive or restore in batches, archive idle conversations by days inactive, and undo the result.
 - **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
 - **One-click Markdown export**: Export conversations with their metadata, tags, and notes to `~/Documents/Antigravity-Exports`.
 - **Bilingual and theme-aware**: Switch the panel language at any time. Colors follow your host theme and UI packs.
@@ -70,10 +70,10 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 
 | Task | Action | Where |
 | :--- | :--- | :--- |
-| Find an old conversation | Search, then filter by project or tag and sort | Top of the panel |
+| Find an old conversation | Exact text or Keywords search, filter by project / group / tag, and sort | Top of the panel |
 | Archive / restore | Amber **Archive** / green **Restore**, with undo | Cards, preview toolbar |
 | Work in bulk | Select chats to archive or restore. Archived chats can also be permanently deleted after confirmation | **Batch** button |
-| Clean up stale conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Stale view |
+| Clean up idle conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Idle view |
 | Read long conversations | Expand All / Collapse All, ⬆ Top, ⬇ Bottom, Formatted / Raw | Preview toolbar |
 | Organize | Pin, star, rename, `#tags`, notes | Cards and preview |
 | Export | Save as `.md`, reveal the file, or open the export folder | Preview toolbar, **📂 Exports** |
@@ -208,6 +208,7 @@ agy-archive-manager/
 ├── CHANGELOG.md                        # Release notes
 ├── LICENSE                             # MIT License
 ├── docs/
+│   ├── benchmark-v2.3.0.md             # v2.3.0 benchmark report
 │   └── screenshots/                    # Hero images and UI screenshots
 ├── scripts/
 │   ├── install.ps1                     # Windows install / update script
@@ -220,9 +221,12 @@ agy-archive-manager/
 │       ├── sidecar.json                # Sidecar process and panel entry
 │       ├── server.mjs                  # Local HTTP + ConversationService backend
 │       ├── server-locale.mjs           # Backend messages and export labels
+│       ├── search.mjs                  # Search orchestration and cancellation
+│       ├── search-worker.mjs           # FTS5 / streamed full-text worker
 │       ├── sidebar_injector.mjs        # Optional left-sidebar entry (CDP)
 │       └── index.html                  # Two-pane management panel
 ├── tools/
+│   ├── benchmark-history.mjs           # 10k-chat history benchmark script
 │   └── render-hero.mjs                 # Renders the light / dark README hero
 └── test/                               # Local regression tests
 ```

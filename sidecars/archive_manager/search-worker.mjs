@@ -15,11 +15,17 @@ function excerpt(text, word) {
   return (from ? '…' : '') + text.slice(from, to).replace(/\s+/g, ' ').trim() + (to < text.length ? '…' : '');
 }
 
+function isFtsToken(word) {
+  return /^[a-z0-9]+$/i.test(word);
+}
+
 function scanFields(db, columns) {
+  const activeIds = [...candidates].filter(([, missing]) => missing.size > 0).map(([id]) => id);
+  if (!activeIds.length) return;
   // Node receives one matching candidate row at a time, regardless of the number of chunks.
   const rows = db.prepare('SELECT conversation_id, ' + columns.join(', ') +
-    ' FROM conversations_fts WHERE ' + candidateSql).iterate(JSON.stringify([...candidates.keys()]));
-  let remaining = candidates.size;
+    ' FROM conversations_fts WHERE ' + candidateSql).iterate(JSON.stringify(activeIds));
+  let remaining = activeIds.length;
   for (const row of rows) {
     const id = row.conversation_id;
     const missing = candidates.get(id);
@@ -31,7 +37,7 @@ function scanFields(db, columns) {
       for (const term of missing) {
         if (lower.includes(term)) {
           missing.delete(term);
-          if (!snippets.has(id)) snippets.set(id, excerpt(text, term));
+          if (!snippets.get(id)) snippets.set(id, excerpt(text, term));
         }
       }
     }
@@ -39,18 +45,18 @@ function scanFields(db, columns) {
   }
 }
 
-function searchIndex(db, columns) {
+function searchIndex(db, columns, ftsWords) {
   const sql = 'SELECT conversation_id, snippet(conversations_fts,-1,' +
     "'','','…',12) AS excerpt FROM conversations_fts WHERE conversations_fts MATCH ? AND " + candidateSql;
   const find = db.prepare(sql);
-  for (const word of words) {
+  for (const word of ftsWords) {
     const need = [...candidates].filter(([, missing]) => missing.has(word)).map(([id]) => id);
     if (!need.length) continue;
     // Only allow-listed content columns participate. Quotes force an FTS literal and bind parameters carry user input.
     const phrase = '{' + columns.join(' ') + '} : "' + word.replaceAll('"', '""') + '"';
     for (const row of find.iterate(phrase, JSON.stringify(need))) {
       candidates.get(row.conversation_id).delete(word);
-      if (!snippets.has(row.conversation_id)) snippets.set(row.conversation_id, row.excerpt || '');
+      if (!snippets.get(row.conversation_id) && row.excerpt) snippets.set(row.conversation_id, row.excerpt);
     }
     // An ID lacking this term cannot satisfy the remaining AND conditions, even across separate chunks.
     for (const id of need) if (candidates.get(id).has(word)) candidates.delete(id);
@@ -66,20 +72,28 @@ function run() {
     const names = new Set(db.prepare('PRAGMA table_info(conversations_fts)').all().map(col => col.name));
     const columns = ['user_body', 'agent_body', 'title'].filter(name => names.has(name));
     if (!names.has('conversation_id') || !columns.length) return { hits: [], warning: 'ftsUnreadable' };
-    let indexed = mode === 'keywords' && /\bUSING\s+fts5\s*\(/i.test(schema?.sql || '');
-    if (indexed) {
-      try {
-        searchIndex(db, columns);
-      } catch {
-        // Some FTS5 builds lack column queries or snippet support. Restart with the original candidates.
-        indexed = false;
-        candidates = makeCandidates();
-        snippets.clear();
+    const hasFts5 = /\bUSING\s+fts5\s*\(/i.test(schema?.sql || '');
+    let ftsFailed = false;
+    if (mode === 'keywords') {
+      const ftsWords = words.filter(isFtsToken);
+      if (hasFts5 && ftsWords.length) {
+        try {
+          searchIndex(db, columns, ftsWords);
+        } catch {
+          // Some FTS5 builds lack column queries or snippet support. Restart with the original candidates.
+          ftsFailed = true;
+          candidates = makeCandidates();
+          snippets.clear();
+        }
       }
+      if (!hasFts5 || ftsFailed || [...candidates.values()].some(missing => missing.size > 0)) {
+        scanFields(db, columns);
+      }
+    } else {
+      scanFields(db, columns);
     }
-    if (!indexed) scanFields(db, columns);
     const hits = [...candidates].filter(([, missing]) => !missing.size).map(([id]) => [id, snippets.get(id) || '']);
-    return { hits, warning: mode === 'keywords' && !indexed ? 'keywordFallback' : undefined };
+    return { hits, warning: mode === 'keywords' && (!hasFts5 || ftsFailed) ? 'keywordFallback' : undefined };
   } catch {
     return { hits: [], warning: 'ftsUnreadable' };
   } finally {

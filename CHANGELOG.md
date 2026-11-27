@@ -6,19 +6,33 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-27
+
+### 新增 / Added
+
+- 会话列表按每页 50 条分页浏览，预览及 Markdown 导出改为按 ID 定向读取。
+- 新增「多关键词」混合检索（纯 ASCII 词元走 FTS5，中文及含符号词流式扫库且支持多词高亮），支持原生分组与稳定项目标识筛选（重名项目分别列出）。
+- 支持将旧版残留的本地标签与宿主原生标签对比并双向同步，写后读回核对；在已归档视图的批量模式新增跨页勾选「永久删除所选」，确认弹窗列出目标会话，执行后展示已删除、跳过及失败明细。
+- Paginate the conversation list at 50 items per page and load previews/exports for a single ID without scanning all chats.
+- Added **Keywords** hybrid search (FTS5 index narrowing for ASCII tokens + streamed chunk scan for CJK/symbol terms and multi-term highlighting), native group filtering, and stable project identity filtering.
+- Added side-by-side legacy local tag vs. host tag reconciliation with readback verification, plus cross-page **Delete selected permanently** in the Archived batch bar with confirmation and per-item outcome reporting.
+
+### 变更 / Changed
+
+- 没有原生分组时自动隐藏顶部分组筛选器；当前选中的项目/分组/标签在刷新后消失时保留临时选项，防止界面显示错乱。
+- Automatically hide the native group filter when no groups exist, and retain fallback options if an active project, group, or tag filter disappears on refresh.
+
+### 修复 / Fixed
+
+- 修复 Windows 环境下 Sidecar 占用目录锁导致 `scripts/install.ps1` 更新失败的问题，改为原地同步文件并保留数据。
+- 修复 `groupId` 回退链遇到空字符串提前短路的问题，以及 `tools/render-hero.mjs` 文件头的 UTF-8 BOM 语法错误。
+- Fixed `scripts/install.ps1` updates failing on Windows when running sidecars lock directories, switching to in-place directory sync.
+- Fixed empty-string `groupId` fallback short-circuiting in `server.mjs` and removed the UTF-8 BOM from `tools/render-hero.mjs`.
+
 ### 文档 / Docs
 
-- 重写中英文 README：居中 Hero、徽章墙、亮 / 暗双主题主图、功能速查表与 FAQ；更新日志迁移至本文件。
-- 新增 `tools/render-hero.mjs`，基于真实面板源码与虚构演示数据渲染亮 / 暗主图。
-- Rewrote both READMEs with a centered hero, badges, light/dark hero screenshots, a feature cheat sheet, and an FAQ. Release notes moved to this file.
-- Added `tools/render-hero.mjs`, which renders the light/dark hero images from the real panel source with fictional demo data.
-
-## 2.3.0 - 2026-11-27
-
-- 会话分页以 50 个会话为一页。预览及 Markdown 导出按 ID 读取。增加多关键词检索、稳定项目标识和原生分组筛选。
-- 面板显示旧本地标签与原生标签的差异，更新后核对宿主结果。在归档箱批量永久删除时逐条复查归档及运行状态，并展示各项结果。
-- Page through 50 conversations at a time, preview or export a single chat by ID, search across messages with keywords, and filter by project identity or native group.
-- Reconcile legacy local tags with verified host tags. Review selected archived chats before permanent deletion and inspect each outcome afterward.
+- 重写中英文 README：居中 Hero、徽章墙、亮 / 暗双主题主图、功能速查表与 FAQ；新增 `tools/render-hero.mjs` 与 v2.3.0 基准测试报告。
+- Rewrote both READMEs with a centered hero, badges, light/dark hero screenshots, a feature cheat sheet, and an FAQ; added `tools/render-hero.mjs` and the v2.3.0 benchmark report.
 
 ## [2.2.0] - 2026-11-27
 
@@ -66,7 +80,8 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 - 首个公开版本：五大视图浏览、全文检索、免恢复预览、原地归档与恢复、置顶 / 星标 / 重命名 / 删除、标签与备注、Markdown 导出，以及可选的左侧栏快捷入口。
 - First public release: five-tab browsing, full-text search, preview without restoring, in-place archive and restore, pin / star / rename / delete, tags and notes, Markdown export, and an optional left-sidebar quick entry.
 
-[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/35361be...HEAD
+[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/YukiKaguraA/agy-archive-manager/commit/35361be
 [2.1.1]: https://github.com/YukiKaguraA/agy-archive-manager/commit/552f8cc
 [2.1.0]: https://github.com/YukiKaguraA/agy-archive-manager/commit/a31e68d
