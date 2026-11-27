@@ -39,7 +39,13 @@ function createPanel(fetch, language, { renderCards = false, IntersectionObserve
     navigator: { language }, queueMicrotask, IntersectionObserver,
     setTimeout() {}, clearTimeout() {},
     document: {
-      body: { contains: () => true }, documentElement: {}, getElementById: element,
+      body: { contains: () => true },
+      documentElement: {
+        attrs: {},
+        setAttribute(k, v) { this.attrs[k] = v; },
+        removeAttribute(k) { delete this.attrs[k]; },
+      },
+      getElementById: element,
       createElement: makeElement, querySelectorAll: () => [],
     },
     window: {
@@ -881,4 +887,66 @@ test('gliders, icon-only refresh button, flat dot status badges, and reveal-logs
     const card = pane.children.at(-1);
     assert.match(card.innerHTML, new RegExp(`class="pill pill-status ${cls}"`));
   }
+});
+
+test('card tags move below actions, search input drops inner double outline, and appearance/update settings save', async () => {
+  assert.match(html, /\.search-box input:focus,\s*\.search-box input:focus-visible\s*\{\s*outline:\s*none;/);
+
+  const requests = [];
+  const { element, run } = createPanel(async (path, body) => {
+    requests.push([path, body]);
+    if (path === '/api/conversations') return { groups: [] };
+    if (path === '/api/preferences') {
+      return {
+        language: 'en', exportDir: 'D:\\Exports', defaultExportDir: 'D:\\Default',
+        trashRetentionDays: 7, themeAccent: 'host', fontScale: 'md', pluginUpdateMode: 'manual',
+        trashSummary: { totalCount: 0, expiredCount: 0 }, ...body,
+      };
+    }
+    if (path === '/api/update-status' || path === '/api/check-update') {
+      return {
+        currentVersion: '2.4.1', latestVersion: '2.5.0', updateAvailable: true,
+        installMode: 'archive', updateMode: 'manual',
+        releaseUrl: 'https://github.com/YukiKaguraA/agy-archive-manager/releases/tag/v2.5.0',
+        checkedAtMs: 1700000000000,
+      };
+    }
+    if (path === '/api/apply-update') {
+      return { ok: true, message: 'Updated to v2.5.0. Reloading sidecar…' };
+    }
+    return {};
+  }, 'en', { renderCards: true });
+
+  await run('initializePanel()');
+  run("renderCard($('listPane'), { id: 'c1', title: 'Tagged', archived: false, tags: ['alpha', 'beta'] });");
+  const taggedHtml = element('listPane').children.at(-1).innerHTML;
+  const metaIdx = taggedHtml.indexOf('class="card-meta"');
+  const actionsIdx = taggedHtml.indexOf('class="card-actions"');
+  const tagsIdx = taggedHtml.indexOf('class="card-tags"');
+  const tagPillIdx = taggedHtml.indexOf('#alpha');
+  assert.ok(metaIdx >= 0 && actionsIdx > metaIdx && tagsIdx > actionsIdx && tagPillIdx > tagsIdx);
+
+  await element('themeAccentPicker').handlers.click({
+    target: { closest: () => ({ dataset: { accent: 'emerald' }, disabled: false }) },
+  });
+  assert.equal(run("document.documentElement.attrs['data-theme-accent']"), 'emerald');
+  assert.deepEqual(requests.at(-1), ['/api/preferences', { themeAccent: 'emerald', locale: 'en' }]);
+
+  await element('fontScaleControl').handlers.click({
+    target: { closest: () => ({ dataset: { fontScale: 'lg' }, disabled: false }) },
+  });
+  assert.equal(run("document.documentElement.attrs['data-font-scale']"), 'lg');
+  assert.deepEqual(requests.at(-1), ['/api/preferences', { fontScale: 'lg', locale: 'en' }]);
+
+  element('updateModeSelect').value = 'auto';
+  await element('updateModeSelect').handlers.change();
+  assert.deepEqual(requests.at(-1), ['/api/preferences', { pluginUpdateMode: 'auto', locale: 'en' }]);
+
+  await element('checkUpdateBtn').handlers.click();
+  assert.equal(element('updateLatestVersion').textContent, 'v2.5.0');
+  assert.equal(element('applyUpdateBtn').hidden, false);
+  assert.equal(element('updateDot').hidden, false);
+
+  await element('applyUpdateBtn').handlers.click();
+  assert.match(element('updateStatusFeedback').textContent, /v2\.5\.0/);
 });

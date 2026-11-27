@@ -13,8 +13,8 @@
       --am-fg: var(--foreground, #0f172a);
       --am-muted: var(--muted-foreground, #64748b);
       --am-border: var(--card-border, var(--border, #e2e8f0));
-      --am-accent: var(--primary, #6366f1);
-      --am-accent-fg: var(--primary-foreground, #ffffff);
+      --am-accent: var(--am-user-accent, var(--primary, #6366f1));
+      --am-accent-fg: var(--am-user-accent-fg, var(--primary-foreground, #ffffff));
       --am-surface: color-mix(in srgb, var(--am-card) 92%, transparent);
       --am-hover: color-mix(in srgb, var(--am-accent) 10%, transparent);
       --am-selected-bg: color-mix(in srgb, var(--am-accent) 15%, transparent);
@@ -43,7 +43,25 @@
       --am-badge-trash-fg: var(--am-danger-fg);
       --am-mark-bg: rgba(250, 204, 21, 0.35);
       --am-ease-modern: cubic-bezier(0.16, 1, 0.3, 1);
+      --am-font-scale: 1;
+      --am-fs-xs: calc(11px * var(--am-font-scale, 1));
+      --am-fs-sm: calc(11.5px * var(--am-font-scale, 1));
+      --am-fs-md: calc(12px * var(--am-font-scale, 1));
+      --am-fs-base: calc(13px * var(--am-font-scale, 1));
+      --am-fs-lg: calc(14px * var(--am-font-scale, 1));
     }
+
+    :root[data-theme-accent="blue"] { --am-user-accent: hsl(217 84% 53%); --am-user-accent-fg: #ffffff; }
+    :root[data-theme-accent="emerald"] { --am-user-accent: hsl(152 66% 39%); --am-user-accent-fg: #ffffff; }
+    :root[data-theme-accent="amber"] { --am-user-accent: hsl(34 88% 46%); --am-user-accent-fg: #ffffff; }
+    :root[data-theme-accent="violet"] { --am-user-accent: hsl(262 76% 58%); --am-user-accent-fg: #ffffff; }
+    :root[data-theme-accent="cyan"] { --am-user-accent: hsl(191 82% 41%); --am-user-accent-fg: #ffffff; }
+    :root[data-theme-accent="rose"] { --am-user-accent: hsl(346 78% 54%); --am-user-accent-fg: #ffffff; }
+
+    :root[data-font-scale="sm"] { --am-font-scale: 0.92; }
+    :root[data-font-scale="md"] { --am-font-scale: 1; }
+    :root[data-font-scale="lg"] { --am-font-scale: 1.14; }
+    :root[data-font-scale="xl"] { --am-font-scale: 1.28; }
 
     * { box-sizing: border-box; }
     html, body {
@@ -53,7 +71,7 @@
       background: var(--am-bg);
       color: var(--am-fg);
       font-family: var(--font-sans, "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-      font-size: 13px;
+      font-size: var(--am-fs-base);
       line-height: 1.5;
       overflow: hidden;
     }
@@ -129,7 +147,7 @@
       border: 0;
       background: transparent;
       color: var(--am-muted);
-      font-size: 12px;
+      font-size: var(--am-fs-md);
       font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
@@ -154,7 +172,7 @@
       color: var(--am-accent);
     }
     .tab-count {
-      font-size: 11px;
+      font-size: var(--am-fs-xs);
       padding: 0 5px;
       border-radius: 999px;
       background: rgba(128, 128, 128, 0.16);
@@ -223,14 +241,14 @@
       border: 1px solid var(--am-border);
       background: var(--am-bg);
       color: var(--am-fg);
-      font-size: 12px;
+      font-size: var(--am-fs-md);
       outline: none;
       max-width: 130px;
       cursor: pointer;
     }
     select.ctrl-select:focus-visible { border-color: var(--am-accent); }
-    #languageSelect { flex: 0 0 auto; padding: 3px 4px; }
-    #languageStatus { color: var(--am-danger-fg); font-size: 12px; }
+    #languageSelect { flex: 0 0 auto; }
+    #languageStatus { color: var(--am-danger-fg); font-size: var(--am-fs-md); }
 
     .btn {
       display: inline-flex;
@@ -242,7 +260,7 @@
       border: 1px solid var(--am-border);
       background: var(--am-card);
       color: var(--am-fg);
-      font-size: 12px;
+      font-size: var(--am-fs-md);
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.12s ease;
@@ -262,7 +280,7 @@
     }
     .btn-sm {
       padding: 3px 7px;
-      font-size: 11.5px;
+      font-size: var(--am-fs-sm);
     }
     .btn-restore {
       background: var(--am-restore-bg);
@@ -426,7 +444,7 @@
 
     .card-title {
       font-weight: 600;
-      font-size: 13px;
+      font-size: var(--am-fs-base);
       line-height: 1.38;
       word-break: break-word;
       display: -webkit-box;
@@ -462,7 +480,7 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 5px;
-      font-size: 11px;
+      font-size: var(--am-fs-xs);
       color: var(--am-muted);
     }
 
@@ -472,7 +490,7 @@
       gap: 3px;
       padding: 1px 6px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: var(--am-fs-xs);
       font-weight: 500;
     }
     .pill-status {
@@ -561,7 +579,7 @@
 
     .preview-title {
       font-weight: 600;
-      font-size: 14px;
+      font-size: var(--am-fs-lg);
       word-break: break-word;
       flex: 1;
     }
@@ -715,20 +733,20 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 11.5px;
+      font-size: var(--am-fs-sm);
       font-weight: 600;
       color: var(--am-muted);
     }
     .msg-body {
       padding: 10px 12px;
-      font-size: 12.8px;
+      font-size: var(--am-fs-base);
       line-height: 1.62;
       word-break: break-word;
     }
     .msg-body.raw {
       white-space: pre-wrap;
       font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-      font-size: 12px;
+      font-size: var(--am-fs-md);
     }
     .msg-body pre {
       background: var(--am-code-bg);
@@ -860,12 +878,21 @@
       border: 0;
       padding: 5px 15px;
       border-radius: 999px;
-      font-size: 13px;
+      font-size: var(--am-fs-base);
       font-weight: 600;
       color: var(--am-muted);
       cursor: pointer;
       white-space: nowrap;
       transition: color 160ms var(--am-ease-modern), transform 140ms var(--am-ease-modern);
+    }
+    .update-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--am-accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--am-accent) 24%, transparent);
+      display: inline-block;
+      flex-shrink: 0;
     }
     .primary-nav .nav-btn:hover { color: var(--am-fg); }
     .primary-nav .nav-btn:active { transform: scale(0.97); }
@@ -945,27 +972,210 @@
     }
     #settingsPane { flex: 1; min-height: 0; overflow: auto; }
     .settings-content {
-      max-width: 720px;
+      width: 100%;
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 14px;
+      padding: 14px 16px 24px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
     .settings-card {
-      padding: 15px 16px;
+      padding: 16px 18px;
       border-radius: 10px;
       border: 1px solid var(--am-border);
       background: var(--am-card);
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
       cursor: default;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    .settings-card h2 { margin: 0 0 6px; font-size: 14px; }
-    .settings-card p { margin: 5px 0 9px; color: var(--am-muted); overflow-wrap: anywhere; }
-    .settings-card label { display: block; margin: 0 0 4px; }
+    .settings-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .settings-card-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0;
+      font-size: var(--am-fs-lg);
+      font-weight: 600;
+    }
+    .settings-card-title svg {
+      color: var(--am-muted);
+      flex-shrink: 0;
+    }
+    .settings-card-feedback {
+      font-size: var(--am-fs-md);
+      color: var(--am-muted);
+    }
+    .settings-card p { margin: 0; color: var(--am-muted); font-size: var(--am-fs-md); overflow-wrap: anywhere; }
+    .settings-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .settings-row-label {
+      font-size: var(--am-fs-sm);
+      font-weight: 500;
+      color: var(--am-muted);
+    }
+    select.settings-select-wide {
+      width: 100%;
+      max-width: 100%;
+      min-height: 34px;
+      padding: 6px 10px;
+      font-size: var(--am-fs-base);
+    }
+    .theme-color-picker {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .theme-host-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 26px;
+      padding: 3px 10px;
+      font-size: var(--am-fs-md);
+      font-weight: 500;
+      color: var(--am-muted);
+      background: var(--am-subtle-bg);
+      border: 1px solid var(--am-border);
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 140ms var(--am-ease-modern), color 140ms var(--am-ease-modern), border-color 140ms var(--am-ease-modern);
+    }
+    .theme-host-chip:hover:not(:disabled) {
+      color: var(--am-fg);
+      border-color: color-mix(in srgb, var(--am-accent) 45%, var(--am-border));
+    }
+    .theme-host-chip.is-active {
+      color: var(--am-accent);
+      background: var(--am-sub-bg);
+      border-color: var(--am-sub-border);
+      font-weight: 600;
+    }
+    .theme-swatch-group {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .theme-swatch-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1.5px solid color-mix(in srgb, var(--am-fg) 18%, transparent);
+      background: var(--swatch-color, var(--am-accent));
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 140ms var(--am-ease-modern), box-shadow 140ms var(--am-ease-modern), border-color 140ms var(--am-ease-modern);
+    }
+    .theme-swatch-btn:hover:not(:disabled) { transform: scale(1.08); }
+    .theme-swatch-btn.is-active {
+      border-color: var(--am-fg);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch-color, var(--am-accent)) 32%, transparent);
+    }
+    .theme-swatch-btn svg { pointer-events: none; }
+    .theme-swatch-btn:disabled, .theme-host-chip:disabled { opacity: 0.55; cursor: not-allowed; }
+    .segmented {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 8px;
+      background: var(--am-subtle-bg);
+      border: 1px solid color-mix(in srgb, var(--am-border) 70%, transparent);
+      user-select: none;
+    }
+    .segmented .seg-btn {
+      position: relative;
+      z-index: 1;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--am-muted);
+      font-size: var(--am-fs-md);
+      font-weight: 500;
+      padding: 4px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 160ms var(--am-ease-modern), transform 140ms var(--am-ease-modern);
+    }
+    .segmented .seg-btn:hover:not(:disabled) { color: var(--am-fg); }
+    .segmented .seg-btn.is-active {
+      color: var(--am-accent);
+      font-weight: 600;
+    }
+    .segmented:not(.has-glider) .seg-btn.is-active {
+      background: color-mix(in srgb, var(--am-accent) 10%, var(--am-card));
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+    .seg-glider { border-radius: 6px; }
+    .update-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .update-cell {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--am-fg) 3.2%, transparent);
+      border: 1px solid color-mix(in srgb, var(--am-border) 62%, transparent);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .update-cell-label {
+      font-size: var(--am-fs-xs);
+      color: var(--am-muted);
+    }
+    .update-cell-value {
+      font-size: var(--am-fs-lg);
+      font-weight: 700;
+      color: var(--am-fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .update-cell-sub {
+      font-size: var(--am-fs-xs);
+      color: var(--am-muted);
+      overflow-wrap: anywhere;
+    }
+    .update-cell-sub.is-available {
+      color: var(--am-accent);
+      font-weight: 600;
+    }
+    .update-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    @media (max-width: 520px) {
+      .update-info-grid { grid-template-columns: 1fr; }
+    }
     .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .settings-status { margin-top: 8px; overflow-wrap: anywhere; }
-    #exportDirInput { width: 100%; margin-bottom: 7px; }
+    .settings-status { margin-top: 2px; overflow-wrap: anywhere; font-size: var(--am-fs-md); }
+    #exportDirInput { width: 100%; }
     #trashRetentionInput { width: 85px; }
     .sweep-dialog { color: var(--am-fg); max-width: calc(100% - 24px); margin: auto; }
     .sweep-dialog:not([open]) { display: none; }
@@ -974,14 +1184,20 @@
     #pvMatchCount { margin-inline-end: auto; color: var(--am-muted); }
     mark.is-current-match { outline: 2px solid #e4881c; outline-offset: 1px; }
     @media (max-width: 360px) { .primary-nav .nav-btn { padding-inline: 10px; } }
-    .search-box { min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg); }
-    .search-box:focus-within { border-color: var(--am-accent); }
-    .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; }
+    .search-box {
+      min-width: 0; gap: 0; border: 1px solid var(--am-border); border-radius: 7px; background: var(--am-bg);
+      transition: border-color 140ms var(--am-ease-modern), box-shadow 140ms var(--am-ease-modern);
+    }
+    .search-box:focus-within {
+      border-color: var(--am-accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--am-accent) 18%, transparent);
+    }
+    .search-box input { min-width: 0; flex: 1 1 auto; width: auto; padding-right: 3px; border: 0; font-size: var(--am-fs-md); }
+    .search-box input:focus, .search-box input:focus-visible { outline: none; }
     .search-box .search-clear { position: static; flex-shrink: 0; margin-inline-end: 2px; }
     .search-box select { flex-shrink: 0; max-width: 49%; border: 0; border-radius: 0; border-inline-start: 1px solid var(--am-border); background-color: transparent; }
-    .search-box input:focus-visible, .search-box select:focus-visible, .workspace-toggle:focus-visible {
-      outline: 2px solid var(--am-accent); outline-offset: -2px;
-    }
+    .search-box select:focus-visible { outline: none; background-color: var(--am-hover); }
+    .workspace-toggle:focus-visible { outline: 2px solid var(--am-accent); outline-offset: -2px; }
     .workspace {
       flex-shrink: 0;
       border: 0;
@@ -1004,11 +1220,18 @@
     .workspace-toggle[aria-expanded="true"] .workspace-folder { color: var(--am-accent); }
     .workspace-toggle:hover { background: var(--am-tag-bg); }
     .workspace-toggle .workspace-label { flex: 1; overflow-wrap: anywhere; min-width: 0; }
-    .workspace-count, .card-storage { color: var(--am-muted); font-size: 11px; }
-    .card-trash-info { margin-top: 3px; color: var(--am-muted); font-size: 11px; line-height: 1.45; }
+    .workspace-count, .card-storage { color: var(--am-muted); font-size: var(--am-fs-xs); }
+    .card-trash-info { margin-top: 2px; color: var(--am-muted); font-size: var(--am-fs-xs); line-height: 1.45; }
     .workspace-content { padding: 0; }
     .workspace-content .conv-card:last-child { border-bottom: 0; }
-    .card-storage { margin-top: 3px; }
+    .card-storage { margin-top: 1px; }
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+    }
     .card-title-button { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
     #libraryTools { display: flex; flex-direction: column; gap: 8px; }
     @media (max-width: 560px) { .tab-btn { padding: 4px 7px; gap: 4px; font-size: 11.5px; } }
@@ -1036,6 +1259,7 @@
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
               <span data-i18n="settings">设置</span>
+              <span id="updateDot" class="update-dot" hidden aria-hidden="true"></span>
             </button>
           </nav>
         </div>
@@ -1122,23 +1346,69 @@
     <section id="settingsPane" aria-labelledby="settingsBtn" hidden>
       <div class="settings-content">
         <div id="settingsLoadStatus" class="data-status" role="status" hidden></div>
-        <section class="settings-card" aria-labelledby="languageHeading">
-          <h2 id="languageHeading" data-i18n="language">界面语言</h2>
-          <p data-i18n="settingsLanguageHelp">选择面板的显示语言。</p>
-          <select id="languageSelect" class="ctrl-select" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
-            <option value="zh-CN" lang="zh-CN">简体中文</option>
-            <option value="en" lang="en">English</option>
-            <option value="zh-TW" lang="zh-TW">繁體中文</option>
-            <option value="ja" lang="ja">日本語</option>
-          </select>
-          <div id="languageStatus" class="settings-status" role="status" hidden></div>
+
+        <section class="settings-card" aria-labelledby="appearanceHeading">
+          <div class="settings-card-head">
+            <h2 id="appearanceHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+              </svg>
+              <span data-i18n="appearanceHeading">界面与外观</span>
+            </h2>
+            <span id="appearanceStatus" class="settings-card-feedback" role="status"></span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-row-label" for="languageSelect" data-i18n="language">界面语言</label>
+            <select id="languageSelect" class="ctrl-select settings-select-wide" data-i18n-title="language" data-i18n-label="language" aria-label="界面语言" aria-describedby="languageStatus" disabled>
+              <option value="zh-CN" lang="zh-CN">简体中文</option>
+              <option value="en" lang="en">English</option>
+              <option value="zh-TW" lang="zh-TW">繁體中文</option>
+              <option value="ja" lang="ja">日本語</option>
+            </select>
+            <div id="languageStatus" class="settings-status" role="status" hidden></div>
+          </div>
+          <div class="settings-row">
+            <span class="settings-row-label" id="themeAccentLabel" data-i18n="themeAccent">主题色</span>
+            <div id="themeAccentPicker" class="theme-color-picker" role="group" aria-labelledby="themeAccentLabel">
+              <button type="button" class="theme-host-chip is-active" data-accent="host" aria-pressed="true" data-i18n="accentHost">跟随宿主</button>
+              <span class="theme-swatch-group">
+                <button type="button" class="theme-swatch-btn" data-accent="blue" aria-pressed="false" data-i18n-title="accentBlue" data-i18n-label="accentBlue" style="--swatch-color: hsl(217 84% 53%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+                <button type="button" class="theme-swatch-btn" data-accent="emerald" aria-pressed="false" data-i18n-title="accentEmerald" data-i18n-label="accentEmerald" style="--swatch-color: hsl(152 66% 39%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+                <button type="button" class="theme-swatch-btn" data-accent="amber" aria-pressed="false" data-i18n-title="accentAmber" data-i18n-label="accentAmber" style="--swatch-color: hsl(34 88% 46%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+                <button type="button" class="theme-swatch-btn" data-accent="violet" aria-pressed="false" data-i18n-title="accentViolet" data-i18n-label="accentViolet" style="--swatch-color: hsl(262 76% 58%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+                <button type="button" class="theme-swatch-btn" data-accent="cyan" aria-pressed="false" data-i18n-title="accentCyan" data-i18n-label="accentCyan" style="--swatch-color: hsl(191 82% 41%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+                <button type="button" class="theme-swatch-btn" data-accent="rose" aria-pressed="false" data-i18n-title="accentRose" data-i18n-label="accentRose" style="--swatch-color: hsl(346 78% 54%);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></button>
+              </span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span class="settings-row-label" id="fontScaleLabel" data-i18n="fontScale">字体大小</span>
+            <div id="fontScaleControl" class="segmented" role="group" aria-labelledby="fontScaleLabel">
+              <div id="fontScaleGlider" class="nav-glider seg-glider" aria-hidden="true"></div>
+              <button type="button" class="seg-btn" data-font-scale="sm" aria-pressed="false" data-i18n="fontSm">小</button>
+              <button type="button" class="seg-btn is-active" data-font-scale="md" aria-pressed="true" data-i18n="fontMd">标准</button>
+              <button type="button" class="seg-btn" data-font-scale="lg" aria-pressed="false" data-i18n="fontLg">大</button>
+              <button type="button" class="seg-btn" data-font-scale="xl" aria-pressed="false" data-i18n="fontXl">特大</button>
+            </div>
+          </div>
         </section>
+
         <section class="settings-card" aria-labelledby="exportDirHeading">
-          <h2 id="exportDirHeading" data-i18n="exportDirHeading">Markdown 导出目录</h2>
+          <div class="settings-card-head">
+            <h2 id="exportDirHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>
+              </svg>
+              <span data-i18n="exportDirHeading">Markdown 导出目录</span>
+            </h2>
+          </div>
           <p data-i18n="exportDirHint">输入绝对路径，或选择文件夹后保存。</p>
           <p id="exportDirEffective"></p>
-          <form id="exportDirForm" novalidate>
-            <label for="exportDirInput" data-i18n="exportDirPath">文件夹路径</label>
+          <form id="exportDirForm" novalidate class="settings-row">
+            <label class="settings-row-label" for="exportDirInput" data-i18n="exportDirPath">文件夹路径</label>
             <input id="exportDirInput" class="inline-input" type="text" autocomplete="off" spellcheck="false">
             <div class="settings-actions">
               <button id="saveExportDirBtn" type="submit" class="btn btn-sm btn-primary" data-i18n="saveExportDir" disabled>保存路径</button>
@@ -1149,11 +1419,21 @@
           </form>
           <div id="exportDirStatus" class="settings-status" role="status" hidden></div>
         </section>
+
         <section class="settings-card" aria-labelledby="trashSettingsHeading">
-          <h2 id="trashSettingsHeading" data-i18n="trashSettingsHeading">回收站与自动清理</h2>
+          <div class="settings-card-head">
+            <h2 id="trashSettingsHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/>
+              </svg>
+              <span data-i18n="trashSettingsHeading">回收站与自动清理</span>
+            </h2>
+          </div>
           <p data-i18n="trashSettingsHint">到期会话将在例行检查时清理，也可以手动清理。</p>
-          <form id="trashRetentionForm" novalidate>
-            <label for="trashRetentionInput" data-i18n="trashRetentionLabel">保留天数（1–365）</label>
+          <form id="trashRetentionForm" novalidate class="settings-row">
+            <label class="settings-row-label" for="trashRetentionInput" data-i18n="trashRetentionLabel">保留天数（1–365）</label>
             <div class="settings-actions">
               <input id="trashRetentionInput" class="inline-input" type="number" min="1" max="365" step="1" list="trashRetentionPresets" value="7">
               <datalist id="trashRetentionPresets"><option value="3"></option><option value="7"></option><option value="14"></option><option value="30"></option></datalist>
@@ -1166,6 +1446,43 @@
             <button id="viewTrashBtn" type="button" class="btn btn-sm" data-i18n="viewTrash">查看回收站</button>
           </div>
           <div id="trashSettingsStatus" class="settings-status" role="status" hidden></div>
+        </section>
+
+        <section class="settings-card" aria-labelledby="updateHeading">
+          <div class="settings-card-head">
+            <h2 id="updateHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              <span data-i18n="updateHeading">版本更新</span>
+            </h2>
+            <span id="updateStatusFeedback" class="settings-card-feedback" role="status"></span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-row-label" for="updateModeSelect" data-i18n="updateModeLabel">更新方式</label>
+            <select id="updateModeSelect" class="ctrl-select settings-select-wide" disabled>
+              <option value="manual" data-i18n="updateModeManual">仅提示新版本，手动更新</option>
+              <option value="auto" data-i18n="updateModeAuto">发现新版本后自动更新</option>
+              <option value="off" data-i18n="updateModeOff">关闭更新检查与提示</option>
+            </select>
+          </div>
+          <div class="update-info-grid">
+            <div class="update-cell">
+              <span class="update-cell-label" data-i18n="currentVersionLabel">当前版本</span>
+              <strong class="update-cell-value" id="updateCurrentVersion">v—</strong>
+              <span class="update-cell-sub" id="updateCurrentSub"></span>
+            </div>
+            <div class="update-cell">
+              <span class="update-cell-label" data-i18n="latestVersionLabel">最新版本</span>
+              <strong class="update-cell-value" id="updateLatestVersion">—</strong>
+              <span class="update-cell-sub" id="updateLatestSub"></span>
+            </div>
+          </div>
+          <div class="update-actions-row">
+            <a id="openReleaseLink" class="btn btn-sm" target="_blank" rel="noopener noreferrer" data-i18n="releaseNotes" hidden>查看发行说明</a>
+            <button id="checkUpdateBtn" type="button" class="btn btn-sm" data-i18n="checkUpdate">↻ 检查更新</button>
+            <button id="applyUpdateBtn" type="button" class="btn btn-sm btn-primary" hidden>↓ 立即升级</button>
+          </div>
         </section>
       </div>
     </section>
@@ -1259,6 +1576,47 @@
     const messages = {
       'zh-CN': {
         settingsLanguageHelp: "选择面板的显示语言。",
+        appearanceHeading: "界面与外观",
+        themeAccent: "主题色",
+        accentHost: "跟随宿主",
+        accentBlue: "晴空蓝",
+        accentEmerald: "翡翠绿",
+        accentAmber: "琥珀橙",
+        accentViolet: "星辰紫",
+        accentCyan: "青碧色",
+        accentRose: "绯樱红",
+        fontScale: "字体大小",
+        fontSm: "小",
+        fontMd: "标准",
+        fontLg: "大",
+        fontXl: "特大",
+        saving: "保存中…",
+        saveFailed: "保存失败",
+        updateHeading: "版本更新",
+        updateModeLabel: "更新方式",
+        updateModeManual: "仅提示新版本，手动更新",
+        updateModeAuto: "发现新版本后自动更新",
+        updateModeOff: "关闭更新检查与提示",
+        currentVersionLabel: "当前版本",
+        latestVersionLabel: "最新版本",
+        releaseNotes: "发行说明",
+        checkUpdate: "↓ 检查更新",
+        checkingUpdate: "检查中…",
+        recheckUpdate: "↻ 重新检查",
+        applyingUpdate: "升级中…",
+        upgradeToVersion: (v) => `↓ 升级至 v${v}`,
+        updateLatestSub: (mode) => `已是最新 (${mode})`,
+        updateAvailableSub: (ver, mode) => `可升级至 v${ver} (${mode})`,
+        updateOffSub: (mode) => `已关闭检查 (${mode})`,
+        updateModeGit: "Git",
+        updateModeArchive: "归档包",
+        updateRemoteChecked: (time) => `GitHub Releases · ${time}`,
+        updateNotChecked: "尚未检查更新",
+        updateCheckingMsg: "正在检查 GitHub 最新版本…",
+        updateUpToDateMsg: (ver) => `当前已是最新版本 (v${ver})`,
+        updateCheckErrorMsg: "检查更新失败",
+        updateApplyingMsg: "正在获取并应用更新…",
+        updateRestartingMsg: "更新已完成，正在重启面板…",
         exportDirHeading: "Markdown 导出目录",
         exportDirHint: "输入绝对路径，或选择文件夹后保存。",
         exportDirPath: "文件夹路径",
@@ -1357,6 +1715,47 @@
       },
       en: {
         settingsLanguageHelp: "Choose the display language for this panel.",
+        appearanceHeading: "Interface & Appearance",
+        themeAccent: "Accent color",
+        accentHost: "Follow host",
+        accentBlue: "Blue",
+        accentEmerald: "Emerald",
+        accentAmber: "Amber",
+        accentViolet: "Violet",
+        accentCyan: "Cyan",
+        accentRose: "Rose",
+        fontScale: "Font size",
+        fontSm: "Small",
+        fontMd: "Standard",
+        fontLg: "Large",
+        fontXl: "XL",
+        saving: "Saving…",
+        saveFailed: "Could not save",
+        updateHeading: "Updates",
+        updateModeLabel: "Update mode",
+        updateModeManual: "Notify only, update manually",
+        updateModeAuto: "Automatically update when available",
+        updateModeOff: "Disable update checks & notices",
+        currentVersionLabel: "Current version",
+        latestVersionLabel: "Latest version",
+        releaseNotes: "Release notes",
+        checkUpdate: "↓ Check for updates",
+        checkingUpdate: "Checking…",
+        recheckUpdate: "↻ Recheck",
+        applyingUpdate: "Updating…",
+        upgradeToVersion: (v) => `↓ Upgrade to v${v}`,
+        updateLatestSub: (mode) => `Up to date (${mode})`,
+        updateAvailableSub: (ver, mode) => `v${ver} available (${mode})`,
+        updateOffSub: (mode) => `Checks disabled (${mode})`,
+        updateModeGit: "Git",
+        updateModeArchive: "Archive",
+        updateRemoteChecked: (time) => `GitHub Releases · ${time}`,
+        updateNotChecked: "Not checked yet",
+        updateCheckingMsg: "Checking GitHub Releases…",
+        updateUpToDateMsg: (ver) => `Already up to date (v${ver})`,
+        updateCheckErrorMsg: "Could not check for updates",
+        updateApplyingMsg: "Downloading and applying update…",
+        updateRestartingMsg: "Update applied. Reloading panel…",
         exportDirHeading: "Markdown export folder",
         exportDirHint: "Enter an absolute path or choose a folder, then save it.",
         exportDirPath: "Folder path",
@@ -1455,6 +1854,47 @@
       },
       'zh-TW': {
         settingsLanguageHelp: "選擇面板的顯示語言。",
+        appearanceHeading: "介面與外觀",
+        themeAccent: "主題色",
+        accentHost: "跟隨宿主",
+        accentBlue: "晴空藍",
+        accentEmerald: "翡翠綠",
+        accentAmber: "琥珀橙",
+        accentViolet: "星辰紫",
+        accentCyan: "青碧色",
+        accentRose: "緋櫻紅",
+        fontScale: "字體大小",
+        fontSm: "小",
+        fontMd: "標準",
+        fontLg: "大",
+        fontXl: "特大",
+        saving: "儲存中…",
+        saveFailed: "儲存失敗",
+        updateHeading: "版本更新",
+        updateModeLabel: "更新方式",
+        updateModeManual: "僅提示新版本，手動更新",
+        updateModeAuto: "發現新版本後自動更新",
+        updateModeOff: "關閉更新檢查與提示",
+        currentVersionLabel: "目前版本",
+        latestVersionLabel: "最新版本",
+        releaseNotes: "發行說明",
+        checkUpdate: "↓ 檢查更新",
+        checkingUpdate: "檢查中…",
+        recheckUpdate: "↻ 重新檢查",
+        applyingUpdate: "升級中…",
+        upgradeToVersion: (v) => `↓ 升級至 v${v}`,
+        updateLatestSub: (mode) => `已是最新 (${mode})`,
+        updateAvailableSub: (ver, mode) => `可升級至 v${ver} (${mode})`,
+        updateOffSub: (mode) => `已關閉檢查 (${mode})`,
+        updateModeGit: "Git",
+        updateModeArchive: "封存套件",
+        updateRemoteChecked: (time) => `GitHub Releases · ${time}`,
+        updateNotChecked: "尚未檢查更新",
+        updateCheckingMsg: "正在檢查 GitHub 最新版本…",
+        updateUpToDateMsg: (ver) => `目前已是最新版本 (v${ver})`,
+        updateCheckErrorMsg: "檢查更新失敗",
+        updateApplyingMsg: "正在取得並套用更新…",
+        updateRestartingMsg: "更新已完成，正在重新啟動面板…",
         exportDirHeading: "Markdown 匯出資料夾",
         exportDirHint: "輸入絕對路徑，或選擇資料夾後儲存。",
         exportDirPath: "資料夾路徑",
@@ -1553,6 +1993,47 @@
       },
       ja: {
         settingsLanguageHelp: "パネルの表示言語を選択します。",
+        appearanceHeading: "表示と外観",
+        themeAccent: "アクセントカラー",
+        accentHost: "ホストに従う",
+        accentBlue: "ブルー",
+        accentEmerald: "エメラルド",
+        accentAmber: "アンバー",
+        accentViolet: "バイオレット",
+        accentCyan: "シアン",
+        accentRose: "ローズ",
+        fontScale: "文字サイズ",
+        fontSm: "小",
+        fontMd: "標準",
+        fontLg: "大",
+        fontXl: "特大",
+        saving: "保存中…",
+        saveFailed: "保存できませんでした",
+        updateHeading: "アップデート",
+        updateModeLabel: "更新方法",
+        updateModeManual: "通知のみ行い、手動で更新",
+        updateModeAuto: "新しいバージョンを自動で更新",
+        updateModeOff: "更新確認と通知をオフ",
+        currentVersionLabel: "現在のバージョン",
+        latestVersionLabel: "最新バージョン",
+        releaseNotes: "リリースノート",
+        checkUpdate: "↓ 更新を確認",
+        checkingUpdate: "確認中…",
+        recheckUpdate: "↻ 再確認",
+        applyingUpdate: "更新中…",
+        upgradeToVersion: (v) => `↓ v${v} に更新`,
+        updateLatestSub: (mode) => `最新です (${mode})`,
+        updateAvailableSub: (ver, mode) => `v${ver} に更新可能 (${mode})`,
+        updateOffSub: (mode) => `確認オフ (${mode})`,
+        updateModeGit: "Git",
+        updateModeArchive: "アーカイブ",
+        updateRemoteChecked: (time) => `GitHub Releases · ${time}`,
+        updateNotChecked: "未確認",
+        updateCheckingMsg: "GitHub Releases を確認しています…",
+        updateUpToDateMsg: (ver) => `最新バージョンです (v${ver})`,
+        updateCheckErrorMsg: "更新を確認できませんでした",
+        updateApplyingMsg: "更新を取得して適用しています…",
+        updateRestartingMsg: "更新が完了しました。パネルを再起動しています…",
         exportDirHeading: "Markdown の保存先",
         exportDirHint: "絶対パスを入力するかフォルダーを選択してから保存します。",
         exportDirPath: "フォルダーのパス",
@@ -1695,7 +2176,9 @@
       previewData: null,
       previewMatchIndex: -1,
       preferences: {},
+      updateStatus: null,
       settingsBusy: false,
+      updateBusy: false,
       rawMode: false,
       batchMode: false,
       checkedIds: new Set(),
@@ -1775,6 +2258,8 @@
       syncGlider($('primaryNav'), $('primaryGlider'), state.surface === 'settings' ? $('settingsBtn') : $('libraryBtn'));
       const tabsEl = $('tabs');
       syncGlider(tabsEl, $('tabsGlider'), tabsEl?.querySelector?.('.tab-btn.active'));
+      const fontEl = $('fontScaleControl');
+      syncGlider(fontEl, $('fontScaleGlider'), fontEl?.querySelector?.('.seg-btn.is-active'));
     }
 
     const navGliderObserver = typeof ResizeObserver === 'function'
@@ -1783,6 +2268,33 @@
     if (navGliderObserver) {
       navGliderObserver.observe($('primaryNav'));
       navGliderObserver.observe($('tabs'));
+      navGliderObserver.observe($('fontScaleControl'));
+    }
+
+    const VALID_THEME_ACCENTS = new Set(['host', 'blue', 'emerald', 'amber', 'violet', 'cyan', 'rose']);
+    const VALID_FONT_SCALES = new Set(['sm', 'md', 'lg', 'xl']);
+
+    function applyAppearance({ themeAccent, fontScale } = state.preferences) {
+      const accent = VALID_THEME_ACCENTS.has(themeAccent) ? themeAccent : 'host';
+      const scale = VALID_FONT_SCALES.has(fontScale) ? fontScale : 'md';
+      const root = document.documentElement;
+      if (accent === 'host') root?.removeAttribute?.('data-theme-accent');
+      else root?.setAttribute?.('data-theme-accent', accent);
+      root?.setAttribute?.('data-font-scale', scale);
+
+      for (const btn of $('themeAccentPicker')?.querySelectorAll?.('[data-accent]') || []) {
+        const active = btn.dataset.accent === accent;
+        btn.classList?.toggle?.('is-active', active);
+        btn.setAttribute?.('aria-pressed', active ? 'true' : 'false');
+        const check = btn.querySelector?.('svg');
+        if (check) check.hidden = !active;
+      }
+      for (const btn of $('fontScaleControl')?.querySelectorAll?.('[data-font-scale]') || []) {
+        const active = btn.dataset.fontScale === scale;
+        btn.classList?.toggle?.('is-active', active);
+        btn.setAttribute?.('aria-pressed', active ? 'true' : 'false');
+      }
+      syncAllGliders();
     }
 
     function applyLocale(locale) {
@@ -1861,8 +2373,8 @@
 
     function formatTimestamp(raw) {
       if (!raw) return '';
-      const ms = Date.parse(raw);
-      return Number.isFinite(ms) ? getDateFormats().timestamp.format(ms) : raw;
+      const ms = typeof raw === 'number' ? raw : Date.parse(raw);
+      return Number.isFinite(ms) ? getDateFormats().timestamp.format(ms) : String(raw);
     }
 
     function updateToastText() {
@@ -2378,7 +2890,6 @@
           ${stepText}
           <span>·</span><span>${escapeHtml(formatTime(item.lastModifiedMs, item.lastModified))}</span>
           ${item.groupId ? `<span class="pill">${escapeHtml(item.groupId)}</span>` : ''}
-          ${tagsHtml}
         </div>
         <div class="card-storage"></div>
         ${trash ? `<div class="card-trash-info">${escapeHtml(formatTrashInfo(item))}</div>` : ''}
@@ -2389,6 +2900,7 @@
           <button class="btn btn-sm btn-${archiveAction} js-toggle-archive" title="${escapeHtml(t(archiveHelp))}" ${item.isRunning && !item.archived ? 'disabled' : ''}>${escapeHtml(t(trash ? 'trashRestore' : `${archiveAction}Button`))}</button>
           ${trash ? `<button class="btn btn-sm btn-danger js-purge" ${item.isRunning ? 'disabled' : ''}>${escapeHtml(t('trashPurge'))}</button>` : ''}
         </div>
+        ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
       `;
 
       card.addEventListener('click', () => {
@@ -2909,15 +3421,78 @@
     }
 
 
+    function renderUpdateSection() {
+      const status = state.updateStatus;
+      const mode = state.preferences.pluginUpdateMode || status?.updateMode || 'manual';
+      const updateSel = $('updateModeSelect');
+      if (updateSel) updateSel.value = mode;
+
+      const curVer = status?.currentVersion || '';
+      const latVer = status?.latestVersion || '';
+      const modeTag = t(status?.installMode === 'git' ? 'updateModeGit' : 'updateModeArchive');
+      const available = Boolean(status?.updateAvailable && mode !== 'off');
+
+      $('updateDot').hidden = !available;
+      $('updateCurrentVersion').textContent = curVer ? `v${curVer}` : 'v—';
+      const curSub = $('updateCurrentSub');
+      if (status) {
+        curSub.classList.toggle('is-available', available);
+        curSub.textContent = mode === 'off'
+          ? t('updateOffSub', modeTag)
+          : status.updateAvailable
+            ? t('updateAvailableSub', latVer, modeTag)
+            : t('updateLatestSub', modeTag);
+      } else {
+        curSub.classList.remove('is-available');
+        curSub.textContent = '';
+      }
+
+      $('updateLatestVersion').textContent = latVer ? `v${latVer}` : '—';
+      $('updateLatestSub').textContent = status?.checkedAtMs
+        ? t('updateRemoteChecked', formatTimestamp(status.checkedAtMs))
+        : t('updateNotChecked');
+
+      const releaseLink = $('openReleaseLink');
+      if (status?.releaseUrl) {
+        releaseLink.href = status.releaseUrl;
+        releaseLink.hidden = false;
+      } else {
+        releaseLink.hidden = true;
+      }
+
+      const checkBtn = $('checkUpdateBtn');
+      const applyBtn = $('applyUpdateBtn');
+      checkBtn.disabled = state.settingsBusy || state.updateBusy;
+      checkBtn.textContent = state.updateBusy && !status?.updateAvailable
+        ? t('checkingUpdate')
+        : status?.updateAvailable
+          ? t('recheckUpdate')
+          : t('checkUpdate');
+      applyBtn.hidden = !status?.updateAvailable;
+      applyBtn.disabled = state.settingsBusy || state.updateBusy;
+      if (latVer) applyBtn.textContent = state.updateBusy ? t('applyingUpdate') : t('upgradeToVersion', latVer);
+      if (status?.lastError && !$('updateStatusFeedback').textContent) {
+        $('updateStatusFeedback').textContent = status.lastError;
+      }
+    }
+
     function renderSettings() {
       const { exportDir, defaultExportDir, trashSummary } = state.preferences;
       $('exportDirEffective').textContent = defaultExportDir
         ? t('exportDirEffective', exportDir || defaultExportDir, defaultExportDir) : '';
       $('trashSummary').textContent = trashSummary
         ? t('trashSummary', trashSummary.totalCount, trashSummary.expiredCount) : '';
-      for (const id of ['languageSelect', 'saveExportDirBtn', 'pickExportDirBtn', 'resetExportDirBtn', 'saveRetentionBtn', 'sweepTrashBtn']) {
-        $(id).disabled = state.settingsBusy;
+      for (const id of ['languageSelect', 'updateModeSelect', 'saveExportDirBtn', 'pickExportDirBtn', 'resetExportDirBtn', 'saveRetentionBtn', 'sweepTrashBtn']) {
+        $(id).disabled = state.settingsBusy || state.updateBusy;
       }
+      for (const btn of $('themeAccentPicker')?.querySelectorAll?.('button') || []) {
+        btn.disabled = state.settingsBusy;
+      }
+      for (const btn of $('fontScaleControl')?.querySelectorAll?.('button') || []) {
+        btn.disabled = state.settingsBusy;
+      }
+      applyAppearance();
+      renderUpdateSection();
     }
 
     function updatePreferences(data, { replacePath = false, replaceDays = false } = {}) {
@@ -2935,6 +3510,121 @@
       }
       renderSettings();
     }
+
+    async function refreshUpdateStatus({ check = false, force = false } = {}) {
+      try {
+        const endpoint = force ? '/api/check-update' : '/api/update-status';
+        const status = await apiPost(endpoint, force ? {} : { check });
+        state.updateStatus = status;
+        renderUpdateSection();
+        return status;
+      } catch (err) {
+        if (force) $('updateStatusFeedback').textContent = err.message || t('updateCheckErrorMsg');
+        renderUpdateSection();
+        return null;
+      }
+    }
+
+    let appearanceFeedbackTimer = null;
+    function flashAppearanceFeedback(text, duration = 1800) {
+      clearTimeout(appearanceFeedbackTimer);
+      $('appearanceStatus').textContent = text;
+      if (text && duration > 0) {
+        appearanceFeedbackTimer = setTimeout(() => {
+          if ($('appearanceStatus').textContent === text) $('appearanceStatus').textContent = '';
+        }, duration);
+      }
+    }
+
+    async function saveAppearancePatch(patch) {
+      const previous = {
+        themeAccent: state.preferences.themeAccent ?? 'host',
+        fontScale: state.preferences.fontScale ?? 'md',
+      };
+      state.preferences = { ...state.preferences, ...patch };
+      applyAppearance(state.preferences);
+      flashAppearanceFeedback(t('saving'), 0);
+      try {
+        const saved = await apiPost('/api/preferences', patch);
+        updatePreferences(saved);
+        flashAppearanceFeedback(t('settingsSaved'));
+      } catch (err) {
+        state.preferences = { ...state.preferences, ...previous };
+        applyAppearance(state.preferences);
+        flashAppearanceFeedback(err?.message || t('saveFailed'), 2800);
+      }
+    }
+
+    $('themeAccentPicker').addEventListener('click', e => {
+      const btn = e.target?.closest?.('[data-accent]');
+      if (!btn || btn.disabled) return;
+      const accent = btn.dataset.accent;
+      if (VALID_THEME_ACCENTS.has(accent) && accent !== (state.preferences.themeAccent ?? 'host')) {
+        return saveAppearancePatch({ themeAccent: accent });
+      }
+    });
+
+    $('fontScaleControl').addEventListener('click', e => {
+      const btn = e.target?.closest?.('[data-font-scale]');
+      if (!btn || btn.disabled) return;
+      const scale = btn.dataset.fontScale;
+      if (VALID_FONT_SCALES.has(scale) && scale !== (state.preferences.fontScale ?? 'md')) {
+        return saveAppearancePatch({ fontScale: scale });
+      }
+    });
+
+    $('updateModeSelect').addEventListener('change', async () => {
+      const mode = $('updateModeSelect').value;
+      const previous = state.preferences.pluginUpdateMode ?? 'manual';
+      if (mode === previous) return;
+      $('updateStatusFeedback').textContent = t('saving');
+      try {
+        const saved = await apiPost('/api/preferences', { pluginUpdateMode: mode });
+        updatePreferences(saved);
+        $('updateStatusFeedback').textContent = t('settingsSaved');
+        if (mode !== 'off' && !state.updateStatus?.checkedAtMs) {
+          void refreshUpdateStatus({ check: true });
+        }
+      } catch (err) {
+        $('updateModeSelect').value = previous;
+        $('updateStatusFeedback').textContent = err?.message || t('saveFailed');
+      }
+    });
+
+    $('checkUpdateBtn').addEventListener('click', async () => {
+      if (state.updateBusy || state.settingsBusy) return;
+      state.updateBusy = true;
+      $('updateStatusFeedback').textContent = t('updateCheckingMsg');
+      renderSettings();
+      try {
+        const status = await refreshUpdateStatus({ force: true });
+        if (status && !status.lastError) {
+          $('updateStatusFeedback').textContent = status.updateAvailable
+            ? t('updateAvailableSub', status.latestVersion, t(status.installMode === 'git' ? 'updateModeGit' : 'updateModeArchive'))
+            : t('updateUpToDateMsg', status.currentVersion);
+        }
+      } finally {
+        state.updateBusy = false;
+        renderSettings();
+      }
+    });
+
+    $('applyUpdateBtn').addEventListener('click', async () => {
+      if (state.updateBusy || state.settingsBusy) return;
+      state.updateBusy = true;
+      $('updateStatusFeedback').textContent = t('updateApplyingMsg');
+      renderSettings();
+      try {
+        const res = await apiPost('/api/apply-update');
+        $('updateStatusFeedback').textContent = res.message || (res.ok ? t('updateRestartingMsg') : t('updateCheckErrorMsg'));
+        await refreshUpdateStatus({ check: false });
+      } catch (err) {
+        $('updateStatusFeedback').textContent = err?.message || t('updateCheckErrorMsg');
+      } finally {
+        state.updateBusy = false;
+        renderSettings();
+      }
+    });
 
     async function runSettingsAction(status, action) {
       if (state.settingsBusy) return;
@@ -2954,8 +3644,10 @@
     function loadSettings() {
       return runSettingsAction(null, async () => {
         try {
-          updatePreferences(await apiPost('/api/preferences'));
+          const prefs = await apiPost('/api/preferences');
+          updatePreferences(prefs);
           showDataStatus('settingsLoadStatus', '');
+          void refreshUpdateStatus({ check: prefs.pluginUpdateMode !== 'off' });
         } catch (err) {
           showDataStatus('settingsLoadStatus', [t('settingsLoadFailed'), err.message].join(t('noticeSeparator')));
         }
@@ -3068,6 +3760,9 @@
       }
       await loadList();
       syncAllGliders();
+      if (state.preferences.pluginUpdateMode !== 'off') {
+        setTimeout(() => void refreshUpdateStatus({ check: true }), 1500);
+      }
     }
 
     $('languageSelect').addEventListener('change', async () => {

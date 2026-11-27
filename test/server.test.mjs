@@ -1186,3 +1186,26 @@ test('empty-string group annotations do not short-circuit sqlite group_id fallba
   assert.deepEqual(res.items.map(x => x.id), ['empty-ann']);
   assert.equal(res.items[0].groupId, 'fallback-group');
 });
+
+test('preferences patch themeAccent, fontScale, and pluginUpdateMode orthogonally and validate update-status', async () => {
+  await call('preferences', { language: 'en' });
+  assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'en' });
+
+  const patched = await call('preferences', { themeAccent: 'violet', fontScale: 'lg', pluginUpdateMode: 'off' });
+  assert.equal(patched.language, 'en');
+  assert.equal(patched.themeAccent, 'violet');
+  assert.equal(patched.fontScale, 'lg');
+  assert.equal(patched.pluginUpdateMode, 'off');
+
+  for (const invalid of [{ themeAccent: 'neon' }, { fontScale: 'xxl' }, { pluginUpdateMode: 'daily' }]) {
+    await assert.rejects(call('preferences', { ...invalid, locale: 'en' }));
+  }
+
+  const stored = JSON.parse(readFileSync(preferencesFile, 'utf8'));
+  assert.deepEqual(stored, { language: 'en', themeAccent: 'violet', fontScale: 'lg', pluginUpdateMode: 'off' });
+
+  const updateStatus = await call('update-status', {});
+  assert.equal(typeof updateStatus.currentVersion, 'string');
+  assert.equal(updateStatus.updateMode, 'off');
+  assert.ok(['git', 'archive'].includes(updateStatus.installMode));
+});
