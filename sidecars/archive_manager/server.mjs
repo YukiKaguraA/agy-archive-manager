@@ -576,6 +576,24 @@ function loadFtsPreview(conversationId, warnings) {
   return { source: messages.length ? 'fts' : 'none', messages };
 }
 
+function hasUnmatchedCompactMessages(full, compact) {
+  const used = new Uint8Array(full.messages.length);
+  for (const cm of compact.messages) {
+    let matched = false;
+    for (let i = 0; i < full.messages.length; i++) {
+      if (used[i]) continue;
+      const fm = full.messages[i];
+      if (fm.role === cm.role && isCompatibleCompactText(fm.content, cm.content)) {
+        used[i] = 1;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return true;
+  }
+  return false;
+}
+
 function loadTranscript(conversationId, warnings) {
   const logsDir = join(BRAIN_DIR, conversationId, '.system_generated', 'logs');
   const full = readTranscript(logsDir, 'transcript_full', warnings);
@@ -585,6 +603,9 @@ function loadTranscript(conversationId, warnings) {
     if (merged && merged.length > full.messages.length) {
       warnings.push(t('transcriptMerged'));
       return { source: 'transcript_full+transcript', messages: merged };
+    }
+    if (!merged && hasUnmatchedCompactMessages(full, compact)) {
+      warnings.push(t('transcriptConflict'));
     }
   }
   if (full?.messages.length) return full;
@@ -1189,19 +1210,25 @@ async function relocateTag(oldTag, newTag) {
     }
   }
   result.ok = result.skipped.length === 0 && result.failed.length === 0;
-  if (saved.includes(oldTag) || (newTag && candidates.length === 0 && saved.includes(newTag))) {
+  if (saved.includes(oldTag)) {
     let nextSaved = saved;
     if (newTag) {
-      nextSaved = result.ok
-        ? saved.map(tag => tag === oldTag ? newTag : tag)
-        : [...saved, newTag];
+      if (result.ok) nextSaved = saved.map(tag => tag === oldTag ? newTag : tag);
+      else if (result.succeeded.length > 0) nextSaved = [...saved, newTag];
     } else if (result.ok) {
       nextSaved = saved.filter(tag => tag !== oldTag);
     }
     if (!sameTags(normalizeTags(nextSaved), saved)) {
       setSavedTags(store, nextSaved);
-      writeMetaStore(store);
-      invalidateSnapshots();
+      try {
+        writeMetaStore(store);
+        invalidateSnapshots();
+      } catch (err) {
+        setSavedTags(store, saved);
+        if (candidates.length === 0) throw err;
+        result.failed.push({ id: 'savedTags', code: 'meta_write_failed', error: err.message });
+        result.ok = false;
+      }
     }
   }
   return newTag ? { ...result, oldTag, newTag, merged } : { ...result, tag: oldTag };
@@ -1258,6 +1285,12 @@ registerApi('/api/meta/update', serializeMutation(async (data) => {
     if (!Array.isArray(prev.tags)) throw new Error(t('missingLocalTags'));
     nativeAnn.tags = normalizeTags(prev.tags);
   } else if (Array.isArray(data.tags)) {
+    if (Array.isArray(prev.tags)) {
+      const currentNative = await verifiedNativeTags(id);
+      if (!sameTags(normalizeTags(prev.tags), currentNative)) {
+        throw new Error(t('tagConflictSkipped'));
+      }
+    }
     nativeAnn.tags = normalizeTags(data.tags).slice(0, 20);
   }
   if (typeof data.archived === 'boolean') {

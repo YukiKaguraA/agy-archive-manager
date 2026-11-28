@@ -809,7 +809,20 @@ test('preview keeps readable full transcript text when overlapping indexes confl
   const preview = await call('preview', { conversationId: 'conflict' });
   assert.equal(preview.source, 'transcript_full');
   assert.deepEqual(preview.messages.map(({ content }) => content), ['Different']);
-  assert.equal(preview.warnings.some((warning) => /无法可靠对齐/.test(warning)), false);
+  assert.ok(preview.warnings.some((warning) => /无法可靠对齐/.test(warning)));
+  const exp = await call('export', { conversationId: 'conflict' });
+  assert.ok(exp.markdown.includes('无法可靠对齐'));
+});
+
+test('preview stays silent when non-monotonic full logs already contain every compact message', async () => {
+  addConversation('non-monotonic');
+  writeTranscript('non-monotonic', 'transcript_full.jsonl', [user(10, 'First'), reply(1, 'Second')]);
+  writeTranscript('non-monotonic', 'transcript.jsonl', [user(10, 'First'), reply(1, 'Second')]);
+
+  const preview = await call('preview', { conversationId: 'non-monotonic' });
+  assert.equal(preview.source, 'transcript_full');
+  assert.deepEqual(preview.messages.map(({ content }) => content), ['First', 'Second']);
+  assert.deepEqual(preview.warnings, []);
 });
 
 test('preview keeps the longer full answer when a compatible compact log clips it and supplies extra text', async () => {
@@ -1312,4 +1325,41 @@ test('saved tags can be created, listed with 0 sessions, renamed, and deleted cl
   assert.equal(removed.ok, true);
   const stored = JSON.parse(readFileSync(metaFile, 'utf8'));
   assert.equal(Object.hasOwn(stored, 'savedTags'), false);
+});
+
+test('direct tag update rejects unresolved tagConflict and failed rename preserves savedTags without losing outcomes', async () => {
+  addConversation('conflicted');
+  conversations.get('conflicted').annotations.tags = ['host-only'];
+  writeFileSync(metaFile, JSON.stringify({
+    savedTags: ['local-only'],
+    conversations: { conflicted: { tags: ['local-only'] } },
+  }));
+
+  await assert.rejects(call('meta/update', { conversationId: 'conflicted', tags: ['local-only', 'extra'] }));
+  assert.deepEqual(conversations.get('conflicted').annotations.tags, ['host-only']);
+
+  const failedRename = await call('tags/rename', { oldTag: 'local-only', newTag: 'ghost-target' });
+  assert.equal(failedRename.ok, false);
+  assert.equal(failedRename.succeeded.length, 0);
+  assert.equal(failedRename.skipped[0].code, 'tag_conflict');
+  const afterFail = await call('tags', {});
+  assert.equal(afterFail.tags.some(t => t.name === 'ghost-target'), false);
+  assert.equal(afterFail.tags.some(t => t.name === 'local-only'), true);
+
+  addConversation('clean-saved');
+  conversations.get('clean-saved').annotations.tags = ['saved-one'];
+  writeFileSync(metaFile, JSON.stringify({ savedTags: ['saved-one'], conversations: {} }));
+  afterUpdate = () => {
+    rmSync(metaFile, { force: true });
+    mkdirSync(metaFile, { recursive: true });
+  };
+  try {
+    const partial = await call('tags/rename', { oldTag: 'saved-one', newTag: 'saved-two' });
+    assert.equal(partial.ok, false);
+    assert.deepEqual(partial.succeeded, ['clean-saved']);
+    assert.equal(partial.failed.some(item => item.code === 'meta_write_failed'), true);
+  } finally {
+    afterUpdate = null;
+    rmSync(metaFile, { recursive: true, force: true });
+  }
 });

@@ -1084,7 +1084,7 @@ test('preview navigation sits at the top of preview-header using compact tabs ma
   const headerStart = html.indexOf('<div class="preview-header">');
   const navIdx = html.indexOf('id="pvViewNav"');
   const titleIdx = html.indexOf('id="pvTitle"');
-  const toolbarIdx = html.indexOf('<div class="preview-toolbar">');
+  const toolbarIdx = html.indexOf('id="pvToolbar"');
   assert.ok(headerStart >= 0 && navIdx > headerStart && titleIdx > navIdx && toolbarIdx > titleIdx);
   assert.match(html, /<nav id="pvViewNav" class="tabs pv-view-tabs"/);
   assert.match(html, /class="tab-btn active"[^>]*id="pvContentTabBtn"/);
@@ -1143,4 +1143,84 @@ test('creating a tag from the Tags page updates known tags and preview quick-pic
   assert.deepEqual(sessionTags, ['alpha', 'gamma']);
   assert.equal(element('tagInput').value, '');
   assert.doesNotMatch(element('pvTagSuggestionList').innerHTML, /#gamma/);
+});
+
+test('stats tab hides preview-toolbar, rapid tag picks serialize without clobbering, conflicts block tag edits, and failed rename keeps filter', async () => {
+  const firstUpdate = deferred();
+  const secondUpdate = deferred();
+  const updates = [];
+  let currentTags = ['alpha'];
+  let updateCount = 0;
+
+  const { run, element } = createPanel((path, data) => {
+    if (path === '/api/conversations') {
+      return { items: [{ id: 's1', title: 'S1', tags: currentTags }], allTags: ['alpha', 'beta', 'gamma'] };
+    }
+    if (path === '/api/preview') {
+      if (data.conversationId === 'conflict') {
+        return { id: 'conflict', title: 'Conflict', tags: ['local'], nativeTags: ['host'], tagConflict: true, messages: [] };
+      }
+      return { id: 's1', title: 'S1', tags: currentTags, messages: [] };
+    }
+    if (path === '/api/conversation-detail-stats') {
+      return { conversationId: data.conversationId, telemetry: { source: 'none' }, files: { items: [] } };
+    }
+    if (path === '/api/meta/update') {
+      updates.push(data.tags);
+      updateCount++;
+      const gate = updateCount === 1 ? firstUpdate : secondUpdate;
+      return gate.promise.then(() => {
+        currentTags = data.tags;
+        return { ok: true, meta: { tags: currentTags, nativeTags: currentTags, tagConflict: false } };
+      });
+    }
+    if (path === '/api/tags') {
+      return { summary: { totalTags: 1, totalCount: 1, taggedCount: 1, untaggedCount: 0 }, tags: [{ name: 'old', totalCount: 1 }] };
+    }
+    if (path === '/api/tags/rename') {
+      return { ok: false, oldTag: 'old', newTag: 'new', succeeded: [], skipped: [{ id: 's1', error: 'conflict' }], failed: [] };
+    }
+    return {};
+  });
+
+  await run("openPreview('s1')");
+  assert.equal(element('pvToolbar').hidden, false);
+  await run("selectPreviewTab('stats')");
+  assert.equal(element('pvToolbar').hidden, true);
+  await run("selectPreviewTab('content')");
+  assert.equal(element('pvToolbar').hidden, false);
+
+  const click1 = element('pvTagSuggestionList').handlers.click({
+    target: { closest: selector => selector === '[data-add-tag]' ? { dataset: { addTag: 'beta' }, disabled: false } : null },
+  });
+  const click2 = element('pvTagSuggestionList').handlers.click({
+    target: { closest: selector => selector === '[data-add-tag]' ? { dataset: { addTag: 'gamma' }, disabled: false } : null },
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(updates.length, 1);
+  assert.deepEqual(updates[0], ['alpha', 'beta']);
+
+  firstUpdate.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(updates.length, 2);
+  assert.deepEqual(updates[1], ['alpha', 'beta', 'gamma']);
+
+  secondUpdate.resolve();
+  await Promise.all([click1, click2]);
+  assert.deepEqual(run('state.previewData.tags'), ['alpha', 'beta', 'gamma']);
+
+  await run("openPreview('conflict')");
+  assert.equal(element('pvTagSuggestions').hidden, true);
+  assert.equal(element('tagInput').disabled, true);
+  await element('pvTagSuggestionList').handlers.click({
+    target: { closest: selector => selector === '[data-add-tag]' ? { dataset: { addTag: 'beta' }, disabled: false } : null },
+  });
+  assert.equal(updates.length, 2);
+
+  await run("showSurface('tags')");
+  run("state.tag = 'old'; openTagDialog(state.tagInventory.tags[0], 'rename')");
+  element('tagDialogInput').value = 'new';
+  run('tagDialogHint()');
+  await run("submitTagAction({ preventDefault() {} })");
+  assert.equal(run('state.tag'), 'old');
 });

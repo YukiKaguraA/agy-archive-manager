@@ -1726,7 +1726,7 @@
               <input id="pvTitleInput" class="title-edit-input" style="display:none;" data-i18n-label="conversationTitle" />
               <button id="pvRenameBtn" class="btn btn-sm" data-i18n-title="renameHelp">✏️ 重命名</button>
             </div>
-            <div class="preview-toolbar">
+            <div id="pvToolbar" class="preview-toolbar">
               <button id="pvOpenBtn" class="btn btn-sm btn-primary" data-i18n="openChat">↗ 打开对话</button>
               <button id="pvArchiveToggleBtn" class="btn btn-sm btn-restore">♻️ 恢复</button>
               <button id="pvExportFileBtn" class="btn btn-sm" data-i18n="exportMarkdown">📥 导出 .md</button>
@@ -2754,6 +2754,7 @@
     let detailStatsRequestId = 0;
     let tagsRequestId = 0;
     let previewRequestId = 0;
+    let tagMutationQueue = Promise.resolve();
     let previewOverrides = {};
     const deletingIds = new Set();
     const cardStats = new Map();
@@ -3803,14 +3804,17 @@
       const row = $('pvTagsRow');
       const input = $('tagInput');
       row.querySelectorAll('.tag-chip').forEach((n) => n.remove());
+      if (input) input.disabled = Boolean(d.tagConflict);
       for (const tag of d.tags || []) {
         const chip = document.createElement('span');
         chip.className = 'tag-chip';
         const label = escapeHtml(t('removeTag', tag));
         chip.innerHTML = `<span>#${escapeHtml(tag)}</span><button type="button" title="${label}" aria-label="${label}">×</button>`;
-        chip.querySelector('button').addEventListener('click', async () => {
-          const nextTags = (d.tags || []).filter((x) => x !== tag);
-          await saveTags(d.id, nextTags);
+        const chipBtn = chip.querySelector('button');
+        chipBtn.disabled = Boolean(d.tagConflict);
+        chipBtn.addEventListener('click', () => {
+          if (state.previewData?.tagConflict) return;
+          return enqueueTagMutation(d.id, tags => tags.filter(x => x !== tag));
         });
         row.insertBefore(chip, input);
       }
@@ -3971,6 +3975,18 @@
       box.scrollTop = 0;
       syncCollapseAllBtn();
       stepPreviewMatch(1);
+    }
+
+    function enqueueTagMutation(convId, computeNextTags) {
+      const task = async () => {
+        const d = state.previewData;
+        if (!d || d.id !== convId || d.tagConflict) return;
+        const nextTags = computeNextTags(d.tags || []);
+        if (!nextTags) return;
+        await saveTags(convId, nextTags);
+      };
+      tagMutationQueue = tagMutationQueue.then(task, task);
+      return tagMutationQueue;
     }
 
     async function saveTags(convId, tags, tagResolution) {
@@ -4457,7 +4473,7 @@
       if (!box || !list) return;
       const d = state.previewData;
       const trash = d && (d.trashedAt != null || state.tab === 'trash');
-      if (!d || trash) {
+      if (!d || trash || d.tagConflict) {
         box.hidden = true;
         list.innerHTML = '';
         return;
@@ -4493,6 +4509,7 @@
         badge.textContent = state.previewData ? number(state.previewData.messages?.length ?? 0) : '';
         badge.hidden = !state.previewData;
       }
+      if ($('pvToolbar')) $('pvToolbar').hidden = stats;
       $('pvRawBtn').disabled = stats || !state.previewData;
       syncCollapseAllBtn();
       syncAllGliders();
@@ -4776,7 +4793,8 @@
         const newTag = normalizeTagInput($('tagDialogInput').value);
         const rename = action.type === 'rename';
         const r = await apiPost('/api/tags/' + action.type, rename ? { oldTag, newTag } : { tag: oldTag });
-        if (state.tag === oldTag) state.tag = rename ? (r.newTag ?? newTag) : '';
+        const tagApplied = r.ok === true || (Array.isArray(r.succeeded) && r.succeeded.length > 0);
+        if (state.tag === oldTag && tagApplied) state.tag = rename ? (r.newTag ?? newTag) : '';
         $('tagSelect').value = state.tag;
         const report = $('tagsReport');
         const lines = [];
@@ -4816,17 +4834,15 @@
     $('pvMetaToggleBtn')?.addEventListener('click', () => setMetaEditorExpanded(!state.metaExpanded));
     $('tagsCreateBtn')?.addEventListener('click', () => openTagDialog(null, 'create'));
     $('tagInput')?.addEventListener('input', renderTagSuggestions);
-    $('pvTagSuggestionList')?.addEventListener('click', async event => {
+    $('pvTagSuggestionList')?.addEventListener('click', event => {
       const btn = event.target?.closest?.('[data-add-tag]');
-      if (!btn || btn.disabled || !state.previewData) return;
+      if (!btn || btn.disabled || !state.previewData || state.previewData.tagConflict) return;
       const tag = btn.dataset.addTag;
       if (!tag) return;
-      const d = state.previewData;
-      if ((d.tags || []).includes(tag)) return;
+      const convId = state.previewData.id;
       btn.disabled = true;
       $('tagInput').value = '';
-      const nextTags = [...new Set([...(d.tags || []), tag])];
-      await saveTags(d.id, nextTags);
+      return enqueueTagMutation(convId, tags => (tags.includes(tag) ? null : [...new Set([...tags, tag])]));
     });
     $('tagDialogInput')?.addEventListener('input', tagDialogHint);
     $('tagDialog')?.addEventListener('submit', submitTagAction);
@@ -5165,14 +5181,14 @@
     }
 
     // Tags & note inputs
-    $('tagInput').addEventListener('keydown', async (e) => {
-      if (e.key !== 'Enter' || !state.previewData) return;
+    $('tagInput').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !state.previewData || state.previewData.tagConflict) return;
       e.preventDefault();
       const val = e.target.value.trim().replace(/^#+/, '');
       if (!val) return;
       e.target.value = '';
-      const nextTags = [...new Set([...(state.previewData.tags || []), val])];
-      await saveTags(state.previewData.id, nextTags);
+      const convId = state.previewData.id;
+      return enqueueTagMutation(convId, tags => (tags.includes(val) ? null : [...new Set([...tags, val])]));
     });
     $('noteInput').addEventListener('blur', () => {
       if (state.previewData && $('noteInput').value.trim() !== (state.previewData.note || '')) {
