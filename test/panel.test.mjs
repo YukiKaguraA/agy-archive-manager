@@ -1049,3 +1049,43 @@ test('file reveal sends only confirmed file paths and renders untrusted tool and
   assert.equal(calls[0][1].path, 'ok');
   assert.equal(calls[0][1].isFile, true);
 });
+
+test('preview metadata editor starts collapsed, summarizes tags/note, persists on refreshLocale, and auto-expands on tagConflict', async () => {
+  const { run, element } = createPanel((_, { conversationId: id }) => {
+    if (id === 'clean') return { id: 'clean', title: 'Clean', tags: ['alpha', 'beta'], note: 'remember me', messages: [] };
+    if (id === 'conflict') return { id: 'conflict', title: 'Conflict', tags: ['local'], nativeTags: ['host'], tagConflict: true, messages: [] };
+    return { id, title: id, messages: [] };
+  });
+
+  await run("openPreview('clean')");
+  assert.equal(run('state.metaExpanded'), false);
+  assert.equal(element('pvMetaBody').hidden, true);
+  assert.match(element('pvMetaSummary').textContent, /#alpha #beta.*remember me/);
+
+  element('pvMetaToggleBtn').handlers.click();
+  assert.equal(run('state.metaExpanded'), true);
+  assert.equal(element('pvMetaBody').hidden, false);
+
+  await run("openPreview('clean', { refreshLocale: true })");
+  assert.equal(run('state.metaExpanded'), true);
+  assert.equal(element('pvMetaBody').hidden, false);
+
+  await run("openPreview('other')");
+  assert.equal(run('state.metaExpanded'), false);
+  assert.equal(element('pvMetaBody').hidden, true);
+
+  await run("openPreview('conflict')");
+  assert.equal(run('state.metaExpanded'), true);
+  assert.equal(element('pvMetaBody').hidden, false);
+  assert.match(element('pvMetaSummary').textContent, /⚠/);
+});
+
+test('preview navigation sits at the top of preview-header using compact tabs markup', () => {
+  const headerStart = html.indexOf('<div class="preview-header">');
+  const navIdx = html.indexOf('id="pvViewNav"');
+  const titleIdx = html.indexOf('id="pvTitle"');
+  const toolbarIdx = html.indexOf('<div class="preview-toolbar">');
+  assert.ok(headerStart >= 0 && navIdx > headerStart && titleIdx > navIdx && toolbarIdx > titleIdx);
+  assert.match(html, /<nav id="pvViewNav" class="tabs pv-view-tabs"/);
+  assert.match(html, /class="tab-btn active"[^>]*id="pvContentTabBtn"/);
+});

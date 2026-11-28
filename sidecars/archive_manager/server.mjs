@@ -582,9 +582,6 @@ function loadTranscript(conversationId, warnings) {
       warnings.push(t('transcriptMerged'));
       return { source: 'transcript_full+transcript', messages: merged };
     }
-    if (!merged) {
-      warnings.push(t('transcriptConflict'));
-    }
   }
   if (full?.messages.length) return full;
   if (compact?.messages.length) return compact;

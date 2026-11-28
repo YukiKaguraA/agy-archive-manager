@@ -809,7 +809,7 @@ test('preview keeps readable full transcript text when overlapping indexes confl
   const preview = await call('preview', { conversationId: 'conflict' });
   assert.equal(preview.source, 'transcript_full');
   assert.deepEqual(preview.messages.map(({ content }) => content), ['Different']);
-  assert.ok(preview.warnings.some((warning) => /无法可靠对齐/.test(warning)));
+  assert.equal(preview.warnings.some((warning) => /无法可靠对齐/.test(warning)), false);
 });
 
 test('preview keeps the longer full answer when a compatible compact log clips it and supplies extra text', async () => {

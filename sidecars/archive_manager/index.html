@@ -563,12 +563,23 @@
     /* Preview Pane */
     .preview-header {
       flex-shrink: 0;
-      padding: 10px 14px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--am-border);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       background: var(--am-surface);
+    }
+
+    .preview-nav-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .pv-view-tabs {
+      max-width: 100%;
     }
 
     .preview-title-row {
@@ -616,9 +627,63 @@
 
     .meta-editor {
       flex-shrink: 0;
-      padding: 8px 14px;
+      padding: 0;
       background: var(--am-bg);
       border-bottom: 1px solid var(--am-border);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .meta-toggle-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--am-muted);
+      font: inherit;
+      font-size: var(--am-fs-sm);
+      cursor: pointer;
+      text-align: start;
+      transition: background-color 140ms var(--am-ease-modern), color 140ms var(--am-ease-modern);
+    }
+    .meta-toggle-btn:hover {
+      background: var(--am-hover);
+      color: var(--am-fg);
+    }
+    .meta-toggle-btn:focus-visible {
+      outline: 2px solid var(--am-accent);
+      outline-offset: -2px;
+    }
+    .meta-chevron {
+      flex-shrink: 0;
+      transition: transform 160ms var(--am-ease-modern);
+    }
+    .meta-editor.is-expanded .meta-chevron {
+      transform: rotate(90deg);
+    }
+    .meta-toggle-label {
+      font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .meta-editor.is-expanded .meta-toggle-label {
+      color: var(--am-fg);
+    }
+    .meta-summary {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--am-muted);
+      font-size: var(--am-fs-xs);
+    }
+    .meta-editor-body {
+      padding: 2px 12px 8px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -952,7 +1017,7 @@
       from { opacity: 0; transform: translate3d(0, 4px, 0); }
       to { opacity: 1; transform: translate3d(0, 0, 0); }
     }
-    #mainSplit:not([hidden]), #settingsPane:not([hidden]) {
+    #mainSplit:not([hidden]), #tagsPane:not([hidden]), #settingsPane:not([hidden]) {
       animation: amViewIn 180ms var(--am-ease-modern);
     }
     .filters-bar .search-box,
@@ -970,7 +1035,7 @@
       font-weight: 500;
       border-radius: 7px;
     }
-    #settingsPane { flex: 1; min-height: 0; overflow: auto; }
+    #tagsPane, #settingsPane { flex: 1; min-height: 0; overflow: auto; }
     .settings-content {
       width: 100%;
       max-width: 1120px;
@@ -1237,21 +1302,43 @@
     @media (max-width: 560px) { .tab-btn { padding: 4px 7px; gap: 4px; font-size: 11.5px; } }
     @media (max-width: 480px) { .search-box { flex-basis: 100%; } }
     #pvContentView { display:flex; flex:1; min-height:0; flex-direction:column; }
-    #pvViewNav { align-self:flex-start; flex-shrink:0; margin:6px 12px; }
-    #pvStatsView, #tagsPane { flex:1; min-height:0; overflow:auto; padding:12px 14px 20px; }
-    #pvStatsView .settings-card, #tagsGrid .settings-card { padding:12px; margin:0 0 10px; min-width:0; overflow-wrap:anywhere; }
-    #pvStatsView h3, #tagsPane h2 { margin:.25em 0 .7em; }
-    .stats-grid, #tagsGrid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
+    #pvStatsView { flex:1; min-height:0; overflow:auto; padding:12px 14px 20px; }
+    #pvStatsView .settings-card { padding:12px 14px; margin:0 0 10px; min-width:0; overflow-wrap:anywhere; }
+    #pvStatsView h3 { margin:.2em 0 .6em; font-size: var(--am-fs-lg); font-weight: 600; }
+    .stats-grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
     .stats-grid div, .file-row, .stat-row { padding:5px; overflow-wrap:anywhere; }
-    .stats-grid strong, .tag-main strong { display:block; color:var(--am-accent); }
+    .stats-grid strong { display:block; color:var(--am-accent); }
     .stat-row progress { vertical-align:middle; width:28%; accent-color:var(--am-accent); }
-    .tags-controls { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-    #tagsReport { white-space:pre-wrap; overflow-wrap:anywhere; }
-    .tag-main { width:100%; background:transparent; color:inherit; border:0; cursor:pointer; text-align:start; overflow-wrap:anywhere; }
+    .tags-kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    @media (max-width: 520px) { .tags-kpi-grid { grid-template-columns: 1fr; } }
+    .tags-conflict-banner { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--am-archive-border); background: var(--am-archive-bg); color: var(--am-archive-fg); font-size: var(--am-fs-md); }
+    .tags-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .tags-controls .search-box, .tags-controls select.ctrl-select { height: 30px; }
+    .tags-controls .search-box input { padding-top: 4px; padding-bottom: 4px; }
+    .tags-report { margin: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--am-border); background: color-mix(in srgb, var(--am-fg) 3.2%, transparent); font-size: var(--am-fs-sm); color: var(--am-fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .tags-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+    .tag-card { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px 13px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--am-border) 82%, transparent); background: color-mix(in srgb, var(--am-fg) 2.2%, var(--am-card)); transition: border-color 140ms var(--am-ease-modern), background-color 140ms var(--am-ease-modern), box-shadow 140ms var(--am-ease-modern); }
+    .tag-card:hover { border-color: color-mix(in srgb, var(--am-accent) 45%, var(--am-border)); background: color-mix(in srgb, var(--am-accent) 4%, var(--am-card)); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06); }
+    .tag-main { width: 100%; padding: 0; background: transparent; color: inherit; font: inherit; border: 0; cursor: pointer; text-align: start; display: flex; flex-direction: column; gap: 5px; overflow-wrap: anywhere; }
+    .tag-main:focus-visible { outline: 2px solid var(--am-accent); outline-offset: 3px; border-radius: 6px; }
+    .tag-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+    .tag-name { font-size: var(--am-fs-base); font-weight: 700; color: var(--am-accent); overflow-wrap: anywhere; }
+    .tag-count-badge { flex-shrink: 0; padding: 1px 7px; border-radius: 999px; background: var(--am-tag-bg); color: var(--am-accent); font-size: var(--am-fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .tag-card-meta { font-size: var(--am-fs-sm); color: var(--am-muted); line-height: 1.45; }
+    .tag-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: var(--am-fs-xs); color: var(--am-muted); }
+    .tag-conflict-pill { color: var(--am-archive-fg); font-weight: 600; }
+    .tag-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--am-border) 55%, transparent); }
+    .tags-empty { grid-column: 1 / -1; padding: 24px 12px; }
     .pill-tag { border:0; cursor:pointer; } .pill-tag.is-active { outline:1px solid currentColor; }
-    #tagDialog { color:var(--am-fg); background:var(--am-bg); border-radius:10px; max-width:min(92vw,440px); }
-    #tagDialog::backdrop { background:#0006; } #tagDialogHint { overflow-wrap:anywhere; }
-    @media(max-width:360px){ .primary-nav .nav-btn{padding-inline:5px;white-space:nowrap;} }
+    #tagDialog { color: var(--am-fg); max-width: min(calc(100% - 24px), 400px); margin: auto; }
+    #tagDialog:not([open]) { display: none; }
+    #tagDialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    #tagDialogForm { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+    #tagDialogTitle { margin: 0; color: var(--am-fg); }
+    #tagDialogTitle.is-danger { color: var(--am-danger-fg); }
+    #tagDialogInput { width: 100%; }
+    #tagDialogHint { margin: 0; overflow-wrap: anywhere; }
+    @media(max-width:360px){ .primary-nav .nav-btn{padding-inline:8px;white-space:nowrap;} }
   </style>
 </head>
 <body>
@@ -1269,7 +1356,13 @@
               </svg>
               <span data-i18n="library">会话库</span>
             </button>
-            <button type="button" id="tagsBtn" class="nav-btn" aria-pressed="false" aria-controls="tagsPane"><span aria-hidden="true">#</span><span data-i18n="tagsTitle"></span></button>
+            <button type="button" id="tagsBtn" class="nav-btn" aria-pressed="false" aria-controls="tagsPane">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              <span data-i18n="tagsTitle">标签</span>
+            </button>
             <button type="button" id="settingsBtn" class="nav-btn" aria-pressed="false" aria-controls="settingsPane">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3"/>
@@ -1362,12 +1455,53 @@
 
     <section id="tagsPane" aria-labelledby="tagsBtn" hidden>
       <div class="settings-content">
-        <h2 data-i18n="tagsTitle"></h2><p id="tagsSummary" role="status"></p><p data-i18n="tagsScope"></p><p id="tagsConflict" hidden></p>
-        <div class="tags-controls"><input type="search" id="tagsSearchInput" class="inline-input" data-i18n-placeholder="tagsSearch" data-i18n-label="tagsSearch">
-          <button type="button" class="btn btn-sm" id="tagsClearBtn" data-i18n="clearTagSearch"></button>
-          <select id="tagsSortSelect" class="ctrl-select" data-i18n-label="tagsSort"><option value="count" data-i18n="tagsMost"></option><option value="recent" data-i18n="tagsRecent"></option><option value="name" data-i18n="tagsName"></option></select>
-        </div>
-        <pre id="tagsReport" role="status" hidden></pre><div id="tagsGrid"></div>
+        <section class="settings-card" aria-labelledby="tagsOverviewHeading">
+          <div class="settings-card-head">
+            <h2 id="tagsOverviewHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              <span data-i18n="tagsTitle">标签</span>
+            </h2>
+            <span id="tagsSummary" class="settings-card-feedback" role="status"></span>
+          </div>
+          <p data-i18n="tagsScope"></p>
+          <div id="tagsConflict" class="tags-conflict-banner" hidden></div>
+          <div class="tags-kpi-grid">
+            <div class="update-cell">
+              <span class="update-cell-label" data-i18n="tagsTitle">标签</span>
+              <strong class="update-cell-value" id="tagsKpiTotal">0</strong>
+            </div>
+            <div class="update-cell">
+              <span class="update-cell-label" data-i18n="tagged">已打标</span>
+              <strong class="update-cell-value" id="tagsKpiTagged">0 / 0</strong>
+            </div>
+            <div class="update-cell">
+              <span class="update-cell-label" data-i18n="untagged">未打标</span>
+              <strong class="update-cell-value" id="tagsKpiUntagged">0</strong>
+            </div>
+          </div>
+          <div class="tags-controls">
+            <div class="search-box">
+              <span class="search-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+              <input type="text" id="tagsSearchInput" data-i18n-placeholder="tagsSearch" data-i18n-label="tagsSearch" />
+              <button type="button" id="tagsClearBtn" class="search-clear" data-i18n-title="clearTagSearch" data-i18n-label="clearTagSearch">×</button>
+            </div>
+            <select id="tagsSortSelect" class="ctrl-select" data-i18n-label="tagsSort">
+              <option value="count" data-i18n="tagsMost"></option>
+              <option value="recent" data-i18n="tagsRecent"></option>
+              <option value="name" data-i18n="tagsName"></option>
+            </select>
+          </div>
+          <pre id="tagsReport" class="tags-report" role="status" hidden></pre>
+        </section>
+
+        <section class="settings-card" aria-labelledby="tagsOverviewHeading">
+          <div id="tagsGrid" class="tags-grid"></div>
+        </section>
       </div>
     </section>
     <section id="settingsPane" aria-labelledby="settingsBtn" hidden>
@@ -1528,8 +1662,18 @@
 
         <div id="previewContent" style="display:none;flex:1;flex-direction:column;min-height:0;">
           <div class="preview-header">
-            <div class="preview-title-row">
+            <div class="preview-nav-row">
               <button id="backBtn" class="btn btn-sm back-btn" data-i18n="back">← 返回</button>
+              <nav id="pvViewNav" class="tabs pv-view-tabs" role="tablist" data-i18n-label="previewViews">
+                <div class="nav-glider tabs-glider" id="pvViewGlider" aria-hidden="true"></div>
+                <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="pvContentView" data-pv-tab="content" id="pvContentTabBtn">
+                  <span data-i18n="pvContent">会话正文</span>
+                  <span class="tab-count" id="pvMsgBadge" hidden></span>
+                </button>
+                <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="pvStatsView" data-pv-tab="stats" id="pvStatsTabBtn" data-i18n="pvStats">详情统计</button>
+              </nav>
+            </div>
+            <div class="preview-title-row">
               <div id="pvTitle" class="preview-title"></div>
               <input id="pvTitleInput" class="title-edit-input" style="display:none;" data-i18n-label="conversationTitle" />
               <button id="pvRenameBtn" class="btn btn-sm" data-i18n-title="renameHelp">✏️ 重命名</button>
@@ -1547,32 +1691,36 @@
             </div>
           </div>
 
-          <nav id="pvViewNav" class="primary-nav" role="tablist" data-i18n-label="previewViews">
-            <div class="nav-glider" id="pvViewGlider" aria-hidden="true"></div>
-            <button class="nav-btn" role="tab" aria-selected="true" aria-controls="pvContentView" data-pv-tab="content" id="pvContentTabBtn"><span data-i18n="pvContent"></span><span id="pvMsgBadge"></span></button>
-            <button class="nav-btn" role="tab" aria-selected="false" aria-controls="pvStatsView" data-pv-tab="stats" id="pvStatsTabBtn" data-i18n="pvStats"></button>
-          </nav>
           <div id="pvContentView" role="tabpanel" aria-labelledby="pvContentTabBtn">
-          <div id="pvMetaEditor" class="meta-editor">
-            <div class="tag-resolution" id="tagConflictBox" hidden>
-              <span id="tagConflictText"></span>
-              <button class="btn btn-sm" id="useNativeTags" data-i18n="useNative">采用宿主标签</button>
-              <button class="btn btn-sm" id="useLocalTags" data-i18n="useLocal">将本地标签同步到宿主</button>
+            <div id="pvMetaEditor" class="meta-editor">
+              <button type="button" id="pvMetaToggleBtn" class="meta-toggle-btn" aria-expanded="false" aria-controls="pvMetaBody">
+                <svg class="meta-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <span class="meta-toggle-label" data-i18n="metaEditorToggle">标签与备注</span>
+                <span id="pvMetaSummary" class="meta-summary"></span>
+              </button>
+              <div id="pvMetaBody" class="meta-editor-body" hidden>
+                <div class="tag-resolution" id="tagConflictBox" hidden>
+                  <span id="tagConflictText"></span>
+                  <button class="btn btn-sm" id="useNativeTags" data-i18n="useNative">采用宿主标签</button>
+                  <button class="btn btn-sm" id="useLocalTags" data-i18n="useLocal">将本地标签同步到宿主</button>
+                </div>
+                <div class="tags-row" id="pvTagsRow">
+                  <input id="tagInput" class="inline-input" style="width:128px;" data-i18n-placeholder="tagPlaceholder" data-i18n-label="addTag" />
+                </div>
+                <input id="noteInput" class="inline-input" style="width:100%;" data-i18n-placeholder="notePlaceholder" data-i18n-label="note" />
+              </div>
             </div>
-            <div class="tags-row" id="pvTagsRow">
-              <input id="tagInput" class="inline-input" style="width:128px;" data-i18n-placeholder="tagPlaceholder" data-i18n-label="addTag" />
-            </div>
-            <input id="noteInput" class="inline-input" style="width:100%;" data-i18n-placeholder="notePlaceholder" data-i18n-label="note" />
-          </div>
 
-          <div id="pvTrashInfo" class="data-status" hidden></div>
-          <div id="pvSource" class="data-status" role="status" hidden></div>
-          <div id="pvMatchNav" class="match-nav" hidden>
-            <span id="pvMatchCount" role="status"></span>
-            <button id="pvPrevMatchBtn" type="button" class="btn btn-sm" data-i18n="prevMatch">↑ 上一处</button>
-            <button id="pvNextMatchBtn" type="button" class="btn btn-sm" data-i18n="nextMatch">↓ 下一处</button>
-          </div>
-          <div id="pvMessages" class="messages-scroll"></div>
+            <div id="pvTrashInfo" class="data-status" hidden></div>
+            <div id="pvSource" class="data-status" role="status" hidden></div>
+            <div id="pvMatchNav" class="match-nav" hidden>
+              <span id="pvMatchCount" role="status"></span>
+              <button id="pvPrevMatchBtn" type="button" class="btn btn-sm" data-i18n="prevMatch">↑ 上一处</button>
+              <button id="pvNextMatchBtn" type="button" class="btn btn-sm" data-i18n="nextMatch">↓ 下一处</button>
+            </div>
+            <div id="pvMessages" class="messages-scroll"></div>
           </div>
           <div id="pvStatsView" role="tabpanel" aria-labelledby="pvStatsTabBtn" hidden></div>
         </div>
@@ -1580,10 +1728,17 @@
     </div>
   </div>
 
-  <dialog id="tagDialog" aria-labelledby="tagDialogTitle"><form method="dialog">
-    <h3 id="tagDialogTitle"></h3><input id="tagDialogInput" class="inline-input" data-i18n-label="tagsName">
-    <p id="tagDialogHint"></p><div class="modal-actions"><button type="button" id="tagDialogCancel" class="btn" data-i18n="cancel"></button><button id="tagDialogSubmit" class="btn btn-primary"></button></div>
-  </form></dialog>
+  <dialog id="tagDialog" class="modal-box" aria-labelledby="tagDialogTitle">
+    <form id="tagDialogForm" method="dialog">
+      <h3 id="tagDialogTitle" class="modal-title"></h3>
+      <input id="tagDialogInput" class="inline-input" data-i18n-label="tagsName" />
+      <p id="tagDialogHint" class="modal-desc"></p>
+      <div class="modal-actions">
+        <button type="button" id="tagDialogCancel" class="btn" data-i18n="cancel"></button>
+        <button id="tagDialogSubmit" class="btn btn-primary"></button>
+      </div>
+    </form>
+  </dialog>
   <!-- Confirmation for moving chats to trash or permanently deleting them -->
   <div id="deleteModal" class="modal-backdrop">
     <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
@@ -2173,6 +2328,7 @@
     };
 
     Object.assign(messages["zh-CN"], {
+      metaEditorToggle: "标签与备注",
       tagsTitle: "标签",
       tagsScope: "统计活跃、已归档及收藏会话，排除子代理与回收站。",
       tagsSearch: "搜索标签",
@@ -2243,6 +2399,7 @@
       detailRetry: "重试",
     });
     Object.assign(messages["en"], {
+      metaEditorToggle: "Tags & note",
       tagsTitle: "Tags",
       tagsScope: "Includes active, archived and starred chats. Excludes subagents and trash.",
       tagsSearch: "Search tags",
@@ -2313,6 +2470,7 @@
       detailRetry: "Retry",
     });
     Object.assign(messages["zh-TW"], {
+      metaEditorToggle: "標籤與備註",
       tagsTitle: "標籤",
       tagsScope: "統計活躍、已封存及收藏會話，排除子代理與回收桶。",
       tagsSearch: "搜尋標籤",
@@ -2383,6 +2541,7 @@
       detailRetry: "重試",
     });
     Object.assign(messages["ja"], {
+      metaEditorToggle: "タグとメモ",
       tagsTitle: "タグ",
       tagsScope: "アクティブ、アーカイブ、スター付きの会話が対象です。サブエージェントとゴミ箱は除きます。",
       tagsSearch: "タグを検索",
@@ -2470,6 +2629,7 @@
 
     const defaultLocale = detectLocale(navigator.language);
     const state = {
+      metaExpanded: false,
       previewTab: 'content', detailStats: null, detailStatus: 'idle', detailError: '', fileKind: 'all',
       tagInventory: null, tagAction: null,
       locale: defaultLocale,
@@ -2645,6 +2805,7 @@
       renderDeleteReport();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
+      if (state.previewData) updateMetaSummary(state.previewData);
       if (state.tagInventory) renderTagsInventory();
       if (state.previewTab === 'stats') renderDetailStats();
       updateToastText();
@@ -3470,6 +3631,7 @@
       resetDetailStats();
       state.selectedId = convId;
       state.previewData = null;
+      if (!previous) setMetaEditorExpanded(false);
       if (!state.pendingBatch || (state.pendingDeleteId && state.pendingDeleteId !== convId)) closeDeleteModal();
       if (previous && $('pvTitleInput').style.display !== 'none') $('pvRenameBtn').textContent = t('save');
       else exitTitleEdit();
@@ -3494,6 +3656,7 @@
         if (!previous) $('tagInput').value = '';
         if (!previous || $('noteInput').value === (previous.note || '')) $('noteInput').value = data.note || '';
         setPreviewControlsReady(true);
+        if (state.previewData.tagConflict) setMetaEditorExpanded(true);
         renderPreview();
         updatePreviewTabs();
         if (state.previewTab === 'stats') loadDetailStats();
@@ -3552,6 +3715,9 @@
         showSourceBanner ? [t('source', t(sourceLabels[d.source] ?? 'unknownSource')), ...pvWarnings].join(t('noticeSeparator')) : ''
       );
 
+      if (d.tagConflict) setMetaEditorExpanded(true);
+      else if ($('pvMetaBody')) $('pvMetaBody').hidden = !state.metaExpanded;
+      updateMetaSummary(d);
       $('tagConflictBox').hidden = !d.tagConflict;
       if (d.tagConflict) {
         const display = tags => tags?.join(', ') || t('emptyTags');
@@ -4173,17 +4339,46 @@
       return $(state.previewTab === 'stats' ? 'pvStatsView' : 'pvMessages');
     }
 
+    function setMetaEditorExpanded(expanded) {
+      state.metaExpanded = Boolean(expanded);
+      const body = $('pvMetaBody');
+      if (body) body.hidden = !state.metaExpanded;
+      $('pvMetaToggleBtn')?.setAttribute?.('aria-expanded', String(state.metaExpanded));
+      $('pvMetaEditor')?.classList?.toggle?.('is-expanded', state.metaExpanded);
+    }
+
+    function updateMetaSummary(d) {
+      const el = $('pvMetaSummary');
+      if (!el) return;
+      if (!d) { el.textContent = ''; return; }
+      const parts = [];
+      if (d.tagConflict) parts.push('⚠');
+      const tags = d.tags || [];
+      if (tags.length) {
+        const shown = tags.slice(0, 4).map(tag => '#' + tag).join(' ');
+        parts.push(tags.length > 4 ? `${shown} +${tags.length - 4}` : shown);
+      }
+      const note = (d.note || '').trim().replace(/\s+/g, ' ');
+      if (note) parts.push('📝 ' + (note.length > 40 ? note.slice(0, 40) + '…' : note));
+      el.textContent = parts.join(' · ');
+    }
+
     function updatePreviewTabs() {
       const stats = state.previewTab === 'stats';
       for (const [id, active] of [['pvStatsTabBtn', stats], ['pvContentTabBtn', !stats]]) {
         const btn = $(id);
+        btn?.classList?.toggle?.('active', active);
         btn?.setAttribute('aria-selected', active);
         btn?.setAttribute('aria-pressed', active);
         btn?.setAttribute('tabindex', active ? '0' : '-1');
       }
       $('pvStatsView').hidden = !stats;
       $('pvContentView').hidden = stats;
-      $('pvMsgBadge').textContent = state.previewData ? number(state.previewData.messages?.length ?? 0) : '';
+      const badge = $('pvMsgBadge');
+      if (badge) {
+        badge.textContent = state.previewData ? number(state.previewData.messages?.length ?? 0) : '';
+        badge.hidden = !state.previewData;
+      }
       $('pvRawBtn').disabled = stats || !state.previewData;
       syncCollapseAllBtn();
       syncAllGliders();
@@ -4358,9 +4553,13 @@
       const s = inventory.summary || {};
       $('tagsSummary').textContent = t('tagsTitle') + ' ' + number(s.totalTags ?? 0) + ' · ' + t('tagged') + ' ' +
         number(s.taggedCount ?? 0) + ' / ' + number(s.totalCount ?? 0) + ' · ' + t('untagged') + ' ' + number(s.untaggedCount ?? 0);
+      if ($('tagsKpiTotal')) $('tagsKpiTotal').textContent = number(s.totalTags ?? 0);
+      if ($('tagsKpiTagged')) $('tagsKpiTagged').textContent = number(s.taggedCount ?? 0) + ' / ' + number(s.totalCount ?? 0);
+      if ($('tagsKpiUntagged')) $('tagsKpiUntagged').textContent = number(s.untaggedCount ?? 0);
       $('tagsConflict').hidden = !s.conflictSessions;
       $('tagsConflict').textContent = t('tagConflicts') + ' · ' + number(s.conflictSessions || 0);
       const query = ($('tagsSearchInput').value || '').trim().toLocaleLowerCase(state.locale);
+      $('tagsClearBtn')?.classList?.toggle?.('show', Boolean(query));
       const sort = $('tagsSortSelect').value;
       const tags = (inventory.tags || []).filter(tag => tag.name.toLocaleLowerCase(state.locale).includes(query)).sort((a,b) =>
         (sort === 'recent' ? b.lastModifiedMs - a.lastModifiedMs : sort === 'name' ? 0 : b.totalCount - a.totalCount) ||
@@ -4368,12 +4567,18 @@
       $('tagsGrid').innerHTML = tags.length ? tags.map(tag => {
         const counts = [t('active') + ' ' + number(tag.activeCount), t('archived') + ' ' + number(tag.archivedCount),
           t('starredTag') + ' ' + number(tag.starredCount)].join(' · ');
-        return '<article class="settings-card" data-tag="' + safe(tag.name) + '"><button type="button" class="tag-main" data-tag-action="select">' +
-          '<strong>#' + safe(tag.name) + ' · ' + safe(number(tag.totalCount)) + '</strong>' + safe(counts) +
-          '<div>' + safe(formatTimestamp(tag.lastModifiedMs)) + (tag.conflictCount ? ' ⚠ ' + safe(number(tag.conflictCount)) : '') + '</div></button>' +
-          '<button class="btn btn-sm" data-tag-action="rename">' + safe(t('tagRename')) + '</button> ' +
-          '<button class="btn btn-sm" data-tag-action="delete">' + safe(t('tagRemove')) + '</button></article>';
-      }).join('') : safe(t('tagEmpty'));
+        return '<article class="tag-card" data-tag="' + safe(tag.name) + '">' +
+          '<button type="button" class="tag-main" data-tag-action="select">' +
+          '<div class="tag-card-head"><span class="tag-name">#' + safe(tag.name) + '</span><span class="tag-count-badge">' + safe(number(tag.totalCount)) + '</span></div>' +
+          '<div class="tag-card-meta">' + safe(counts) + '</div>' +
+          '<div class="tag-card-foot"><span>' + safe(formatTimestamp(tag.lastModifiedMs)) + '</span>' +
+          (tag.conflictCount ? '<span class="tag-conflict-pill">⚠ ' + safe(number(tag.conflictCount)) + '</span>' : '') + '</div>' +
+          '</button>' +
+          '<div class="tag-card-actions">' +
+          '<button type="button" class="btn btn-sm" data-tag-action="rename">' + safe(t('tagRename')) + '</button>' +
+          '<button type="button" class="btn btn-sm btn-danger" data-tag-action="delete">' + safe(t('tagRemove')) + '</button>' +
+          '</div></article>';
+      }).join('') : '<div class="empty-state tags-empty">' + safe(t('tagEmpty')) + '</div>';
     }
 
     function selectInventoryTag(tag) {
@@ -4409,7 +4614,10 @@
       state.tagAction = { tag, type, busy: false };
       const label = t(type === 'rename' ? 'tagRename' : 'tagRemove');
       $('tagDialogTitle').textContent = label + ' #' + tag.name;
+      $('tagDialogTitle')?.classList?.toggle?.('is-danger', type === 'delete');
       $('tagDialogSubmit').textContent = label;
+      $('tagDialogSubmit')?.classList?.toggle?.('btn-danger', type === 'delete');
+      $('tagDialogSubmit')?.classList?.toggle?.('btn-primary', type !== 'delete');
       $('tagDialogInput').hidden = type === 'delete';
       $('tagDialogInput').value = tag.name;
       tagDialogHint();
@@ -4465,7 +4673,8 @@
     });
     $('tagsSearchInput')?.addEventListener('input', renderTagsInventory);
     $('tagsSortSelect')?.addEventListener('change', renderTagsInventory);
-    $('tagsClearBtn')?.addEventListener('click', () => { $('tagsSearchInput').value = ''; renderTagsInventory(); $('tagsSearchInput').focus(); });
+    $('tagsClearBtn')?.addEventListener('click', () => { $('tagsSearchInput').value = ''; $('tagsClearBtn')?.classList?.remove?.('show'); renderTagsInventory(); $('tagsSearchInput').focus(); });
+    $('pvMetaToggleBtn')?.addEventListener('click', () => setMetaEditorExpanded(!state.metaExpanded));
     $('tagDialogInput')?.addEventListener('input', tagDialogHint);
     $('tagDialog')?.addEventListener('submit', submitTagAction);
     $('tagDialog')?.addEventListener('cancel', event => { if (state.tagAction?.busy) event.preventDefault(); });
