@@ -761,6 +761,141 @@ test('settings reads and writes export and retention preferences independently',
   assert.match(element('trashSettingsStatus').textContent, /3.*next/i);
 });
 
+test('role settings update the example and existing card headers without rerendering the preview', async () => {
+  const writes = [];
+  const prefs = { language: 'en', pluginUpdateMode: 'off', userDisplayName: '', assistantDisplayName: '' };
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/conversations') return { groups: [] };
+    if (path !== '/api/preferences') return {};
+    if (Object.hasOwn(body, 'userDisplayName')) {
+      writes.push(body);
+      Object.assign(prefs, body);
+    }
+    return prefs;
+  }, 'en');
+  assert.ok(html.indexOf('id="trashSettingsHeading"') < html.indexOf('id="roleNamesHeading"'));
+  assert.ok(html.indexOf('id="roleNamesHeading"') < html.indexOf('id="updateHeading"'));
+  const name = element('userDisplayNameInput');
+  const assistant = element('assistantDisplayNameInput');
+  const userRole = element('qaUserRole');
+  const assistantRole = element('qaAssistantRole');
+  const box = element('pvMessages');
+  box.scrollTop = 82;
+  box.querySelectorAll = () => [
+    { dataset: { msgRole: 'user' }, querySelector: () => userRole },
+    { dataset: { msgRole: 'assistant' }, querySelector: () => assistantRole },
+  ];
+  await run('initializePanel()');
+  run("state.previewData = { id: 'chat' };");
+  name.value = '  Custom   person  ';
+  assistant.value = '😀'.repeat(32);
+  name.handlers.input();
+  assert.equal(element('rolePreviewUser').textContent, 'Custom person');
+  assert.equal(element('rolePreviewAssistant').textContent, '😀'.repeat(32));
+  await element('roleNamesForm').handlers.submit({ preventDefault() {} });
+  assert.deepEqual(writes[0], { userDisplayName: 'Custom person', assistantDisplayName: '😀'.repeat(32), locale: 'en' });
+  assert.equal(userRole.textContent, 'Custom person');
+  assert.equal(assistantRole.textContent, '😀'.repeat(32));
+  assert.equal(box.scrollTop, 82);
+  name.value = 'invalid\nname';
+  await element('roleNamesForm').handlers.submit({ preventDefault() {} });
+  assert.match(element('roleNamesStatus').textContent, /control characters/i);
+  assert.equal(writes.length, 1);
+  await element('resetRoleNamesBtn').handlers.click();
+  assert.deepEqual(writes[1], { userDisplayName: '', assistantDisplayName: '', locale: 'en' });
+  assert.equal(userRole.textContent, run("t('userRole')"));
+  run("applyLocale('ja')");
+  assert.equal(userRole.textContent, run("t('userRole')"));
+  assert.equal(box.scrollTop, 82);
+});
+
+test('message menu copies untouched card content and adjacent replies using the displayed role names', async () => {
+  const { element, run } = createPanel(() => ({}), 'en');
+  const content = '  `code`\n\nComplete answer  ';
+  run(`state.previewData = { messages: [
+    { role: 'assistant', content: 'orphan' },
+    { role: 'user', content: '**Question**' },
+    { role: 'assistant', content: ${JSON.stringify(content)} },
+    { role: 'assistant', content: 'Follow-up' },
+    { role: 'user', content: 'Unanswered' },
+  ] };
+  state.preferences = { userDisplayName: 'Reader', assistantDisplayName: 'Guide' };
+  navigator.clipboard = { async writeText(text) { globalThis.copied = text; } };
+  window.innerWidth = 320;
+  window.innerHeight = 240;`);
+  const messages = element('pvMessages');
+  const menu = element('msgContextMenu');
+  menu.getBoundingClientRect = () => ({ width: 190, height: 84 });
+  const focus = element('qaFocused');
+  focus.focus();
+  function open(index, interactive = false) {
+    const card = { dataset: { msgIndex: String(index) } };
+    let prevented = false;
+    messages.handlers.contextmenu({
+      clientX: 310, clientY: 230, preventDefault() { prevented = true; },
+      target: { closest: selector => selector === '.msg-block' ? card : interactive ? {} : null },
+    });
+    return prevented;
+  }
+  assert.equal(open(2), true);
+  assert.equal(menu.hidden, false);
+  assert.equal(menu.style.left, '122px');
+  assert.equal(menu.style.top, '148px');
+  assert.equal(menu.children.length, 2);
+  await menu.children[0].handlers.click();
+  assert.equal(run('globalThis.copied'), '  `code`\n\nComplete answer  ');
+  assert.equal(run('toast.message'), 'Copied message text');
+  assert.equal(open(3), true);
+  await menu.children[1].handlers.click();
+  assert.equal(run('globalThis.copied'), 'Reader\n\n**Question**\n\n---\n\nGuide\n\n  `code`\n\nComplete answer  \n\n---\n\nGuide\n\nFollow-up');
+  assert.equal(open(0), true);
+  assert.equal(menu.children.length, 1);
+  messages.handlers.scroll();
+  assert.equal(menu.hidden, true);
+  focus.focus();
+  assert.equal(open(4), true);
+  assert.equal(menu.children.length, 1);
+  menu.handlers.keydown({ key: 'Escape', preventDefault() {} });
+  assert.equal(menu.hidden, true);
+  assert.equal(focus, run('document.activeElement'));
+  assert.equal(open(2, true), false);
+  run("window.getSelection = () => ({ toString: () => 'selected text' })");
+  assert.equal(open(2), false);
+  run("window.getSelection = () => ({ toString: () => '' })");
+  assert.equal(open(2), true);
+  run('clearPreview()');
+  assert.equal(menu.hidden, true);
+});
+
+test('message copy falls back to the textarea when the browser clipboard rejects', async () => {
+  const { run } = createPanel(() => ({}), 'en');
+  run(`navigator.clipboard = { async writeText() { throw Error('Clipboard denied'); } };
+    document.body.appendChild = element => { globalThis.fallbackNode = element; };
+    document.execCommand = command => command === 'copy';`);
+  assert.equal(await run("copyTextToClipboard('Unchanged\\ntext')"), true);
+  assert.equal(run('fallbackNode.value'), 'Unchanged\ntext');
+  run('document.execCommand = () => { throw Error("Copy unsupported"); }');
+  assert.equal(await run("copyTextToClipboard('Unavailable')"), false);
+});
+
+test('a language refresh keeps rendered message cards and scroll state when their content is unchanged', async () => {
+  const message = { content: 'Long conversation body', role: 'assistant', stepIndex: 4 };
+  const { element, run } = createPanel((path, body) => {
+    if (path === '/api/preferences') return { language: body.language };
+    if (path === '/api/conversations') return { groups: [] };
+    return { id: 'chat', messages: [message], source: 'transcript', warnings: [body.locale === 'ja' ? '新しい説明' : 'Original warning'] };
+  }, 'en');
+  await run("openPreview('chat')");
+  const box = element('pvMessages');
+  box.innerHTML = 'existing folded card DOM';
+  box.scrollTop = 82;
+  element('languageSelect').value = 'ja';
+  await element('languageSelect').handlers.change();
+  assert.equal(box.innerHTML, 'existing folded card DOM');
+  assert.equal(box.scrollTop, 82);
+  assert.deepEqual(run('state.previewData.warnings'), ['新しい説明']);
+});
+
 test('first workspace follows recency within assigned groups and scrolls once', async () => {
   const groups = [
     { key: 'old', label: 'Old', total: 1, lastModified: '2026-01-01' },

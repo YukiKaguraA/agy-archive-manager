@@ -1,8 +1,8 @@
 {
   "name": "archive-manager",
   "displayName": "会话管理 (Session Manager)",
-  "version": "2.3.4",
-  "description": "Antigravity 会话管理插件，支持按工作区浏览、全文检索、会话统计、归档、七天回收站与 Markdown 导出。 Browse Antigravity sessions by workspace, search and preview conversations, and manage archives and Trash in four languages.",
+  "version": "2.4.0",
+  "description": "按工作区浏览、检索和归档 Antigravity 会话，支持回收站、详情统计、独立标签页、自定义外观和消息卡片角色名称、右键复制及 Markdown 导出。 Browse, search, and archive Antigravity sessions by workspace, with Trash, detailed statistics, a dedicated Tags page, customizable appearance and role names, message copy actions, and Markdown export.",
   "author": {
     "name": "YukiKagura",
     "url": "https://github.com/YukiKaguraA"

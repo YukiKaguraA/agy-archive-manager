@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const panelHtml = readFileSync(join(root, 'sidecars/archive_manager/index.html'), 'utf8');
+const { version } = JSON.parse(readFileSync(join(root, 'plugin.json'), 'utf8'));
 const outDir = join(root, 'docs/screenshots');
 
 const WIDTH = 1000;
@@ -102,44 +103,56 @@ function mockScript() {
       const items = ${JSON.stringify(items)};
       const previews = ${JSON.stringify(previews)};
       const stats = ${JSON.stringify(stats)};
+      const now = ${now};
+      const version = ${JSON.stringify(version)};
       const counts = { archived: 2, active: 5, starred: 2, stale: 0, all: items.length, trash: 0 };
+      const preferences = {
+        language: 'zh-CN',
+        exportDir: '~/Documents/Antigravity-Exports',
+        defaultExportDir: '~/Documents/Antigravity-Exports',
+        trashRetentionDays: 7,
+        themeAccent: 'host',
+        fontScale: 'md',
+        pluginUpdateMode: 'manual',
+        userDisplayName: '',
+        assistantDisplayName: '',
+        trashSummary: { totalCount: 0, expiredCount: 0 },
+      };
+      const updateStatus = checkedAtMs => ({
+        currentVersion: version,
+        latestVersion: version,
+        updateAvailable: false,
+        installMode: 'archive',
+        updateMode: preferences.pluginUpdateMode,
+        releaseUrl: 'https://github.com/YukiKaguraA/agy-archive-manager/releases',
+        checkedAtMs,
+        isChecking: false,
+        isUpdating: false,
+        lastError: null,
+      });
+      const savedTags = new Set(['参考资料']);
+      const tagNames = () => [...new Set([...items.flatMap(item => item.tags), ...savedTags])];
+      const changeTag = (from, to) => {
+        const succeeded = [];
+        const merged = to ? tagNames().includes(to) : false;
+        if (savedTags.delete(from) && to) savedTags.add(to);
+        for (const item of items) {
+          if (!item.tags.includes(from)) continue;
+          item.tags = [...new Set(item.tags.flatMap(tag => tag === from ? (to ? [to] : []) : [tag]))];
+          succeeded.push(item.id);
+        }
+        return { ok: true, succeeded, unchanged: [], skipped: [], failed: [], merged };
+      };
       const api = {
-        '/api/preferences': () => ({
-          language: 'zh-CN',
-          exportDir: '~/Documents/Antigravity-Exports',
-          defaultExportDir: '~/Documents/Antigravity-Exports',
-          trashRetentionDays: 7,
-          themeAccent: 'host',
-          fontScale: 'md',
-          pluginUpdateMode: 'manual',
-          trashSummary: { totalCount: 0, expiredCount: 0 },
-        }),
-        '/api/update-status': () => ({
-          currentVersion: '2.3.4',
-          latestVersion: '2.3.4',
-          updateAvailable: false,
-          installMode: 'archive',
-          updateMode: 'manual',
-          releaseUrl: 'https://github.com/YukiKaguraA/agy-archive-manager/releases',
-          checkedAtMs: now - 3600_000,
-          isChecking: false,
-          isUpdating: false,
-          lastError: null,
-        }),
-        '/api/check-update': () => ({
-          currentVersion: '2.3.4',
-          latestVersion: '2.3.4',
-          updateAvailable: false,
-          installMode: 'archive',
-          updateMode: 'manual',
-          releaseUrl: 'https://github.com/YukiKaguraA/agy-archive-manager/releases',
-          checkedAtMs: now,
-          isChecking: false,
-          isUpdating: false,
-          lastError: null,
-        }),
-        '/api/conversations': ({ tab, query, projectKey }) => {
-          const filtered = items.filter(item => item.archived === (tab === 'archived') &&
+        '/api/preferences': ({ locale, ...patch }) => ({ ...Object.assign(preferences, patch) }),
+        '/api/update-status': () => updateStatus(now - 3600_000),
+        '/api/check-update': () => updateStatus(now),
+        '/api/conversations': ({ tab, query, tag, projectKey }) => {
+          const scope = tab === 'active' ? items.filter(item => !item.archived)
+            : tab === 'archived' ? items.filter(item => item.archived)
+            : tab === 'starred' ? items.filter(item => item.starred)
+            : tab === 'all' ? items : [];
+          const filtered = scope.filter(item => (!tag || item.tags.includes(tag)) &&
             (!query || item.title.toLowerCase().includes(query.toLowerCase())));
           const scoped = projectKey ? filtered.filter(item => item.projectKey === projectKey) : filtered;
           const groupMap = new Map();
@@ -160,9 +173,9 @@ function mockScript() {
             .map(({ key, label, total, lastModified }) => ({ key, label, total, lastModified }));
           return { items: projectKey ? scoped : [], groups, counts, warnings: [], snapshotId: tab + ':' + (query || ''),
             groupOptions: [], page: 1, pageSize: 50, total: scoped.length,
-            allTags: [...new Set(items.flatMap(item => item.tags))] };
+            allTags: tab === 'trash' ? [] : tagNames() };
         },
-        '/api/preview': ({ conversationId }) => previews[conversationId],
+        '/api/preview': ({ conversationId }) => ({ ...previews[conversationId], tags: items.find(item => item.id === conversationId)?.tags ?? [] }),
         '/api/conversation-detail-stats': ({ conversationId }) => ({
           conversationId, status: 'complete', source: 'transcript_full', warnings: [],
           overview: { userTurns: 8, assistantReplies: 12, plannerSteps: 15, errorSteps: 0,
@@ -174,17 +187,24 @@ function mockScript() {
             outputTokens: 1200, totalTokens: 4600, cacheHitRate: 2000 / 3400, models: [] },
         }),
         '/api/tags': ({ snapshotId }) => {
-          const tags = [...new Set(items.flatMap(item => item.tags))].map(name => {
+          const tags = tagNames().map(name => {
             const matches = items.filter(item => item.tags.includes(name));
             return { name, totalCount: matches.length, activeCount: matches.filter(it => !it.archived).length,
               archivedCount: matches.filter(it => it.archived).length, starredCount: matches.filter(it => it.starred).length,
-              conflictCount: 0, lastModifiedMs: Math.max(...matches.map(it => it.lastModifiedMs)) };
+              conflictCount: 0, lastModifiedMs: Math.max(0, ...matches.map(it => it.lastModifiedMs)) };
           });
           const taggedCount = items.filter(item => item.tags.length).length;
           return { snapshotId, tags, warnings: [],
             summary: { totalTags: tags.length, taggedCount, untaggedCount: items.length - taggedCount,
               totalCount: items.length, conflictSessions: 0 } };
         },
+        '/api/tags/create': ({ tag }) => {
+          const alreadyExisted = tagNames().includes(tag);
+          savedTags.add(tag);
+          return { ok: true, tag, created: !alreadyExisted, alreadyExisted };
+        },
+        '/api/tags/rename': ({ oldTag, newTag }) => ({ ...changeTag(oldTag, newTag), oldTag, newTag }),
+        '/api/tags/delete': ({ tag }) => ({ ...changeTag(tag), tag }),
         '/api/conversation-stats': ({ conversationIds }) => ({ stats: Object.fromEntries(conversationIds.map(id => [id, stats[id]])) }),
       };
       window.sidecar = { fetch: async (path, req) => {

@@ -6,38 +6,38 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 
 ## [Unreleased]
 
-## 2.3.4 - 2026-11-28（内部版 / Internal build）
+## [2.4.0] - 2026-11-28
 
-- 预览新增「详情统计」，显示轮次、工具调用分布和已记录的改动文件。现存文件可在资源管理器中定位。
-- Token 优先读取本机 Usage Monitor 账本，缺失时使用会话日志中的实际计数。
-- 顶栏新增独立标签页，支持搜索、排序、按标签跳转筛选、重命名或合并，以及仅移除标签。存在本地标签冲突的会话会跳过。
-- Preview adds Details for turns, tool calls, and recorded file changes. Existing files can be revealed in the system file manager.
-- Recorded Token data comes from the local Usage Monitor ledger when available, with a fallback to the session transcript.
-- The Tags page supports search, sorting, filtering conversations, renaming, merging, and removing tags. Bulk actions skip sessions with unresolved local tag conflicts.
+### 新增 / Added
 
-## 2.3.3 - 2026-11-28（内部版 / Internal build）
+- 在「设置」自定义用户和助手的消息卡片名称，保存后同步用于会话预览与 Markdown 导出。留空采用当前语言的默认名称。
+- 右键消息卡片可复制本条全文，或复制配对的用户提问与助手回复。折叠的消息也能复制全文。
+- 回收站支持恢复原有归档状态及确认彻底删除。默认保留七天，可配置为 1–365 天。
+- 详情统计显示轮次、工具调用和记录中的文件变更，支持定位仍在磁盘上的文件。Token 优先读取本机 Usage Monitor 账本，否则采用会话日志中的实际计数。
+- 独立「标签」页支持新建、搜索、排序、跳转筛选、重命名、合并和移除标签。预览可选取已有标签。
+- 预览用 `F3` / `Shift+F3` 循环跳转搜索命中并展开折叠消息，也可打开原始日志目录。
+- 设置页集中管理界面语言、主题色、字号、导出目录和回收站保留期，含版本检查与更新模式。
+- Customize user and assistant message card names in Settings. Saved names also apply to Markdown exports. Empty fields use the current language's defaults.
+- Right-click a message card to copy its full text or the paired user prompt and assistant replies. Collapsed messages can be copied in full.
+- Trash supports restoring the previous archive state and confirming permanent deletion. Retention defaults to seven days and can be set to 1–365 days.
+- Statistics shows turns, tool calls, and recorded file changes. It can reveal files still on disk. Token counts come from the local Usage Monitor ledger when available, or from actual counts in the transcript.
+- The dedicated Tags page supports creation, search, sorting, filtering, renaming, merging, and removal. Existing tags can be added from the preview.
+- Use `F3` / `Shift+F3` in the preview to cycle through search matches and unfold matched messages. The preview can also open the raw log directory.
+- Settings gathers language, accent color, font size, export folder, and trash retention controls, along with version checks and update modes.
 
-- 工作区优先沿用宿主项目顺序，未归属置底。首次进入视图时展开并定位最近更新的工作区。
-- 工作区采用原生开合文件夹图标与扁平通栏列表，卡片状态简化为小圆点，标签下移至卡片底部。
-- 顶部移除冗余品牌名，改为平滑滑动滑块导航；右上角刷新变更为独立图标按钮，与批量按钮对齐。
-- 设置页采用宽卡片布局，集中管理界面语言、主题色（宿主及6种色调）、字体缩放（4档）、Markdown 导出目录与回收站保留天数。
-- 集成全功能零依赖插件更新器，支持手动检测、更新模式切换与原地平滑重启。
-- 预览支持在搜索命中之间循环跳转（F3/Shift+F3），自动展开折叠命中项，并可一键打开原始日志目录。
-- Workspace order follows the host when available, with unassigned sessions last. Each view initially expands and scrolls to the most recently updated workspace.
-- Workspaces feature native outline folder icons and a flat full-bleed list; status pills are streamlined into colored dots and tags are placed at the card bottom.
-- Header replaces the redundant brand with smooth gliding tab controls; the refresh button becomes an icon button aligned with the batch button.
-- Settings uses a wide-card layout for language, theme accent (host and 6 colors), font scale (4 sizes), export directory, and trash retention.
-- Integrates a self-contained zero-dependency plugin updater with manual check, configurable modes, and seamless sidecar restart.
-- Preview supports wrapping search match navigation (F3/Shift+F3), automatic unfolding of matched messages, and opening raw log directories.
+### 变更 / Changed
 
-## 2.3.2 - 2026-11-28（内部版 / Internal build）
+- 顶栏分为「会话库」「标签」「设置」。会话库按工作区组织并分别分页，优先沿用宿主项目顺序，未归属会话放在最后。首次打开会展开最近更新的工作区。
+- 合并搜索输入与匹配模式选择。会话卡片显示用户轮次、步数、文件数和存储占用。
+- The top navigation has Library, Tags, and Settings. The library pages workspace groups separately, follows host workspace order when available, and puts unassigned conversations last. It opens the most recently updated group first.
+- The search field includes the matching mode selector. Conversation cards show user turns, steps, file counts, and storage size.
 
-- 会话库按工作区折叠浏览，每组单独分页。新增设置页入口，合并搜索输入与模式选择。
-- 会话卡片显示用户轮次、步数、会话文件数和存储占用。
-- 普通删除移入回收站。可恢复原有归档状态或确认彻底删除。自动清理至少保留七天。
-- The session library groups conversations by workspace and pages each group independently. Added a Settings entry and combined the search field and mode selector.
-- Session cards show user turns, steps, file count, and storage size.
-- Deleting a session moves it to Trash. Restore its previous archive state or confirm permanent deletion. Automatic cleanup keeps sessions for at least seven days.
+### 修复 / Fixed
+
+- 将同一会话的连续标签编辑排队处理。快捷添加与批量操作保护存在冲突的宿主标签，重命名全部失败时保留原目录并报告失败。
+- 正文日志无法可靠合并且精简日志包含未匹配内容时，预览与 Markdown 导出标明记录差异。
+- Serializes consecutive tag edits on the same conversation. Quick add and bulk operations preserve conflicting host tags. A fully failed rename keeps the original catalog and reports the failures.
+- Preview and Markdown exports warn when transcript merging fails and the compact log contains unmatched content.
 
 ## [2.3.1] - 2026-11-27
 
@@ -127,7 +127,8 @@ All notable changes to **Session Manager (`archive-manager`)** are documented he
 - 首个公开版本：五大视图浏览、全文检索、免恢复预览、原地归档与恢复、置顶 / 星标 / 重命名 / 删除、标签与备注、Markdown 导出，以及可选的左侧栏快捷入口。
 - First public release: five-tab browsing, full-text search, preview without restoring, in-place archive and restore, pin / star / rename / delete, tags and notes, Markdown export, and an optional left-sidebar quick entry.
 
-[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.1...HEAD
+[Unreleased]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/YukiKaguraA/agy-archive-manager/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/YukiKaguraA/agy-archive-manager/commit/35361be

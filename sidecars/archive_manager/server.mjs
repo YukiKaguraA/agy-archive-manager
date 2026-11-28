@@ -185,6 +185,15 @@ function writeMetaStore(store) {
 const VALID_THEME_ACCENTS = new Set(['host', 'blue', 'emerald', 'amber', 'violet', 'cyan', 'rose']);
 const VALID_FONT_SCALES = new Set(['sm', 'md', 'lg', 'xl']);
 const VALID_UPDATE_MODES = new Set(['manual', 'auto', 'off']);
+const ROLE_NAME_FIELDS = ['userDisplayName', 'assistantDisplayName'];
+const MAX_ROLE_NAME_LENGTH = 32;
+
+function normalizeRoleDisplayName(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string' || /[\p{Cc}\u2028\u2029]/u.test(value)) return null;
+  const name = value.replace(/\s+/gu, ' ').trim();
+  return [...name].length <= MAX_ROLE_NAME_LENGTH ? name : null;
+}
 
 function validRetention(days) {
   return Number.isInteger(days) && days >= 1 && days <= 365;
@@ -216,7 +225,8 @@ function readPreferences() {
       (store.trashRetentionDays !== undefined && !validRetention(store.trashRetentionDays)) ||
       (store.themeAccent !== undefined && !VALID_THEME_ACCENTS.has(store.themeAccent)) ||
       (store.fontScale !== undefined && !VALID_FONT_SCALES.has(store.fontScale)) ||
-      (store.pluginUpdateMode !== undefined && !VALID_UPDATE_MODES.has(store.pluginUpdateMode))) {
+      (store.pluginUpdateMode !== undefined && !VALID_UPDATE_MODES.has(store.pluginUpdateMode)) ||
+      ROLE_NAME_FIELDS.some(field => normalizeRoleDisplayName(store[field]) === null)) {
     throw new Error(t('preferencesInvalid'));
   }
   return store;
@@ -627,6 +637,12 @@ async function loadConversationPreview(conversationId) {
   };
 }
 
+function exportRoleName(value, fallback) {
+  const name = normalizeRoleDisplayName(value);
+  // Preserve the card label as literal text when Markdown renders the heading.
+  return name ? name.replace(/[\\`*_{}\[\]<>#~&]/gu, '\\$&') : fallback;
+}
+
 function buildMarkdownExport(previewData) {
   const lines = [];
   lines.push(`# ${previewData.title}`);
@@ -645,10 +661,13 @@ function buildMarkdownExport(previewData) {
   lines.push('---');
   lines.push('');
 
+  const preferences = readPreferencesOrDefault();
+  const userName = exportRoleName(preferences.userDisplayName, `👤 ${t('exportUser')}`);
+  const assistantName = exportRoleName(preferences.assistantDisplayName, `🤖 ${t('exportAssistant')}`);
   for (const m of previewData.messages) {
-    const label = m.role === 'user' ? `## 👤 ${t('exportUser')}` : `## 🤖 ${t('exportAssistant')}`;
+    const label = m.role === 'user' ? userName : assistantName;
     const ts = m.timestamp ? ` _(${m.timestamp})_` : '';
-    lines.push(`${label}${ts}`);
+    lines.push(`## ${label}${ts}`);
     lines.push('');
     lines.push(m.content);
     lines.push('');
@@ -723,6 +742,8 @@ function preferenceResponse(store) {
     themeAccent: store.themeAccent ?? 'host',
     fontScale: store.fontScale ?? 'md',
     pluginUpdateMode: store.pluginUpdateMode ?? 'manual',
+    userDisplayName: normalizeRoleDisplayName(store.userDisplayName),
+    assistantDisplayName: normalizeRoleDisplayName(store.assistantDisplayName),
     trashSummary: summarizeTrash(getTrashRetentionMs(store)),
   };
 }
@@ -734,7 +755,9 @@ registerApi('/api/preferences', serializeMutation(async data => {
   const writesAccent = Object.hasOwn(data, 'themeAccent');
   const writesFont = Object.hasOwn(data, 'fontScale');
   const writesUpdateMode = Object.hasOwn(data, 'pluginUpdateMode');
-  if (!writesLanguage && !writesExport && !writesRetention && !writesAccent && !writesFont && !writesUpdateMode) {
+  const rolePatch = ROLE_NAME_FIELDS.filter(field => Object.hasOwn(data, field))
+    .map(field => [field, normalizeRoleDisplayName(data[field])]);
+  if (!writesLanguage && !writesExport && !writesRetention && !writesAccent && !writesFont && !writesUpdateMode && !rolePatch.length) {
     return preferenceResponse(readPreferences());
   }
 
@@ -744,6 +767,7 @@ registerApi('/api/preferences', serializeMutation(async data => {
   if (writesAccent && !VALID_THEME_ACCENTS.has(themeAccent)) throw new Error(t('invalidThemeAccent'));
   if (writesFont && !VALID_FONT_SCALES.has(fontScale)) throw new Error(t('invalidFontScale'));
   if (writesUpdateMode && !VALID_UPDATE_MODES.has(pluginUpdateMode)) throw new Error(t('invalidUpdateMode'));
+  if (rolePatch.some(([, value]) => value === null)) throw new Error(t('invalidRoleDisplayName'));
   if (writesExport && exportDir !== null && exportDir !== '' && !validExportPath(exportDir)) {
     throw new Error(t('invalidExportDirectory'));
   }
@@ -754,6 +778,10 @@ registerApi('/api/preferences', serializeMutation(async data => {
   if (writesAccent) next.themeAccent = themeAccent;
   if (writesFont) next.fontScale = fontScale;
   if (writesUpdateMode) next.pluginUpdateMode = pluginUpdateMode;
+  for (const [field, value] of rolePatch) {
+    if (value) next[field] = value;
+    else delete next[field];
+  }
   if (writesExport && exportDir) {
     const path = resolve(exportDir);
     try {

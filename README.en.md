@@ -6,7 +6,7 @@
 
 **Archive, search, preview, and export your Google Antigravity conversations**
 
-Five views · Full-text search · Preview without restoring · Batch archive with undo · Tags & notes · Markdown export · Four interface languages
+Workspace browsing · Full-text search · Preview without restoring · Trash · Tag management · Markdown export · Four interface languages
 
 [**简体中文**](./README.md) · [**English**](./README.en.md) · [**繁體中文**](./README.zh-TW.md) · [**日本語**](./README.ja.md) · [**Changelog**](./CHANGELOG.md) · [**Releases**](https://github.com/YukiKaguraA/agy-archive-manager/releases) · [**Issues**](https://github.com/YukiKaguraA/agy-archive-manager/issues)
 
@@ -39,13 +39,13 @@ Five views · Full-text search · Preview without restoring · Batch archive wit
 
 - **Workspace browsing**. Library contains Active, Archived, Starred, All, Idle, and Trash. Active opens first and expands the most recently updated workspace. Load up to 50 sessions at a time per workspace.
 - **Combined search field**. Type your query and use the dropdown on its right to switch between Exact text and Keywords. Filter by host group or tag and see highlighted matches.
-- **Session statistics**. Cards show user turns, steps, file count, and session storage size.
+- **Session statistics**. Cards show user turns, steps, file count, and storage size. The Statistics tab shows tool calls, file changes, and token counts when available.
 - **Trash**. Moving a session to Trash archives it. Restoring brings back its previous archive status. Trash keeps sessions for seven days by default. Set a retention period from 1 to 365 days in Settings. Shortening it shows the eligible count before scheduled or manually confirmed cleanup.
 - **Read without restoring**: Preview past conversations directly. Long replies collapse automatically, and you can switch between formatted and raw views.
 - **Changed your mind? Undo**: Archive or restore in batches, archive idle conversations by days inactive, and undo the result.
-- **Stay organized**: Pin 📌, star ★, add `#tags`, keep auto-saved notes, and rename inline.
+- **Stay organized**. Pin 📌, star ★, keep notes, and rename sessions inline. The Tags page lets you create, filter by, rename, merge, and remove tags.
 - **One-click Markdown export**: Export conversations with their metadata, tags, and notes to `~/Documents/Antigravity-Exports`.
-- **Four interface languages**. Choose Simplified Chinese, English, Traditional Chinese, or Japanese. The panel remembers your choice and follows the host theme.
+- **Appearance and role names**. In Settings, choose Simplified Chinese, English, Traditional Chinese, or Japanese, and adjust the accent color, font size, and message card role names.
 - **Safe by default**: Running conversations cannot be deleted, SQLite is opened read-only, and local notes are saved atomically.
 
 ---
@@ -70,6 +70,8 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 
 ### 3. Feature cheat sheet
 
+Use the top navigation to switch between Library, Tags, and Settings.
+
 | Task | Action | Where |
 | :--- | :--- | :--- |
 | Find an old conversation | Exact text or Keywords search, expandable workspaces, group / tag filters, and sorting | Top of the panel |
@@ -77,8 +79,11 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 | Work in bulk | Select chats to archive or restore. Archived chats can also be moved to Trash | **Batch** button |
 | Restore or delete permanently | Select one or more conversations in Trash. Permanent deletion requires confirmation | Trash |
 | Clean up idle conversations | Archive conversations idle for 3 / 7 / 14 / 30 days | Idle view |
-| Read long conversations | Expand All / Collapse All, ⬆ Top, ⬇ Bottom, Formatted / Raw | Preview toolbar |
-| Organize | Pin, star, rename, `#tags`, notes | Cards and preview |
+| Read long conversations | Expand or collapse messages. Use `F3` and `Shift+F3` to move between search matches | Messages |
+| Copy a message or turn | Right-click a card and choose **Copy message text** or **Copy full turn**. Collapsed messages are copied in full | Messages |
+| View statistics | Inspect turns, tool calls, file changes, and token counts when available | Statistics |
+| Manage tags | Create, search, filter by, rename, merge, or remove tags. Add existing tags from **Tags & note** in the preview | Tags or preview |
+| Customize role names | Set user and assistant labels for the cards and Markdown exports. Leave either field blank to use the current language's default | Settings → Message Card Role Names |
 | Export | Save as `.md`, reveal the file, or open the export folder | Preview toolbar or Settings |
 | Open the panel | Left-sidebar entry (CDP) / Plugins menu / chat prompt | Several places |
 
@@ -86,9 +91,9 @@ Search inside the Archived view to see highlighted matches, expand the Markdown 
 
 Workspace order follows the host when available, with unassigned sessions last. In a preview, use `F3` or `Shift+F3` to cycle through search matches and open folded messages. Use **Logs** to open the raw log folder.
 
-Switch the preview to **Details** to see turns, tool calls, and file changes recorded in the transcript. You can reveal files that still exist. Token data comes from the local Usage Monitor ledger when available, or from the recorded transcript counts.
+Switch the preview to **Statistics** to see turns, tool calls, and file changes recorded in the transcript. You can reveal files that still exist. Token data comes from the local Usage Monitor ledger when available, or from the recorded transcript counts.
 
-Open **Tags** to search or sort tags, see counts by conversation status, and jump to filtered conversations. Rename can merge into an existing tag. Removing a tag leaves its conversations in place. Bulk actions skip unresolved local tag conflicts.
+The Tags page shows counts by conversation status. Bulk actions skip unresolved local tag conflicts. Right-click selected text or a link to use the host's context menu.
 
 ## 🚀 Quick Start
 
@@ -143,11 +148,11 @@ Then remind the user to enable the plugin under **Customizations → Plugins**.
 
 ---
 
-## 🆕 What's New in v2.3.1
+## 🆕 What's New in v2.4.0
 
-- Active is the first tab. The panel opens with all unarchived conversations.
-- Traditional Chinese and Japanese are available for the interface, operation messages, and Markdown export labels.
-- The GitHub README is now available in Traditional Chinese and Japanese.
+- Collapsible workspace groups, a recoverable Trash, and a unified Settings page.
+- A tag catalog, detailed conversation statistics, and Usage Monitor telemetry when available.
+- Custom message role names and right-click actions to copy a full message or a paired conversation turn.
 
 [See the full changelog](./CHANGELOG.md)
 

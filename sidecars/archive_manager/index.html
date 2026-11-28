@@ -848,7 +848,10 @@
       font-size: var(--am-fs-sm);
       font-weight: 600;
       color: var(--am-muted);
+      gap: 8px;
     }
+    .msg-role { min-width: 0; overflow-wrap: anywhere; }
+    .msg-ts { flex-shrink: 0; font-weight: 400; }
     .msg-body {
       padding: 10px 12px;
       font-size: var(--am-fs-base);
@@ -1287,6 +1290,60 @@
     }
     .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .settings-status { margin-top: 2px; overflow-wrap: anywhere; font-size: var(--am-fs-md); }
+    .role-names-form, .role-preview-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .role-names-grid, .role-preview-pair {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+      gap: 10px;
+    }
+    .role-names-grid .settings-row { display: grid; gap: 4px; min-width: 0; }
+    .role-names-grid .inline-input { width: 100%; min-width: 0; }
+    .role-preview-card { margin: 0; }
+    .role-preview-card .msg-head { border-bottom: 0; }
+    .context-menu {
+      position: fixed;
+      z-index: 9995;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: min(184px, calc(100vw - 16px));
+      max-width: min(268px, calc(100vw - 16px));
+      max-height: calc(100vh - 16px);
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 4px;
+      border: 1px solid var(--am-border);
+      border-radius: 10px;
+      background: var(--am-card);
+      color: var(--am-fg);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+      user-select: none;
+    }
+    .context-menu[hidden] { display: none; }
+    .context-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--am-fg);
+      font-size: var(--am-fs-md);
+      text-align: start;
+      cursor: pointer;
+    }
+    .context-menu-item:hover:not(:disabled),
+    .context-menu-item:focus-visible:not(:disabled) {
+      background: var(--am-hover);
+      color: var(--am-accent);
+      outline: none;
+    }
+    .context-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+    .context-menu-icon { flex: 0 0 16px; text-align: center; }
+    .context-menu-label { min-width: 0; overflow-wrap: anywhere; }
+    .context-menu-sep { height: 1px; margin: 3px 6px; background: var(--am-border); }
     #exportDirInput { width: 100%; }
     #trashRetentionInput { width: 85px; }
     .sweep-dialog { color: var(--am-fg); max-width: calc(100% - 24px); margin: auto; }
@@ -1657,6 +1714,46 @@
           <div id="trashSettingsStatus" class="settings-status" role="status" hidden></div>
         </section>
 
+        <section class="settings-card" aria-labelledby="roleNamesHeading">
+          <div class="settings-card-head">
+            <h2 id="roleNamesHeading" class="settings-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span data-i18n="roleNamesHeading">消息卡片角色名称</span>
+            </h2>
+          </div>
+          <p data-i18n="roleNamesHint">支持文字和 Emoji，自定义名称也用于 Markdown 导出。留空使用当前语言的默认名称。</p>
+          <form id="roleNamesForm" novalidate class="role-names-form">
+            <div class="role-names-grid">
+              <div class="settings-row">
+                <label class="settings-row-label" for="userDisplayNameInput" data-i18n="userDisplayNameLabel">用户卡片名称</label>
+                <input id="userDisplayNameInput" class="inline-input" type="text" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="settings-row">
+                <label class="settings-row-label" for="assistantDisplayNameInput" data-i18n="assistantDisplayNameLabel">助手卡片名称</label>
+                <input id="assistantDisplayNameInput" class="inline-input" type="text" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+            <div class="role-preview-wrap">
+              <span class="settings-row-label" data-i18n="roleNamesPreviewLabel">卡片头部预览</span>
+              <div class="role-preview-pair">
+                <div class="msg-block user role-preview-card">
+                  <div class="msg-head"><span id="rolePreviewUser" class="msg-role"></span><span class="msg-ts">12:00:00</span></div>
+                </div>
+                <div class="msg-block assistant role-preview-card">
+                  <div class="msg-head"><span id="rolePreviewAssistant" class="msg-role"></span><span class="msg-ts">12:00:05</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button id="saveRoleNamesBtn" type="submit" class="btn btn-sm btn-primary" data-i18n="saveRoleNames" disabled>保存名称</button>
+              <button id="resetRoleNamesBtn" type="button" class="btn btn-sm" data-i18n="resetRoleNames" disabled>恢复默认</button>
+            </div>
+          </form>
+          <div id="roleNamesStatus" class="settings-status" role="status" hidden></div>
+        </section>
+
         <section class="settings-card" aria-labelledby="updateHeading">
           <div class="settings-card-head">
             <h2 id="updateHeading" class="settings-card-title">
@@ -1818,9 +1915,25 @@
     <button id="toastAction" class="toast-link" style="display:none;"></button>
   </div>
 
+  <div id="msgContextMenu" class="context-menu" role="menu" tabindex="-1" data-i18n-label="msgContextMenuLabel" hidden aria-hidden="true"></div>
+
   <script>
     const messages = {
       'zh-CN': {
+        roleNamesHeading: "消息卡片角色名称",
+        roleNamesHint: "支持文字和 Emoji，自定义名称也用于 Markdown 导出。留空使用当前语言的默认名称。",
+        userDisplayNameLabel: "用户卡片名称",
+        assistantDisplayNameLabel: "助手卡片名称",
+        roleNamesPreviewLabel: "卡片头部预览",
+        saveRoleNames: "保存名称",
+        resetRoleNames: "恢复默认",
+        roleNameInvalid: "名称最多 32 个字符，且不能包含控制字符",
+        msgContextMenuLabel: "消息卡片操作",
+        ctxCopyMessageText: "复制本条全文",
+        ctxCopyTurnText: "复制本轮对话",
+        copiedMessageText: "已复制本条全文",
+        copiedTurnText: "已复制本轮全部文本",
+        copyFailed: "复制失败，请手动选中文本复制",
         settingsLanguageHelp: "选择面板的显示语言。",
         appearanceHeading: "界面与外观",
         themeAccent: "主题色",
@@ -1960,6 +2073,20 @@
         languageFailed: '未能保存界面语言，请重试。',
       },
       en: {
+        roleNamesHeading: "Message Card Role Names",
+        roleNamesHint: "Customize the sender labels using text or emoji. These names also appear in Markdown exports. Leave blank to use the current language defaults.",
+        userDisplayNameLabel: "User card name",
+        assistantDisplayNameLabel: "Assistant card name",
+        roleNamesPreviewLabel: "Card header preview",
+        saveRoleNames: "Save names",
+        resetRoleNames: "Reset defaults",
+        roleNameInvalid: "Names must be at most 32 characters without control characters",
+        msgContextMenuLabel: "Message card actions",
+        ctxCopyMessageText: "Copy message text",
+        ctxCopyTurnText: "Copy full turn",
+        copiedMessageText: "Copied message text",
+        copiedTurnText: "Copied full turn text",
+        copyFailed: "Copy failed. Select the text and copy manually",
         settingsLanguageHelp: "Choose the display language for this panel.",
         appearanceHeading: "Interface & Appearance",
         themeAccent: "Accent color",
@@ -2099,6 +2226,20 @@
         languageFailed: 'Could not save the display language. Please try again.',
       },
       'zh-TW': {
+        roleNamesHeading: "訊息卡片角色名稱",
+        roleNamesHint: "支援文字和 Emoji，自訂名稱也用於 Markdown 匯出。留空使用目前語言的預設名稱。",
+        userDisplayNameLabel: "使用者卡片名稱",
+        assistantDisplayNameLabel: "助理卡片名稱",
+        roleNamesPreviewLabel: "卡片標頭預覽",
+        saveRoleNames: "儲存名稱",
+        resetRoleNames: "恢復預設",
+        roleNameInvalid: "名稱最多 32 個字元，且不能包含控制字元",
+        msgContextMenuLabel: "訊息卡片操作",
+        ctxCopyMessageText: "複製本則全文",
+        ctxCopyTurnText: "複製本輪對話",
+        copiedMessageText: "已複製本則全文",
+        copiedTurnText: "已複製本輪全部文字",
+        copyFailed: "複製失敗，請手動選取文字複製",
         settingsLanguageHelp: "選擇面板的顯示語言。",
         appearanceHeading: "介面與外觀",
         themeAccent: "主題色",
@@ -2238,6 +2379,20 @@
         languageFailed: '無法儲存介面語言，請再試一次。',
       },
       ja: {
+        roleNamesHeading: "メッセージカード表示名",
+        roleNamesHint: "表示名には文字や絵文字を使用できます。Markdown にも反映されます。空欄にすると現在の言語の既定値が使われます。",
+        userDisplayNameLabel: "ユーザー側表示名",
+        assistantDisplayNameLabel: "アシスタント側表示名",
+        roleNamesPreviewLabel: "カードヘッダープレビュー",
+        saveRoleNames: "名前を保存",
+        resetRoleNames: "既定値に戻す",
+        roleNameInvalid: "表示名は制御文字を含めず32文字以内で入力してください",
+        msgContextMenuLabel: "メッセージカード操作",
+        ctxCopyMessageText: "このメッセージ全文をコピー",
+        ctxCopyTurnText: "このターン全体をコピー",
+        copiedMessageText: "メッセージカード全文をコピーしました",
+        copiedTurnText: "このターンのテキストをコピーしました",
+        copyFailed: "コピーに失敗しました。手動で選択してコピーしてください",
         settingsLanguageHelp: "パネルの表示言語を選択します。",
         appearanceHeading: "表示と外観",
         themeAccent: "アクセントカラー",
@@ -2743,6 +2898,7 @@
     };
 
     const MSG_COLLAPSE_THRESHOLD = 450;
+    const ROLE_NAME_FIELDS = ['userDisplayName', 'assistantDisplayName'];
 
     const $ = (id) => document.getElementById(id);
     const searchClientId = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
@@ -2879,6 +3035,8 @@
       renderDeleteReport();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
+      closeMsgContextMenu();
+      refreshPreviewMessageLocale();
       if (state.previewData) { updateMetaSummary(state.previewData); renderTagSuggestions(); }
       if (state.tagInventory) renderTagsInventory();
       if (state.previewTab === 'stats') renderDetailStats();
@@ -2942,6 +3100,43 @@
       if (!raw) return '';
       const ms = typeof raw === 'number' ? raw : Date.parse(raw);
       return Number.isFinite(ms) ? getDateFormats().timestamp.format(ms) : String(raw);
+    }
+
+    function normalizeRoleName(raw) {
+      if (raw == null) return '';
+      if (typeof raw !== 'string' || /[\p{Cc}\u2028\u2029]/u.test(raw)) return null;
+      const name = raw.replace(/\s+/g, ' ').trim();
+      return [...name].length <= 32 ? name : null;
+    }
+
+    function getMessageRoleLabel(role, name = state.preferences[role === 'user' ? 'userDisplayName' : 'assistantDisplayName']) {
+      return name || t(role === 'user' ? 'userRole' : 'assistantRole');
+    }
+
+    function refreshPreviewRoleLabels() {
+      for (const block of $('pvMessages')?.querySelectorAll?.('.msg-block') || []) {
+        const label = block.querySelector?.('.msg-role');
+        if (block.dataset?.msgRole && label) label.textContent = getMessageRoleLabel(block.dataset.msgRole);
+      }
+    }
+
+    function refreshPreviewMessageLocale() {
+      refreshPreviewRoleLabels();
+      const box = $('pvMessages');
+      for (const block of box?.querySelectorAll?.('.msg-block') || []) {
+        const msg = state.previewData?.messages?.[Number(block.dataset?.msgIndex)];
+        if (!msg) continue;
+        const timestamp = block.querySelector?.('.msg-ts');
+        if (timestamp) timestamp.textContent = formatTimestamp(msg.timestamp);
+        const toggle = block.querySelector?.('.msg-expand-btn');
+        const collapsed = block.classList.contains('is-collapsed');
+        if (toggle) toggle.textContent = t(collapsed ? 'expandMessage' : 'foldMessage');
+      }
+      const marks = box?.querySelectorAll?.('mark');
+      if (state.previewMatchIndex >= 0 && marks?.length) {
+        $('pvMatchCount').textContent = t('matchCount', state.previewMatchIndex + 1, marks.length);
+      }
+      syncCollapseAllBtn();
     }
 
     function updateToastText() {
@@ -3703,7 +3898,11 @@
 
     async function openPreview(convId, { refreshLocale = false } = {}) {
       if (deletingIds.has(convId)) return;
+      closeMsgContextMenu();
       const previous = refreshLocale && state.previewData?.id === convId ? state.previewData : null;
+      const keepMessagesWhileLoading = Boolean(previous?.messages?.length);
+      const query = state.query;
+      const searchMode = state.searchMode;
       const requestId = ++previewRequestId;
       previewOverrides = {};
       resetDetailStats();
@@ -3715,13 +3914,15 @@
       else exitTitleEdit();
       updatePreviewTabs();
       setPreviewControlsReady(false);
-      showDataStatus('pvSource', '');
+      if (!keepMessagesWhileLoading) showDataStatus('pvSource', '');
       if (!refreshLocale) $('mainSplit').classList.add('show-preview');
       $('previewEmpty').style.display = 'none';
       $('previewContent').style.display = 'flex';
       $('pvTitle').textContent = t('loading');
-      resetPreviewMatches();
-      $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(t('loadingMessages'))}</div>`;
+      if (!keepMessagesWhileLoading) {
+        resetPreviewMatches();
+        $('pvMessages').innerHTML = `<div class="empty-state">${escapeHtml(t('loadingMessages'))}</div>`;
+      }
       syncCollapseAllBtn();
       for (const [card, { id }] of observedCards) card.classList.toggle('selected', id === convId);
 
@@ -3735,11 +3936,28 @@
         if (!previous || $('noteInput').value === (previous.note || '')) $('noteInput').value = data.note || '';
         setPreviewControlsReady(true);
         if (state.previewData.tagConflict) setMetaEditorExpanded(true);
-        renderPreview();
+        const currentMessages = state.previewData.messages;
+        const unchangedMessages = keepMessagesWhileLoading && query === state.query && searchMode === state.searchMode &&
+          currentMessages?.length === previous.messages.length &&
+          currentMessages.every((message, index) =>
+            ['role', 'stepIndex', 'timestamp', 'content'].every(key => message[key] === previous.messages[index][key]));
+        if (unchangedMessages) {
+          updatePreviewHeaderState();
+          refreshPreviewMessageLocale();
+        } else renderPreview();
         updatePreviewTabs();
         if (state.previewTab === 'stats') loadDetailStats();
       } catch (err) {
         if (requestId !== previewRequestId) return;
+        if (keepMessagesWhileLoading) {
+          state.previewData = { ...previous, ...previewOverrides };
+          setPreviewControlsReady(true);
+          updatePreviewHeaderState();
+          updatePreviewTabs();
+          if (state.previewTab === 'stats') loadDetailStats();
+          showToast(() => err.message);
+          return;
+        }
         state.previewData = null;
         setPreviewControlsReady(false);
         showDataStatus('pvSource', '');
@@ -3917,6 +4135,7 @@
     function renderPreview() {
       const d = state.previewData;
       if (!d) return;
+      closeMsgContextMenu();
       updatePreviewHeaderState();
       resetPreviewMatches();
 
@@ -3928,10 +4147,12 @@
       }
 
       box.innerHTML = '';
-      for (const m of d.messages) {
+      for (const [index, m] of d.messages.entries()) {
         const blk = document.createElement('div');
         blk.className = `msg-block ${m.role}`;
-        const roleLabel = t(m.role === 'user' ? 'userRole' : 'assistantRole');
+        blk.dataset.msgIndex = String(index);
+        blk.dataset.msgRole = m.role;
+        const roleLabel = getMessageRoleLabel(m.role);
         const tsLabel = formatTimestamp(m.timestamp);
         const bodyHtml = state.rawMode
           ? highlightText(escapeHtml(m.content), state.query)
@@ -3939,8 +4160,8 @@
 
         blk.innerHTML = `
           <div class="msg-head">
-            <span>${escapeHtml(roleLabel)}</span>
-            <span style="font-weight:400;">${escapeHtml(tsLabel)}</span>
+            <span class="msg-role">${escapeHtml(roleLabel)}</span>
+            <span class="msg-ts">${escapeHtml(tsLabel)}</span>
           </div>
           <div class="msg-body-wrap">
             <div class="msg-body ${state.rawMode ? 'raw' : ''}">${bodyHtml}</div>
@@ -4083,6 +4304,17 @@
       }
     }
 
+    function renderRoleNamesPreview() {
+      for (const field of ROLE_NAME_FIELDS) {
+        const input = $(field + 'Input');
+        const role = field === 'userDisplayName' ? 'user' : 'assistant';
+        const preview = $(role === 'user' ? 'rolePreviewUser' : 'rolePreviewAssistant');
+        if (!input || !preview) continue;
+        input.placeholder = getMessageRoleLabel(role, '');
+        preview.textContent = getMessageRoleLabel(role, normalizeRoleName(input.value ?? state.preferences[field]));
+      }
+    }
+
     function renderSettings() {
       const { exportDir, defaultExportDir, trashSummary } = state.preferences;
       $('exportDirEffective').textContent = defaultExportDir
@@ -4092,6 +4324,11 @@
       for (const id of ['languageSelect', 'updateModeSelect', 'saveExportDirBtn', 'pickExportDirBtn', 'resetExportDirBtn', 'saveRetentionBtn', 'sweepTrashBtn']) {
         $(id).disabled = state.settingsBusy || state.updateBusy;
       }
+      for (const id of ['userDisplayNameInput', 'assistantDisplayNameInput', 'saveRoleNamesBtn', 'resetRoleNamesBtn']) {
+        const control = $(id);
+        if (control) control.disabled = state.settingsBusy || state.updateBusy;
+      }
+      renderRoleNamesPreview();
       for (const btn of $('themeAccentPicker')?.querySelectorAll?.('button') || []) {
         btn.disabled = state.settingsBusy;
       }
@@ -4102,7 +4339,7 @@
       renderUpdateSection();
     }
 
-    function updatePreferences(data, { replacePath = false, replaceDays = false } = {}) {
+    function updatePreferences(data, { replacePath = false, replaceDays = false, replaceRoleNames = false } = {}) {
       const previous = state.preferences;
       const oldPath = previous.exportDir || previous.defaultExportDir || '';
       const oldDays = previous.trashRetentionDays ?? 7;
@@ -4114,6 +4351,15 @@
       }
       if (replaceDays || days.value == null || Number(days.value) === oldDays) {
         days.value = state.preferences.trashRetentionDays ?? 7;
+      }
+      for (const field of ROLE_NAME_FIELDS) {
+        const input = $(field + 'Input');
+        if (input && (replaceRoleNames || input.value == null || input.value === (previous[field] ?? ''))) {
+          input.value = state.preferences[field] ?? '';
+        }
+      }
+      if (ROLE_NAME_FIELDS.some(field => (state.preferences[field] ?? '') !== (previous[field] ?? ''))) {
+        refreshPreviewRoleLabels();
       }
       renderSettings();
     }
@@ -4248,6 +4494,27 @@
       }
     }
 
+    function saveRoleNames(names) {
+      return runSettingsAction('roleNamesStatus', async () => {
+        const saved = await apiPost('/api/preferences', names);
+        updatePreferences({ ...names, ...saved }, { replaceRoleNames: true });
+        showDataStatus('roleNamesStatus', t('settingsSaved'));
+      });
+    }
+
+    for (const field of ROLE_NAME_FIELDS) $(field + 'Input')?.addEventListener('input', renderRoleNamesPreview);
+    $('roleNamesForm')?.addEventListener('submit', event => {
+      event.preventDefault();
+      const userDisplayName = normalizeRoleName($('userDisplayNameInput')?.value);
+      const assistantDisplayName = normalizeRoleName($('assistantDisplayNameInput')?.value);
+      if (userDisplayName === null || assistantDisplayName === null) {
+        showDataStatus('roleNamesStatus', t('roleNameInvalid'));
+        return;
+      }
+      return saveRoleNames({ userDisplayName, assistantDisplayName });
+    });
+    $('resetRoleNamesBtn')?.addEventListener('click', () => saveRoleNames({ userDisplayName: '', assistantDisplayName: '' }));
+
     function loadSettings() {
       return runSettingsAction(null, async () => {
         try {
@@ -4357,7 +4624,7 @@
       applyLocale(defaultLocale);
       try {
         const saved = await apiPost('/api/preferences');
-        updatePreferences(saved, { replacePath: true, replaceDays: true });
+        updatePreferences(saved, { replacePath: true, replaceDays: true, replaceRoleNames: true });
         if (Object.hasOwn(messages, saved.language)) applyLocale(saved.language);
       } catch (err) {
         showDataStatus('settingsLoadStatus', [t('settingsLoadFailed'), err.message].join(t('noticeSeparator')));
@@ -4384,7 +4651,7 @@
         if (saved.language !== language) throw new Error();
         updatePreferences(saved);
         applyLocale(language);
-        for (const id of ['settingsLoadStatus', 'exportDirStatus', 'trashSettingsStatus']) showDataStatus(id, '');
+        for (const id of ['settingsLoadStatus', 'exportDirStatus', 'trashSettingsStatus', 'roleNamesStatus']) showDataStatus(id, '');
       } catch {
         select.value = state.locale;
         showDataStatus('languageStatus', t('languageFailed'));
@@ -4403,6 +4670,7 @@
     });
 
     function showSurface(surface) {
+      closeMsgContextMenu();
       state.surface = surface;
       const settings = surface === 'settings';
       const library = surface === 'library';
@@ -4516,6 +4784,7 @@
     }
 
     function selectPreviewTab(tab) {
+      closeMsgContextMenu();
       state.previewTab = tab;
       updatePreviewTabs();
       if (tab === 'stats') return loadDetailStats();
@@ -5083,7 +5352,178 @@
       ].join('\n');
     }
 
+    function collectConversationTurn(messages, index) {
+      const target = messages?.[index];
+      if (!target) return { items: [], isMultiCard: false };
+      let start = index;
+      if (target.role === 'assistant') {
+        while (start > 0 && messages[start - 1].role === 'assistant') start--;
+        if (start > 0 && messages[start - 1].role === 'user') start--;
+      }
+      let end = index + 1;
+      while (end < messages.length && messages[end].role === 'assistant') end++;
+      const items = messages.slice(start, end);
+      return { items, isMultiCard: items[0].role === 'user' && items.length > 1 };
+    }
+
+    function formatTurnPlainText(items) {
+      return items.map(item => `${getMessageRoleLabel(item.role)}\n\n${item.content ?? ''}`).join('\n\n---\n\n');
+    }
+
+    async function copyTextToClipboard(text) {
+      const value = String(text ?? '');
+      if (globalThis.navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(value);
+          return true;
+        } catch {
+          // Embedded panels may block the Clipboard API.
+        }
+      }
+      if (!document.createElement || !document.body?.appendChild || !document.execCommand) return false;
+      const previousFocus = document.activeElement;
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      Object.assign(textarea.style, { position: 'fixed', left: '-9999px', opacity: '0', pointerEvents: 'none' });
+      document.body.appendChild(textarea);
+      try {
+        textarea.focus?.({ preventScroll: true });
+        textarea.select?.();
+        return Boolean(document.execCommand('copy'));
+      } catch {
+        return false;
+      } finally {
+        textarea.remove?.();
+        previousFocus?.focus?.({ preventScroll: true });
+      }
+    }
+
+    async function copyMessageText(text, successKey) {
+      const ok = await copyTextToClipboard(text);
+      showToast(ok ? successKey : 'copyFailed');
+    }
+
+    function buildMessageMenuContext(block) {
+      const index = Number(block.dataset?.msgIndex);
+      const messages = state.previewData?.messages;
+      if (!Number.isInteger(index) || !messages?.[index]) return null;
+      return {
+        block, index, messages, message: messages[index],
+        turnMessages: collectConversationTurn(messages, index),
+        conversation: state.previewData, rawMode: state.rawMode,
+      };
+    }
+
+    const MSG_CONTEXT_MENU_ITEMS = [
+      {
+        icon: '📋',
+        label: 'ctxCopyMessageText',
+        disabled: ctx => !ctx.message.content,
+        action: ctx => copyMessageText(ctx.message.content, 'copiedMessageText'),
+      },
+      {
+        icon: '📑',
+        label: 'ctxCopyTurnText',
+        visible: ctx => ctx.turnMessages.isMultiCard,
+        disabled: ctx => !ctx.turnMessages.items.some(item => item.content),
+        action: ctx => copyMessageText(formatTurnPlainText(ctx.turnMessages.items), 'copiedTurnText'),
+      },
+    ];
+
+    let msgMenuPreviousFocus;
+    function closeMsgContextMenu(restoreFocus = false) {
+      const menu = $('msgContextMenu');
+      if (!menu || menu.hidden) return;
+      menu.hidden = true;
+      menu.setAttribute?.('aria-hidden', 'true');
+      const previous = msgMenuPreviousFocus;
+      msgMenuPreviousFocus = null;
+      if (restoreFocus) previous?.focus?.({ preventScroll: true });
+    }
+
+    function showMsgContextMenu(menu, context, x, y) {
+      closeMsgContextMenu(true);
+      msgMenuPreviousFocus = document.activeElement;
+      menu.innerHTML = '';
+      let firstEnabled;
+      for (const item of MSG_CONTEXT_MENU_ITEMS) {
+        if (item.visible && !item.visible(context)) continue;
+        if (item.type === 'separator') {
+          const separator = document.createElement('div');
+          separator.className = 'context-menu-sep';
+          separator.setAttribute('role', 'separator');
+          menu.appendChild(separator);
+          continue;
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'context-menu-item';
+        button.setAttribute('role', 'menuitem');
+        button.tabIndex = -1;
+        button.disabled = Boolean(item.disabled?.(context));
+        button.innerHTML = `<span class="context-menu-icon" aria-hidden="true">${escapeHtml(item.icon)}</span><span class="context-menu-label">${escapeHtml(t(item.label))}</span>`;
+        button.addEventListener('click', () => {
+          closeMsgContextMenu(true);
+          return item.action(context);
+        });
+        menu.appendChild(button);
+        if (!button.disabled) firstEnabled ??= button;
+      }
+
+      menu.hidden = false;
+      menu.setAttribute('aria-hidden', 'false');
+      const bounds = menu.getBoundingClientRect?.();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || Infinity;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || Infinity;
+      menu.style.left = Math.max(8, Math.min(x, viewportWidth - (bounds?.width || 0) - 8)) + 'px';
+      menu.style.top = Math.max(8, Math.min(y, viewportHeight - (bounds?.height || 0) - 8)) + 'px';
+      (firstEnabled || menu).focus?.({ preventScroll: true });
+    }
+
+    $('pvMessages')?.addEventListener('contextmenu', event => {
+      const menu = $('msgContextMenu');
+      const block = event.target?.closest?.('.msg-block');
+      const interactive = event.target?.closest?.('a, button, input, textarea, select, [contenteditable="true"]');
+      const selection = window.getSelection?.()?.toString?.();
+      const context = menu && block && !interactive && !selection?.trim() && buildMessageMenuContext(block);
+      if (!context) { closeMsgContextMenu(); return; }
+      event.preventDefault();
+      const rect = block.getBoundingClientRect?.();
+      showMsgContextMenu(menu, context, event.clientX ?? rect?.left ?? 0, event.clientY ?? rect?.top ?? 0);
+    });
+    $('pvMessages')?.addEventListener('scroll', () => closeMsgContextMenu());
+    $('msgContextMenu')?.addEventListener('keydown', event => {
+      const menu = $('msgContextMenu');
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        if (event.key === 'Escape') event.preventDefault();
+        closeMsgContextMenu(true);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (document.activeElement?.getAttribute?.('role') === 'menuitem') document.activeElement.click?.();
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const enabled = [...(menu.querySelectorAll?.('[role="menuitem"]:not(:disabled)') || [])];
+        if (!enabled.length) return;
+        const current = enabled.indexOf(document.activeElement);
+        const next = current < 0 ? (event.key === 'ArrowDown' ? 0 : enabled.length - 1)
+          : (current + (event.key === 'ArrowDown' ? 1 : -1) + enabled.length) % enabled.length;
+        enabled[next].focus?.({ preventScroll: true });
+      }
+    });
+    document.addEventListener?.('click', event => {
+      if (!event.target?.closest?.('#msgContextMenu')) closeMsgContextMenu();
+    }, true);
+    document.addEventListener?.('contextmenu', event => {
+      if (!event.defaultPrevented && !event.target?.closest?.('#msgContextMenu')) closeMsgContextMenu();
+    });
+    window.addEventListener('resize', () => closeMsgContextMenu());
+    window.addEventListener('blur', () => closeMsgContextMenu());
+
     function clearPreview() {
+      closeMsgContextMenu();
       resetDetailStats();
       ++previewRequestId;
       state.selectedId = null;

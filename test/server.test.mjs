@@ -785,6 +785,62 @@ function reply(step_index, content) {
   return { type: 'PLANNER_RESPONSE', step_index, content };
 }
 
+test('role name preferences normalize Unicode names, patch independently and reset by removing the keys', async () => {
+  const exportDir = join(home, 'role-exports');
+  const base = { locale: 'en', language: 'ja', exportDir, themeAccent: 'violet' };
+  await call('preferences', base);
+  const first = await call('preferences', { userDisplayName: '  🌙  Team\u00a0 Lead  ' });
+  assert.equal(first.userDisplayName, '🌙 Team Lead');
+  assert.equal(first.assistantDisplayName, '');
+  const assistantDisplayName = '🤖'.repeat(32);
+  const second = await call('preferences', { assistantDisplayName });
+  assert.equal(second.userDisplayName, first.userDisplayName);
+  assert.equal(second.assistantDisplayName, assistantDisplayName);
+  assert.equal((await call('preferences', {})).language, 'ja');
+  await call('preferences', { userDisplayName: null, assistantDisplayName: '  ' });
+  assert.deepEqual(JSON.parse(readFileSync(preferencesFile, 'utf8')), { language: 'ja', exportDir, themeAccent: 'violet' });
+});
+
+test('role name input rejects controls and invalid types or lengths without changing preferences', async () => {
+  await call('preferences', { language: 'ja' });
+  const original = readFileSync(preferencesFile, 'utf8');
+  for (const invalid of ['a'.repeat(33), 'one\ntwo', 'one\rtwo', 'one\u0000two', 'one\u0085two', 42, {}]) {
+    await assert.rejects(call('preferences', {
+      locale: 'en', language: 'en', userDisplayName: 'valid', assistantDisplayName: invalid,
+    }), /Card display names/);
+    assert.equal(readFileSync(preferencesFile, 'utf8'), original);
+  }
+  const corrupt = '{"language":"ja","assistantDisplayName":false}';
+  writeFileSync(preferencesFile, corrupt);
+  await assert.rejects(call('preferences', { locale: 'en' }), /Invalid language preferences/);
+  assert.equal(readFileSync(preferencesFile, 'utf8'), corrupt);
+});
+
+test('Markdown exports use custom role text and preserve each locale default after clearing', async () => {
+  const id = 'custom-roles';
+  addConversation(id);
+  writeTranscript(id, 'transcript_full.jsonl', [user(0, 'Sample question'), reply(1, 'Sample reply')]);
+  await call('preferences', { userDisplayName: 'Leader', assistantDisplayName: '🌿 Helper' });
+  const custom = await call('export', { conversationId: id, locale: 'ja' });
+  assert.deepEqual(custom.markdown.match(/^## .+$/gm), ['## Leader', '## 🌿 Helper']);
+  assert.ok(custom.markdown.includes('Sample question\n') && custom.markdown.includes('Sample reply\n'));
+
+  await call('preferences', { userDisplayName: 'Reviewer #', assistantDisplayName: '**Helper**' });
+  const literal = await call('export', { conversationId: id, locale: 'en' });
+  assert.deepEqual(literal.markdown.match(/^## .+$/gm), ['## Reviewer \\#', '## \\*\\*Helper\\*\\*']);
+
+  await call('preferences', { userDisplayName: '', assistantDisplayName: null });
+  for (const [locale, expected] of [
+    ['zh-CN', ['## 👤 用户', '## 🤖 助手']],
+    ['en', ['## 👤 User', '## 🤖 Assistant']],
+    ['zh-TW', ['## 👤 使用者', '## 🤖 助理']],
+    ['ja', ['## 👤 ユーザー', '## 🤖 アシスタント']],
+  ]) {
+    const result = await call('export', { conversationId: id, locale });
+    assert.deepEqual(result.markdown.match(/^## .+$/gm), expected);
+  }
+});
+
 test('preview merges compatible partial transcripts without repeating text or leaking tool steps', async () => {
   addConversation('merge');
   writeTranscript('merge', 'transcript_full.jsonl', [user(0, '<USER_REQUEST>First</USER_REQUEST>'), '{ broken', reply(4, 'Last')]);
