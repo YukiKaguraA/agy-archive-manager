@@ -127,6 +127,10 @@ function readMetaStore() {
   try {
     const store = JSON.parse(raw);
     if (!isRecord(store) || !isRecord(store.conversations)) throw new Error(t('metaInvalidShape'));
+    if (Object.hasOwn(store, 'savedTags') &&
+        (!Array.isArray(store.savedTags) || store.savedTags.some((tag) => typeof tag !== 'string'))) {
+      throw new Error(t('metaInvalidEntry'));
+    }
     for (const entry of Object.values(store.conversations)) {
       if (!isRecord(entry) ||
           (Object.hasOwn(entry, 'tags') && (!Array.isArray(entry.tags) || entry.tags.some((tag) => typeof tag !== 'string'))) ||
@@ -852,6 +856,7 @@ registerApi('/api/conversations', async (data) => {
       if (!projectLabels.has(c.project) || c.project === c.projectLabel) projectLabels.set(c.project, c.projectLabel);
     }
     for (const c of scope) for (const value of c.tags) tags.add(value);
+    if (tab !== 'trash') for (const value of getSavedTags(readMetaForDisplay().store)) tags.add(value);
     let filtered = (tab === 'stale' ? stale : scope).filter(c =>
       (tab !== 'archived' || c.archived) && (tab !== 'active' || !c.archived) && (tab !== 'starred' || c.starred) &&
       (!filterProjectKey || c.projectKey === filterProjectKey) && (filterProjectKey || !project || c.project === project) &&
@@ -1070,7 +1075,17 @@ async function verifiedNativeTags(id) {
   return verifyConversationTags(await getNativeConversation(id), id);
 }
 
-function tagInventory(items) {
+function getSavedTags(store) {
+  return normalizeTags(Array.isArray(store?.savedTags) ? store.savedTags : []);
+}
+
+function setSavedTags(store, tags) {
+  const next = normalizeTags(tags);
+  if (next.length) store.savedTags = next;
+  else delete store.savedTags;
+}
+
+function tagInventory(items, savedTags = []) {
   const tags = new Map();
   let taggedCount = 0;
   let totalCount = 0;
@@ -1092,6 +1107,11 @@ function tagInventory(items) {
       tag.lastModifiedMs = Math.max(tag.lastModifiedMs, conversation.lastModifiedMs);
     }
   }
+  for (const name of savedTags) {
+    if (!tags.has(name)) tags.set(name, {
+      name, totalCount: 0, activeCount: 0, archivedCount: 0, starredCount: 0, conflictCount: 0, lastModifiedMs: 0,
+    });
+  }
   return {
     summary: { totalTags: tags.size, taggedCount, untaggedCount: totalCount - taggedCount, totalCount, conflictSessions },
     tags: [...tags.values()],
@@ -1100,8 +1120,8 @@ function tagInventory(items) {
 
 registerApi('/api/tags', async data => {
   const snapshot = await loadSnapshot(data, true);
-  snapshot.tagInventory ??= tagInventory(snapshot.items);
-  return { snapshotId: snapshot.id, ...snapshot.tagInventory, warnings: snapshot.warnings };
+  const savedTags = getSavedTags(readMetaForDisplay().store);
+  return { snapshotId: snapshot.id, ...tagInventory(snapshot.items, savedTags), warnings: snapshot.warnings };
 });
 
 function tagLabel(value) {
@@ -1126,9 +1146,10 @@ function removeSynchronizedTagOverride(store, id, previous) {
 
 async function relocateTag(oldTag, newTag) {
   const store = readMetaStore();
+  const saved = getSavedTags(store);
   const snapshot = await loadSnapshot({}, false);
   const candidates = snapshot.items.filter(item => item.trashedAt === null && item.tags.includes(oldTag));
-  const merged = Boolean(newTag && snapshot.items.some(item => item.trashedAt === null && item.tags.includes(newTag)));
+  const merged = Boolean(newTag && (snapshot.items.some(item => item.trashedAt === null && item.tags.includes(newTag)) || saved.includes(newTag)));
   const result = { ok: true, succeeded: [], unchanged: [], skipped: [], failed: [] };
   for (const { id } of candidates) {
     try {
@@ -1168,8 +1189,40 @@ async function relocateTag(oldTag, newTag) {
     }
   }
   result.ok = result.skipped.length === 0 && result.failed.length === 0;
+  if (saved.includes(oldTag) || (newTag && candidates.length === 0 && saved.includes(newTag))) {
+    let nextSaved = saved;
+    if (newTag) {
+      nextSaved = result.ok
+        ? saved.map(tag => tag === oldTag ? newTag : tag)
+        : [...saved, newTag];
+    } else if (result.ok) {
+      nextSaved = saved.filter(tag => tag !== oldTag);
+    }
+    if (!sameTags(normalizeTags(nextSaved), saved)) {
+      setSavedTags(store, nextSaved);
+      writeMetaStore(store);
+      invalidateSnapshots();
+    }
+  }
   return newTag ? { ...result, oldTag, newTag, merged } : { ...result, tag: oldTag };
 }
+
+registerApi('/api/tags/create', serializeMutation(async data => {
+  const tag = tagLabel(data.tag);
+  if ([...tag].length > 64) throw new Error(t('invalidTagLength'));
+  const store = readMetaStore();
+  const saved = getSavedTags(store);
+  const snapshot = await loadSnapshot({}, false);
+  const inUse = snapshot.items.some(item => item.trashedAt === null && item.tags.includes(tag));
+  const alreadySaved = saved.includes(tag);
+  const alreadyExisted = alreadySaved || inUse;
+  if (!alreadySaved) {
+    setSavedTags(store, [...saved, tag]);
+    writeMetaStore(store);
+    invalidateSnapshots();
+  }
+  return { ok: true, tag, created: !alreadyExisted, alreadyExisted };
+}));
 
 registerApi('/api/tags/rename', serializeMutation(async data => {
   const oldTag = tagLabel(data.oldTag);

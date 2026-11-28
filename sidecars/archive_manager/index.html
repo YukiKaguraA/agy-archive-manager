@@ -688,6 +688,53 @@
       flex-direction: column;
       gap: 6px;
     }
+    .tag-suggestions {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tag-suggestions-label {
+      font-size: var(--am-fs-xs);
+      color: var(--am-muted);
+      line-height: 22px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .tag-suggestions-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+      max-height: 68px;
+      overflow-y: auto;
+    }
+    .tag-suggest-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      border: 1px dashed color-mix(in srgb, var(--am-accent) 42%, var(--am-border));
+      background: transparent;
+      color: var(--am-muted);
+      font: inherit;
+      font-size: var(--am-fs-xs);
+      cursor: pointer;
+      transition: background-color 140ms var(--am-ease-modern), color 140ms var(--am-ease-modern), border-color 140ms var(--am-ease-modern);
+    }
+    .tag-suggest-btn:hover:not(:disabled) {
+      background: var(--am-tag-bg);
+      border-style: solid;
+      border-color: var(--am-accent);
+      color: var(--am-accent);
+    }
+    .tag-suggest-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
     .tags-row {
       display: flex;
@@ -1313,7 +1360,7 @@
     @media (max-width: 520px) { .tags-kpi-grid { grid-template-columns: 1fr; } }
     .tags-conflict-banner { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--am-archive-border); background: var(--am-archive-bg); color: var(--am-archive-fg); font-size: var(--am-fs-md); }
     .tags-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .tags-controls .search-box, .tags-controls select.ctrl-select { height: 30px; }
+    .tags-controls .search-box, .tags-controls select.ctrl-select, .tags-controls .btn { height: 30px; }
     .tags-controls .search-box input { padding-top: 4px; padding-bottom: 4px; }
     .tags-report { margin: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--am-border); background: color-mix(in srgb, var(--am-fg) 3.2%, transparent); font-size: var(--am-fs-sm); color: var(--am-fg); white-space: pre-wrap; overflow-wrap: anywhere; }
     .tags-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
@@ -1495,6 +1542,7 @@
               <option value="recent" data-i18n="tagsRecent"></option>
               <option value="name" data-i18n="tagsName"></option>
             </select>
+            <button type="button" id="tagsCreateBtn" class="btn btn-sm btn-primary" data-i18n="tagCreate">新建标签</button>
           </div>
           <pre id="tagsReport" class="tags-report" role="status" hidden></pre>
         </section>
@@ -1708,6 +1756,10 @@
                 </div>
                 <div class="tags-row" id="pvTagsRow">
                   <input id="tagInput" class="inline-input" style="width:128px;" data-i18n-placeholder="tagPlaceholder" data-i18n-label="addTag" />
+                </div>
+                <div id="pvTagSuggestions" class="tag-suggestions" hidden>
+                  <span class="tag-suggestions-label" data-i18n="existingTags">选用已有标签</span>
+                  <div id="pvTagSuggestionList" class="tag-suggestions-list"></div>
                 </div>
                 <input id="noteInput" class="inline-input" style="width:100%;" data-i18n-placeholder="notePlaceholder" data-i18n-label="note" />
               </div>
@@ -2329,6 +2381,11 @@
 
     Object.assign(messages["zh-CN"], {
       metaEditorToggle: "标签与备注",
+      tagCreate: "+ 新建标签",
+      tagCreateHint: "创建一个可随时复用的标签（最多 64 个字符）",
+      tagCreated: (name) => `已创建标签 #${name}`,
+      tagExists: (name) => `标签 #${name} 已存在`,
+      existingTags: "选用已有标签",
       tagsTitle: "标签",
       tagsScope: "统计活跃、已归档及收藏会话，排除子代理与回收站。",
       tagsSearch: "搜索标签",
@@ -2400,6 +2457,11 @@
     });
     Object.assign(messages["en"], {
       metaEditorToggle: "Tags & note",
+      tagCreate: "+ New tag",
+      tagCreateHint: "Create a reusable tag (up to 64 characters)",
+      tagCreated: (name) => `Created tag #${name}`,
+      tagExists: (name) => `Tag #${name} already exists`,
+      existingTags: "Existing tags",
       tagsTitle: "Tags",
       tagsScope: "Includes active, archived and starred chats. Excludes subagents and trash.",
       tagsSearch: "Search tags",
@@ -2471,6 +2533,11 @@
     });
     Object.assign(messages["zh-TW"], {
       metaEditorToggle: "標籤與備註",
+      tagCreate: "+ 新增標籤",
+      tagCreateHint: "建立一個可隨時重複使用的標籤（最多 64 個字元）",
+      tagCreated: (name) => `已建立標籤 #${name}`,
+      tagExists: (name) => `標籤 #${name} 已存在`,
+      existingTags: "選用現有標籤",
       tagsTitle: "標籤",
       tagsScope: "統計活躍、已封存及收藏會話，排除子代理與回收桶。",
       tagsSearch: "搜尋標籤",
@@ -2542,6 +2609,11 @@
     });
     Object.assign(messages["ja"], {
       metaEditorToggle: "タグとメモ",
+      tagCreate: "+ タグを作成",
+      tagCreateHint: "いつでも再利用できるタグを作成します（最大 64 文字）",
+      tagCreated: (name) => `タグ #${name} を作成しました`,
+      tagExists: (name) => `タグ #${name} はすでに存在します`,
+      existingTags: "既存のタグから選択",
       tagsTitle: "タグ",
       tagsScope: "アクティブ、アーカイブ、スター付きの会話が対象です。サブエージェントとゴミ箱は除きます。",
       tagsSearch: "タグを検索",
@@ -2630,6 +2702,7 @@
     const defaultLocale = detectLocale(navigator.language);
     const state = {
       metaExpanded: false,
+      allTags: [],
       previewTab: 'content', detailStats: null, detailStatus: 'idle', detailError: '', fileKind: 'all',
       tagInventory: null, tagAction: null,
       locale: defaultLocale,
@@ -2805,7 +2878,7 @@
       renderDeleteReport();
       $('pvRawBtn').textContent = t(state.rawMode ? 'formatted' : 'raw');
       updatePreviewArchiveButton();
-      if (state.previewData) updateMetaSummary(state.previewData);
+      if (state.previewData) { updateMetaSummary(state.previewData); renderTagSuggestions(); }
       if (state.tagInventory) renderTagsInventory();
       if (state.previewTab === 'stats') renderDetailStats();
       updateToastText();
@@ -3068,6 +3141,10 @@
         const tagSel = $('tagSelect');
         const curTag = state.tag;
         const allTags = data.allTags || [];
+        if (state.tab !== 'trash') {
+          state.allTags = [...allTags];
+          if (state.previewData) renderTagSuggestions();
+        }
         tagSel.innerHTML = `<option value="" data-i18n="allTags">${escapeHtml(t('allTags'))}</option>`;
         for (const tagValue of allTags) {
           const opt = document.createElement('option');
@@ -3737,6 +3814,7 @@
         });
         row.insertBefore(chip, input);
       }
+      renderTagSuggestions();
     }
 
     function syncCollapseAllBtn() {
@@ -3898,6 +3976,7 @@
     async function saveTags(convId, tags, tagResolution) {
       try {
         const res = await apiPost('/api/meta/update', { conversationId: convId, tags, tagResolution });
+        if (Array.isArray(res.meta?.tags) && res.meta.tags.length) mergeKnownTags(res.meta.tags);
         applyPreviewPatch(convId, { tags: res.meta.tags, nativeTags: res.meta.nativeTags, tagConflict: res.meta.tagConflict });
         await loadList();
       } catch (err) {
@@ -4363,6 +4442,41 @@
       el.textContent = parts.join(' · ');
     }
 
+    function mergeKnownTags(tags, { replace = false } = {}) {
+      const next = replace ? new Set() : new Set(state.allTags || []);
+      for (const tag of tags || []) {
+        if (typeof tag === 'string' && tag.trim()) next.add(tag.trim());
+      }
+      state.allTags = [...next].sort((a, b) => a.localeCompare(b, state.locale));
+      if (state.previewData) renderTagSuggestions();
+    }
+
+    function renderTagSuggestions() {
+      const box = $('pvTagSuggestions');
+      const list = $('pvTagSuggestionList');
+      if (!box || !list) return;
+      const d = state.previewData;
+      const trash = d && (d.trashedAt != null || state.tab === 'trash');
+      if (!d || trash) {
+        box.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      const assigned = new Set(d.tags || []);
+      const filter = ($('tagInput')?.value || '').trim().replace(/^#+/u, '').toLocaleLowerCase(state.locale);
+      const available = (state.allTags || []).filter(tag =>
+        !assigned.has(tag) && (!filter || tag.toLocaleLowerCase(state.locale).includes(filter)));
+      if (!available.length) {
+        box.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      box.hidden = false;
+      list.innerHTML = available.map(tag =>
+        '<button type="button" class="tag-suggest-btn" data-add-tag="' + safe(tag) + '">+ #' + safe(tag) + '</button>'
+      ).join('');
+    }
+
     function updatePreviewTabs() {
       const stats = state.previewTab === 'stats';
       for (const [id, active] of [['pvStatsTabBtn', stats], ['pvContentTabBtn', !stats]]) {
@@ -4537,6 +4651,7 @@
         const inventory = await apiPost('/api/tags', { refresh, snapshotId: refresh ? null : state.snapshotId });
         if (request !== tagsRequestId) return;
         state.tagInventory = inventory;
+        mergeKnownTags((inventory.tags || []).map(item => item.name), { replace: true });
         renderTagsInventory();
       } catch (error) {
         if (request !== tagsRequestId) return;
@@ -4600,10 +4715,20 @@
       return loadList();
     }
 
+    function normalizeTagInput(raw) {
+      return String(raw || '').trim().replace(/^#+/u, '').trim();
+    }
+
     function tagDialogHint() {
       const action = state.tagAction;
       if (!action) return;
-      const target = $('tagDialogInput').value.trim();
+      const target = normalizeTagInput($('tagDialogInput').value);
+      if (action.type === 'create') {
+        const exists = Boolean(target && (state.tagInventory?.tags?.some(tag => tag.name === target) || (state.allTags || []).includes(target)));
+        $('tagDialogHint').textContent = exists ? t('tagExists', target) : t('tagCreateHint');
+        $('tagDialogSubmit').disabled = action.busy || !target || [...target].length > 64 || exists;
+        return;
+      }
       const merge = target !== action.tag.name && state.tagInventory?.tags?.some(tag => tag.name === target);
       $('tagDialogHint').textContent = action.type === 'delete' ? t('tagRemoveHint') + ' · ' + number(action.tag.totalCount) :
         merge ? t('tagMerge') + ' #' + target + ' · ' + number(action.tag.totalCount) : '';
@@ -4612,17 +4737,19 @@
 
     function openTagDialog(tag, type) {
       state.tagAction = { tag, type, busy: false };
-      const label = t(type === 'rename' ? 'tagRename' : 'tagRemove');
-      $('tagDialogTitle').textContent = label + ' #' + tag.name;
-      $('tagDialogTitle')?.classList?.toggle?.('is-danger', type === 'delete');
+      const isCreate = type === 'create';
+      const isDelete = type === 'delete';
+      const label = t(isCreate ? 'tagCreate' : type === 'rename' ? 'tagRename' : 'tagRemove');
+      $('tagDialogTitle').textContent = isCreate ? label : label + ' #' + tag.name;
+      $('tagDialogTitle')?.classList?.toggle?.('is-danger', isDelete);
       $('tagDialogSubmit').textContent = label;
-      $('tagDialogSubmit')?.classList?.toggle?.('btn-danger', type === 'delete');
-      $('tagDialogSubmit')?.classList?.toggle?.('btn-primary', type !== 'delete');
-      $('tagDialogInput').hidden = type === 'delete';
-      $('tagDialogInput').value = tag.name;
+      $('tagDialogSubmit')?.classList?.toggle?.('btn-danger', isDelete);
+      $('tagDialogSubmit')?.classList?.toggle?.('btn-primary', !isDelete);
+      $('tagDialogInput').hidden = isDelete;
+      $('tagDialogInput').value = isCreate ? '' : tag.name;
       tagDialogHint();
       $('tagDialog').showModal?.();
-      if (type === 'rename') { $('tagDialogInput').focus(); $('tagDialogInput').select?.(); }
+      if (!isDelete) { $('tagDialogInput').focus(); $('tagDialogInput').select?.(); }
       else $('tagDialogCancel').focus();
     }
 
@@ -4630,11 +4757,23 @@
       event.preventDefault();
       const action = state.tagAction;
       if (!action || action.busy || $('tagDialogSubmit').disabled) return;
-      const oldTag = action.tag.name;
-      const newTag = $('tagDialogInput').value.trim();
       action.busy = true;
       tagDialogHint();
       try {
+        if (action.type === 'create') {
+          const tag = normalizeTagInput($('tagDialogInput').value);
+          const r = await apiPost('/api/tags/create', { tag });
+          const createdTag = r.tag || tag;
+          mergeKnownTags([createdTag]);
+          $('tagDialog').close?.();
+          state.tagAction = null;
+          state.snapshotId = null;
+          showToast(() => t(r.alreadyExisted ? 'tagExists' : 'tagCreated', createdTag));
+          await Promise.all([loadList({ refresh: true }), loadTagsSurface({ refresh: true })]);
+          return;
+        }
+        const oldTag = action.tag.name;
+        const newTag = normalizeTagInput($('tagDialogInput').value);
         const rename = action.type === 'rename';
         const r = await apiPost('/api/tags/' + action.type, rename ? { oldTag, newTag } : { tag: oldTag });
         if (state.tag === oldTag) state.tag = rename ? (r.newTag ?? newTag) : '';
@@ -4675,6 +4814,20 @@
     $('tagsSortSelect')?.addEventListener('change', renderTagsInventory);
     $('tagsClearBtn')?.addEventListener('click', () => { $('tagsSearchInput').value = ''; $('tagsClearBtn')?.classList?.remove?.('show'); renderTagsInventory(); $('tagsSearchInput').focus(); });
     $('pvMetaToggleBtn')?.addEventListener('click', () => setMetaEditorExpanded(!state.metaExpanded));
+    $('tagsCreateBtn')?.addEventListener('click', () => openTagDialog(null, 'create'));
+    $('tagInput')?.addEventListener('input', renderTagSuggestions);
+    $('pvTagSuggestionList')?.addEventListener('click', async event => {
+      const btn = event.target?.closest?.('[data-add-tag]');
+      if (!btn || btn.disabled || !state.previewData) return;
+      const tag = btn.dataset.addTag;
+      if (!tag) return;
+      const d = state.previewData;
+      if ((d.tags || []).includes(tag)) return;
+      btn.disabled = true;
+      $('tagInput').value = '';
+      const nextTags = [...new Set([...(d.tags || []), tag])];
+      await saveTags(d.id, nextTags);
+    });
     $('tagDialogInput')?.addEventListener('input', tagDialogHint);
     $('tagDialog')?.addEventListener('submit', submitTagAction);
     $('tagDialog')?.addEventListener('cancel', event => { if (state.tagAction?.busy) event.preventDefault(); });

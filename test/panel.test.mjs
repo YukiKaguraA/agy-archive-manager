@@ -1089,3 +1089,58 @@ test('preview navigation sits at the top of preview-header using compact tabs ma
   assert.match(html, /<nav id="pvViewNav" class="tabs pv-view-tabs"/);
   assert.match(html, /class="tab-btn active"[^>]*id="pvContentTabBtn"/);
 });
+
+test('creating a tag from the Tags page updates known tags and preview quick-pick attaches existing tags', async () => {
+  const calls = [];
+  let tagsCatalog = ['alpha', 'beta'];
+  let sessionTags = ['alpha'];
+  const { run, element } = createPanel((path, data) => {
+    calls.push([path, data]);
+    if (path === '/api/tags/create') {
+      tagsCatalog = [...new Set([...tagsCatalog, data.tag])];
+      return { ok: true, tag: data.tag, created: true, alreadyExisted: false };
+    }
+    if (path === '/api/tags') {
+      return { summary: { totalTags: tagsCatalog.length, totalCount: 1, taggedCount: 1, untaggedCount: 0 }, tags: tagsCatalog.map(name => ({ name, totalCount: name === 'alpha' ? 1 : 0 })) };
+    }
+    if (path === '/api/conversations') {
+      return { items: [{ id: 's1', title: 'S1', tags: sessionTags }], allTags: tagsCatalog };
+    }
+    if (path === '/api/preview') {
+      return { id: 's1', title: 'S1', tags: sessionTags, messages: [] };
+    }
+    if (path === '/api/meta/update') {
+      sessionTags = data.tags;
+      return { ok: true, meta: { tags: sessionTags, nativeTags: sessionTags, tagConflict: false } };
+    }
+    return {};
+  });
+
+  await run("showSurface('tags')");
+  run("openTagDialog(null, 'create')");
+  element('tagDialogInput').value = '#gamma';
+  run('tagDialogHint()');
+  assert.equal(element('tagDialogSubmit').disabled, false);
+  await run("submitTagAction({ preventDefault() {} })");
+  assert.ok(calls.some(([p, d]) => p === '/api/tags/create' && d.tag === 'gamma'));
+  assert.equal(run("state.allTags.includes('gamma')"), true);
+
+  await run("showSurface('library')");
+  await run("openPreview('s1')");
+  assert.equal(element('pvTagSuggestions').hidden, false);
+  assert.doesNotMatch(element('pvTagSuggestionList').innerHTML, /#alpha/);
+  assert.match(element('pvTagSuggestionList').innerHTML, /#beta/);
+  assert.match(element('pvTagSuggestionList').innerHTML, /#gamma/);
+
+  element('tagInput').value = 'gam';
+  element('tagInput').handlers.input();
+  assert.doesNotMatch(element('pvTagSuggestionList').innerHTML, /#beta/);
+  assert.match(element('pvTagSuggestionList').innerHTML, /#gamma/);
+
+  await element('pvTagSuggestionList').handlers.click({
+    target: { closest: selector => selector === '[data-add-tag]' ? { dataset: { addTag: 'gamma' }, disabled: false } : null },
+  });
+  assert.deepEqual(sessionTags, ['alpha', 'gamma']);
+  assert.equal(element('tagInput').value, '');
+  assert.doesNotMatch(element('pvTagSuggestionList').innerHTML, /#gamma/);
+});

@@ -1277,3 +1277,39 @@ test('preferences patch themeAccent, fontScale, and pluginUpdateMode orthogonall
   assert.equal(updateStatus.updateMode, 'off');
   assert.ok(['git', 'archive'].includes(updateStatus.installMode));
 });
+
+test('saved tags can be created, listed with 0 sessions, renamed, and deleted cleanly', async () => {
+  addConversation('c1');
+  conversations.get('c1').annotations.tags = ['existing'];
+
+  await assert.rejects(call('tags/create', { tag: '  #  ' }));
+  await assert.rejects(call('tags/create', { tag: 'a'.repeat(65) }));
+
+  const created = await call('tags/create', { tag: ' #roadmap ' });
+  assert.deepEqual(created, { ok: true, tag: 'roadmap', created: true, alreadyExisted: false });
+
+  const dup = await call('tags/create', { tag: 'roadmap' });
+  assert.deepEqual(dup, { ok: true, tag: 'roadmap', created: false, alreadyExisted: true });
+
+  const inv = await call('tags', {});
+  const roadmap = inv.tags.find(t => t.name === 'roadmap');
+  assert.ok(roadmap);
+  assert.equal(roadmap.totalCount, 0);
+  assert.equal(inv.summary.totalTags, 2);
+
+  const list = await call('conversations', { tab: 'all' });
+  assert.ok(list.allTags.includes('roadmap'));
+  assert.ok(list.allTags.includes('existing'));
+
+  const renamed = await call('tags/rename', { oldTag: 'roadmap', newTag: 'plan-v2' });
+  assert.equal(renamed.ok, true);
+  assert.equal(renamed.newTag, 'plan-v2');
+  const afterRename = await call('tags', {});
+  assert.equal(afterRename.tags.some(t => t.name === 'roadmap'), false);
+  assert.equal(afterRename.tags.some(t => t.name === 'plan-v2'), true);
+
+  const removed = await call('tags/delete', { tag: 'plan-v2' });
+  assert.equal(removed.ok, true);
+  const stored = JSON.parse(readFileSync(metaFile, 'utf8'));
+  assert.equal(Object.hasOwn(stored, 'savedTags'), false);
+});
